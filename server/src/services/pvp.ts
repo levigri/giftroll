@@ -102,7 +102,7 @@ function scheduleSpin(roundId: string, endsAt: Date | null): void {
   }
 
   const delay = Math.max(0, endsAt.getTime() - Date.now())
-  const timer = setTimeout(() => {
+  const timer: ReturnType<typeof setTimeout> = setTimeout(() => {
     spinTimers.delete(roundId)
     void performSpin(roundId).catch((error: unknown) => {
       console.error(`[PVP] spin failed for round=${roundId}:`, error)
