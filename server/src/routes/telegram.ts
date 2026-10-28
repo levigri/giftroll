@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify'
-import { Bot } from 'grammy'
+import { Bot, webhookCallback } from 'grammy'
 import { z } from 'zod'
 import { env } from '../config/env.js'
 import { authenticateTelegram } from '../middleware/auth.js'
@@ -19,11 +19,18 @@ export const telegramRoutes: FastifyPluginAsync = async (fastify) => {
   const bot = new Bot(env.BOT_TOKEN)
 
   bot.command('start', async (ctx) => {
-    await ctx.reply('Привет! Это GiftRoll. Жми кнопку ниже.', {
+    const welcomeText = `👋 Добро пожаловать в GiftRoll!\n\n🎁 Открывай кейсы, собирай реальные NFT из Telegram Gifts и зарабатывай звёзды.\n\n🚨 Мультиаккаунты запрещены\n📢 Наш канал: t.me/giftrollchannel\n\nЖми на кнопку ниже, чтобы начать!`
+    await ctx.reply(welcomeText, {
       reply_markup: {
-        inline_keyboard: [[{ text: '🎮 Играть', web_app: { url: 'https://giftroll-six.vercel.app/' } }]],
+        inline_keyboard: [
+          [{ text: '🎮 Играть в GiftRoll', web_app: { url: 'https://giftroll-six.vercel.app/' } }],
+        ],
       },
     })
+  })
+
+  const handleTelegramWebhook = webhookCallback(bot, 'fastify', {
+    secretToken: env.WEBHOOK_SECRET,
   })
 
   // POST /api/telegram/webhook — вызывается Telegram, без нашей auth.
@@ -38,10 +45,8 @@ export const telegramRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.code(403).send({ ok: false })
     }
 
-    const update = request.body as Parameters<typeof bot.handleUpdate>[0]
-
     try {
-      await bot.handleUpdate(update)
+      await handleTelegramWebhook(request, reply)
     } catch (error) {
       request.log.error(error, '[WEBHOOK] grammY update failed')
       throw error
@@ -54,7 +59,7 @@ export const telegramRoutes: FastifyPluginAsync = async (fastify) => {
       request.log.error(error, '[WEBHOOK] handleWebhook failed')
     }
 
-    return reply.send({ ok: true })
+    return reply
   })
 
   // POST /api/telegram/setup-webhook — однократная настройка после деплоя
