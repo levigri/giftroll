@@ -13,9 +13,10 @@ captureStartParamRef()
 
 // Манифест TonConnect: обязан быть абсолютным HTTPS-URL, доступным с телефона.
 // localhost кошельки не видят, поэтому при локальной разработке указываем
-// публичный туннель (VITE_TONCONNECT_MANIFEST_URL в .env), иначе — origin страницы.
+// публичный туннель задаётся через VITE_TONCONNECT_MANIFEST_URL; production default — GitHub Pages.
 const tonConnectManifestUrl =
-  import.meta.env.VITE_TONCONNECT_MANIFEST_URL || `${window.location.origin}/tonconnect-manifest.json`
+  import.meta.env.VITE_TONCONNECT_MANIFEST_URL ||
+  'https://levigri.github.io/giftroll/tonconnect-manifest.json'
 
 console.log('[TON] manifestUrl:', tonConnectManifestUrl)
 
