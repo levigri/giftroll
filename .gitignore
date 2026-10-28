@@ -1,0 +1,18 @@
+.vercel
+
+# Зависимости и сборка
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Секреты — НИКОГДА не попадают в git (Render и GitHub подключаются к репозиторию)
+.env
+.env.*
+!.env.example
+
+# Локальная PostgreSQL-база (dev) — никогда в git
+server/.pgdata/
+
+# Логи и системные файлы
+*.log
+.DS_Store

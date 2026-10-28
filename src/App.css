@@ -1,0 +1,3040 @@
+/* Экран GiftRoll — всё на Telegram CSS-переменных */
+
+.app {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 16px calc(96px + env(safe-area-inset-bottom));
+  background-color: transparent;
+  color: #ffffff;
+}
+
+/* Жёлтая полоска вне Telegram */
+.app__notice {
+  margin: -20px -16px 0;
+  padding: 7px 12px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  background-color: #f5c518;
+  color: #1c1c1e;
+}
+
+.app__header {
+  text-align: center;
+  padding-top: 12px;
+}
+
+.app__title {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  background: linear-gradient(135deg, var(--tg-theme-button-color), #7b61ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.app__subtitle {
+  margin: 6px 0 0;
+  font-size: 15px;
+  color: var(--tg-theme-hint-color);
+}
+
+/* Плашки баланса под заголовком */
+.balance {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.balance__avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.balance__avatar--placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--tg-theme-button-color);
+  color: var(--tg-theme-button-text-color);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.balance__name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--tg-theme-text-color);
+}
+
+.balance__pill {
+  padding: 7px 14px;
+  border-radius: 999px;
+  background-color: var(--tg-theme-secondary-bg-color);
+  color: var(--tg-theme-text-color);
+  font-size: 14px;
+  font-weight: 700;
+  border: 1px solid color-mix(in srgb, var(--tg-theme-hint-color) 30%, transparent);
+}
+
+.balance__badge {
+  padding: 7px 12px;
+  border-radius: 999px;
+  background-color: var(--tg-theme-section-bg-color);
+  color: var(--tg-theme-text-color);
+  font-size: 13px;
+  font-weight: 700;
+  border: 1px solid color-mix(in srgb, var(--tg-theme-button-color) 45%, transparent);
+}
+
+.app__main {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  flex: 1;
+}
+
+/* Кейс */
+.case {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 20px;
+  border-radius: 20px;
+  background-color: var(--tg-theme-secondary-bg-color);
+  overflow: hidden;
+  user-select: none;
+}
+
+.case__glow {
+  position: absolute;
+  inset: -40%;
+  background: radial-gradient(
+    circle at center,
+    color-mix(in srgb, var(--tg-theme-button-color) 35%, transparent),
+    transparent 60%
+  );
+  opacity: 0.6;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.case__body {
+  position: relative;
+  font-size: 84px;
+  line-height: 1;
+  filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.25));
+  animation: float 3s ease-in-out infinite;
+}
+
+.case--opened .case__body {
+  animation: pop 0.5s ease;
+}
+
+.case__label {
+  position: relative;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--tg-theme-subtitle-text-color);
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.25) rotate(-6deg);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Кнопки */
+.app__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.btn {
+  appearance: none;
+  border: none;
+  border-radius: 14px;
+  padding: 15px 20px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    transform 0.12s ease,
+    filter 0.12s ease,
+    opacity 0.12s ease;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+/* Неактивная кнопка (например, «Апгрейд» вне границ ставки) — серая. */
+.btn:disabled {
+  opacity: 0.5;
+  filter: grayscale(0.7);
+  cursor: not-allowed;
+}
+
+.btn:disabled:active {
+  transform: none;
+}
+
+.btn--primary {
+  background: linear-gradient(135deg, #ffd700, #ffa500);
+  color: #1a1400;
+  box-shadow: 0 8px 24px rgba(255, 215, 0, 0.28);
+}
+
+.btn--primary:hover {
+  filter: brightness(1.06);
+}
+
+.btn--secondary {
+  background-color: var(--tg-theme-secondary-bg-color);
+  color: var(--tg-theme-text-color);
+  border: 1px solid color-mix(in srgb, var(--tg-theme-hint-color) 40%, transparent);
+}
+
+.btn--connected {
+  color: var(--tg-theme-button-color);
+  border-color: var(--tg-theme-button-color);
+}
+
+/* Статус */
+.app__status {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--tg-theme-hint-color);
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.dot--on {
+  background-color: #31d158;
+  box-shadow: 0 0 8px #31d158;
+}
+
+.dot--off {
+  background-color: var(--tg-theme-hint-color);
+}
+
+/* Сетка кейсов */
+.cases {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cases__title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--tg-theme-text-color);
+}
+
+.cases__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.case-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 12px 14px;
+  border-radius: 18px;
+  background-color: var(--tg-theme-secondary-bg-color);
+  border: 1px solid color-mix(in srgb, var(--tg-theme-hint-color) 25%, transparent);
+  color: var(--tg-theme-text-color);
+  text-align: center;
+}
+
+.case-card__emoji {
+  font-size: 44px;
+  line-height: 1;
+}
+
+.case-card__name {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--tg-theme-text-color);
+}
+
+.case-card__price {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  font-size: 14px;
+  color: var(--tg-theme-hint-color);
+}
+
+.case-card__amount {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--tg-theme-text-color);
+}
+
+.case-card__currency {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.case-card__alt {
+  font-size: 12px;
+  color: var(--tg-theme-hint-color);
+}
+
+/* Рулетка */
+@keyframes roulette-result-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.roulette {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.roulette__backdrop {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.65);
+}
+
+.roulette__panel {
+  position: relative;
+  width: min(440px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 16px 16px;
+  border-radius: 20px;
+  background-color: var(--tg-theme-bg-color);
+  color: var(--tg-theme-text-color);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+
+.roulette__title {
+  margin: 0;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--tg-theme-text-color);
+}
+
+.roulette__stage {
+  position: relative;
+}
+
+.roulette__viewport {
+  position: relative;
+  overflow: hidden;
+  height: 104px;
+  border-radius: 16px;
+  background-color: var(--tg-theme-secondary-bg-color);
+}
+
+.roulette__strip {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  display: flex;
+  gap: 12px;
+  height: 88px;
+  will-change: transform;
+  transition: transform 3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.roulette__cell {
+  flex: 0 0 88px;
+  width: 88px;
+  height: 88px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 44px;
+  border-radius: 16px;
+  background-color: var(--tg-theme-bg-color);
+  border: 1px solid color-mix(in srgb, var(--tg-theme-hint-color) 25%, transparent);
+}
+
+.roulette__cell--win {
+  border-color: var(--tg-theme-button-color);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--tg-theme-button-color) 60%, transparent);
+}
+
+.roulette__cell--bonus {
+  font-size: 22px;
+  font-weight: 800;
+  gap: 4px;
+}
+
+.roulette__marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background-color: var(--tg-theme-button-color);
+  opacity: 0.85;
+}
+
+/* Статус под лентой: «Крутим...» → крупный результат */
+.roulette__status {
+  position: relative;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.roulette__spinning {
+  font-size: 15px;
+  color: #888888;
+  transition: opacity 0.3s ease;
+}
+
+.roulette__spinning--hidden {
+  opacity: 0;
+}
+
+.roulette__result-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  font-weight: 700;
+  opacity: 0;
+  transform: scale(0.8);
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+  pointer-events: none;
+}
+
+.roulette__result-text--visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.roulette__result-text--balance {
+  font-size: 24px;
+  color: #22c55e;
+}
+
+.roulette__result-text--nft {
+  font-size: 22px;
+  color: #4d6bfe;
+}
+
+.roulette__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: roulette-result-in 0.3s ease;
+}
+
+.case-card__btn {
+  width: 100%;
+  margin-top: 4px;
+  padding: 11px 12px;
+  font-size: 14px;
+  background-color: var(--tg-theme-button-color);
+  color: var(--tg-theme-button-text-color);
+}
+
+/* Загрузка и ошибки приложения */
+.app__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--tg-theme-hint-color);
+}
+
+.app__error {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  right: 16px;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background-color: var(--tg-theme-destructive-text-color, #ff3b30);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  animation: app-fade-in 0.25s ease;
+}
+
+@keyframes app-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Кнопка ежедневного бонуса */
+.daily-bonus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 6px auto 0;
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, #f5c518, #f7a500);
+  color: #1c1c1e;
+  font-size: 14px;
+  font-weight: 800;
+  box-shadow: 0 4px 16px rgba(245, 197, 24, 0.4);
+  cursor: pointer;
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+
+.daily-bonus:hover {
+  filter: brightness(1.08);
+}
+
+.daily-bonus:active {
+  transform: scale(0.96);
+}
+
+/* Кликабельный бейдж инвентаря в шапке */
+.btn--inventory {
+  cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--tg-theme-button-color) 45%, transparent);
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+
+.btn--inventory:active {
+  transform: scale(0.95);
+}
+
+.btn--compact {
+  padding: 8px 12px;
+  font-size: 13px;
+  border-radius: 10px;
+}
+
+/* Модальное окно инвентаря */
+.inventory {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.inventory__backdrop {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.65);
+}
+
+.inventory__panel {
+  position: relative;
+  width: min(440px, 100%);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 16px;
+  border-radius: 20px;
+  background-color: var(--tg-theme-bg-color);
+  color: var(--tg-theme-text-color);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  overflow-y: auto;
+}
+
+.inventory__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.inventory__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--tg-theme-text-color);
+}
+
+.inventory__close {
+  background: none;
+  border: none;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--tg-theme-hint-color);
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.inventory__error {
+  padding: 10px 14px;
+  border-radius: 12px;
+  background-color: color-mix(in srgb, var(--tg-theme-destructive-text-color, #ff3b30) 15%, transparent);
+  color: var(--tg-theme-destructive-text-color, #ff3b30);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.inventory__empty {
+  text-align: center;
+  padding: 32px 16px;
+  font-size: 15px;
+  color: var(--tg-theme-hint-color);
+}
+
+.inventory__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.inventory__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 16px;
+  background-color: var(--tg-theme-secondary-bg-color);
+  border: 1px solid color-mix(in srgb, var(--tg-theme-hint-color) 20%, transparent);
+}
+
+.inventory__emoji {
+  font-size: 40px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.inventory__info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.inventory__name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--tg-theme-text-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.inventory__price {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--tg-theme-hint-color);
+}
+
+.inventory__status {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.inventory__status--pending {
+  color: #f5c518;
+}
+
+.inventory__status--sent {
+  color: #4d6bfe;
+}
+
+.inventory__status--claimed {
+  color: var(--tg-theme-hint-color);
+}
+
+.inventory__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* Инвентарь как вкладка (не оверлей): вид панели сохраняется */
+.inventory--page {
+  position: static;
+  inset: auto;
+  z-index: auto;
+  padding: 0;
+}
+
+.inventory__panel--page {
+  width: 100%;
+  max-height: none;
+  padding: 0;
+  background-color: transparent;
+  box-shadow: none;
+}
+
+/* ---------- Нижняя навигация ---------- */
+
+.bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 900;
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+  background-color: var(--tg-theme-secondary-bg-color);
+  border-top: 1px solid color-mix(in srgb, var(--tg-theme-hint-color) 30%, transparent);
+}
+
+.bottom-nav__tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px;
+  border: none;
+  border-radius: 12px;
+  background: none;
+  color: var(--tg-theme-hint-color);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.bottom-nav__tab--active {
+  color: var(--tg-theme-button-color);
+  background-color: color-mix(in srgb, var(--tg-theme-button-color) 12%, transparent);
+}
+
+.bottom-nav__icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+/* Четыре вкладки в одном ряду — подпись может быть чуть крупнее. */
+.bottom-nav__label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+/* ---------- Профиль ---------- */
+
+.profile {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.profile__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 22px 16px;
+  border-radius: 18px;
+  background-color: var(--tg-theme-secondary-bg-color);
+}
+
+.profile__avatar {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.profile__avatar--placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--tg-theme-button-color);
+  color: var(--tg-theme-button-text-color);
+  font-size: 36px;
+  font-weight: 800;
+}
+
+.profile__name {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--tg-theme-text-color);
+}
+
+.profile__username {
+  font-size: 14px;
+  color: var(--tg-theme-hint-color);
+}
+
+.profile__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.profile__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background-color: var(--tg-theme-secondary-bg-color);
+  font-size: 14px;
+  color: var(--tg-theme-hint-color);
+}
+
+.profile__row strong {
+  color: var(--tg-theme-text-color);
+  font-weight: 700;
+}
+
+/* ---------- PvP ---------- */
+
+.pvp {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pvp__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--tg-theme-text-color);
+}
+
+.pvp__subtitle {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--tg-theme-hint-color);
+}
+
+.pvp__error {
+  padding: 10px 14px;
+  border-radius: 12px;
+  background-color: color-mix(in srgb, var(--tg-theme-destructive-text-color, #ff3b30) 15%, transparent);
+  color: var(--tg-theme-destructive-text-color, #ff3b30);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pvp__status {
+  text-align: center;
+  font-size: 15px;
+  color: #888888;
+}
+
+.pvp__result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 18px;
+  background-color: var(--tg-theme-secondary-bg-color);
+  text-align: center;
+  animation: roulette-result-in 0.3s ease;
+}
+
+.pvp__result-title {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.pvp__result-title--win {
+  color: #22c55e;
+}
+
+.pvp__result-title--lose {
+  color: var(--tg-theme-destructive-text-color, #ff3b30);
+}
+
+.pvp__result-line {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--tg-theme-text-color);
+}
+
+/* Крупный личный итог раунда. */
+.pvp__result-line--win {
+  font-size: 26px;
+  font-weight: 800;
+  color: #22c55e;
+}
+
+.pvp__result-line--lose {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--tg-theme-destructive-text-color, #ff3b30);
+}
+
+.pvp__result-meta {
+  font-size: 13px;
+  color: var(--tg-theme-text-color);
+}
+
+.pvp__result-meta--hint {
+  color: var(--tg-theme-hint-color);
+}
+
+.pvp__result .btn {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.pvp__history {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pvp__history-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--tg-theme-text-color);
+}
+
+.pvp__history-empty {
+  padding: 16px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--tg-theme-hint-color);
+}
+
+.pvp__history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pvp__history-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background-color: var(--tg-theme-secondary-bg-color);
+  font-size: 13px;
+}
+
+.pvp__history-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pvp__history-opponent {
+  font-weight: 700;
+  color: var(--tg-theme-text-color);
+}
+
+.pvp__history-meta {
+  font-size: 11px;
+  color: var(--tg-theme-hint-color);
+}
+
+.pvp__history-bet {
+  color: var(--tg-theme-hint-color);
+}
+
+.pvp__history-result {
+  font-weight: 800;
+}
+
+.pvp__history-result--win {
+  color: #22c55e;
+}
+
+.pvp__history-result--lose {
+  color: var(--tg-theme-hint-color);
+}
+
+/* Слайдер ставки */
+.bet-slider {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 18px;
+  background-color: var(--tg-theme-secondary-bg-color);
+}
+
+.bet-slider--compact {
+  padding: 10px 12px;
+  background-color: var(--tg-theme-bg-color);
+}
+
+.bet-slider__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.bet-slider__label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--tg-theme-text-color);
+}
+
+.bet-slider__manual {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--tg-theme-hint-color);
+  background-color: var(--tg-theme-bg-color);
+}
+
+.bet-slider--compact .bet-slider__manual {
+  background-color: transparent;
+}
+
+.bet-slider__manual-prefix {
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* Ручной ввод ставки: спиннеры не нужны, сумма правится с клавиатуры. */
+.bet-slider__number {
+  width: 88px;
+  padding: 2px 0;
+  border: none;
+  background: transparent;
+  color: var(--tg-theme-text-color);
+  font-size: 18px;
+  font-weight: 800;
+  font-family: inherit;
+  text-align: right;
+  outline: none;
+  -moz-appearance: textfield;
+}
+
+.bet-slider__number::-webkit-outer-spin-button,
+.bet-slider__number::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.bet-slider__input {
+  width: 100%;
+  accent-color: var(--tg-theme-button-color);
+}
+
+/* Быстрые ставки ×2 / ×3 / MAX */
+.bet-slider__quick {
+  display: flex;
+  gap: 6px;
+}
+
+.bet-slider__chip {
+  flex: 1;
+  padding: 7px 0;
+  border-radius: 12px;
+  border: 1px solid var(--tg-theme-hint-color);
+  background-color: transparent;
+  color: var(--tg-theme-text-color);
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.bet-slider__chip:active {
+  transform: scale(0.97);
+}
+
+.bet-slider__chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.bet-slider__chip--max {
+  border-color: var(--tg-theme-button-color);
+  color: var(--tg-theme-button-color);
+}
+
+/* Карандаш «свои коэффициенты»: иконка вместо широкой кнопки. */
+.bet-slider__chip--edit {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+.bet-slider__chip--edit-active {
+  border-color: var(--tg-theme-button-color);
+  color: var(--tg-theme-button-color);
+}
+
+/* Редактор быстрых кнопок */
+.bet-slider__custom {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid var(--tg-theme-hint-color);
+  background-color: rgba(255, 255, 255, 0.03);
+  font-size: 12px;
+}
+
+.bet-slider__custom-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--tg-theme-hint-color);
+}
+
+.bet-slider__custom-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.bet-slider__custom-prefix {
+  margin-left: auto;
+  font-weight: 800;
+  opacity: 0.7;
+}
+
+.bet-slider__custom-input {
+  width: 64px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--tg-theme-hint-color);
+  background-color: transparent;
+  color: var(--tg-theme-text-color);
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  text-align: center;
+}
+
+.bet-slider__custom-hint {
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--tg-theme-hint-color);
+}
+
+.bet-slider__custom-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.bet-slider__custom-reset,
+.bet-slider__custom-done {
+  flex: 1;
+  padding: 7px 0;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.bet-slider__custom-reset {
+  border: 1px solid var(--tg-theme-hint-color);
+  background-color: transparent;
+  color: var(--tg-theme-text-color);
+}
+
+.bet-slider__custom-done {
+  border: 1px solid var(--tg-theme-button-color);
+  background-color: var(--tg-theme-button-color);
+  color: var(--tg-theme-button-text-color);
+}
+
+.bet-slider__bounds {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--tg-theme-hint-color);
+}
+
+.bet-slider__balance {
+  font-size: 12px;
+  color: var(--tg-theme-hint-color);
+}
+
+/* Колесо PvP */
+.pvp-roulette {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.pvp-roulette__svg {
+  width: min(240px, 70vw);
+  height: auto;
+}
+
+.pvp-roulette__label {
+  font-size: 11px;
+  font-weight: 800;
+  fill: #ffffff;
+  paint-order: stroke;
+  stroke: rgba(0, 0, 0, 0.45);
+  stroke-width: 2px;
+  stroke-linejoin: round;
+}
+
+/* Вторая строка подписи сектора — процент банка. */
+.pvp-roulette__label-sub {
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.92;
+}
+
+.pvp-roulette__legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 14px;
+  font-size: 12px;
+  color: var(--tg-theme-hint-color);
+}
+
+.pvp-roulette__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pvp-roulette__legend-item--winner {
+  font-weight: 800;
+  color: var(--tg-theme-text-color);
+}
+
+.pvp-roulette__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.pvp-roulette__caption {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--tg-theme-text-color);
+}
+
+/* Колесо и контейнер */
+.pvp__wheel-box {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin: 4px 0 8px;
+}
+
+/* Лобби «на толпу» */
+.pvp__outcome {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pvp__lobby {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 18px;
+  background-color: var(--tg-theme-secondary-bg-color);
+}
+
+.pvp__lobby-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pvp__lobby-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--tg-theme-text-color);
+}
+
+.pvp__bank {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--tg-theme-text-color);
+}
+
+.pvp__lobby-hint {
+  font-size: 12px;
+  color: var(--tg-theme-hint-color);
+}
+
+.pvp__players {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pvp__player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background-color: var(--tg-theme-bg-color);
+  font-size: 13px;
+}
+
+.pvp__player--me {
+  outline: 1px solid var(--tg-theme-button-color);
+}
+
+/* Ряд ожидания: в раунде пока один участник. */
+.pvp__player--waiting {
+  justify-content: center;
+  background-color: transparent;
+  border: 1px dashed color-mix(in srgb, var(--tg-theme-hint-color) 45%, transparent);
+  color: var(--tg-theme-hint-color);
+  font-style: italic;
+}
+
+.pvp__player--me .pvp__player-name {
+  font-weight: 800;
+}
+
+/* Победитель раунда — зелёным в списке участников. */
+.pvp__player--winner {
+  outline: 2px solid #22c55e;
+}
+
+.pvp__player--winner .pvp__player-name,
+.pvp__player--winner .pvp__player-chance {
+  color: #22c55e;
+}
+
+.pvp__player-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+  color: var(--tg-theme-text-color);
+}
+
+.pvp__player-stars {
+  color: var(--tg-theme-text-color);
+}
+
+.pvp__player-chance {
+  min-width: 48px;
+  text-align: right;
+  font-weight: 700;
+  color: var(--tg-theme-hint-color);
+}
+
+.pvp__timer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background-color: var(--tg-theme-secondary-bg-color);
+}
+
+.pvp__timer-text {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--tg-theme-text-color);
+}
+
+.pvp__timer-text--spin {
+  font-size: 20px;
+}
+
+/* Тонкая полоса над колесом: заполняется слева направо за 10 секунд раунда. */
+.pvp__timer-track {
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  overflow: hidden;
+  background-color: color-mix(in srgb, var(--tg-theme-hint-color) 30%, transparent);
+}
+
+.pvp__timer-fill {
+  height: 100%;
+  border-radius: 999px;
+  background-color: var(--tg-theme-button-color);
+  transition: width 0.1s linear;
+}
+
+.pvp__addbet {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pvp__addbet-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.pvp__addbet-actions .btn {
+  flex: 1;
+}
+
+/* Полноэкранный оверлей победителя раунда: рисуется ПОВЕРХ колеса */
+.winner-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 16px;
+  background-color: rgba(0, 0, 0, 0.85);
+  animation: pvp-modal-fade-in 0.25s ease-out;
+}
+
+.winner-overlay__backdrop {
+  position: absolute;
+  inset: 0;
+}
+
+.winner-overlay__card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 28px 20px 22px;
+  border-radius: 28px;
+  background-color: #ffffff;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(245, 197, 24, 0.25);
+  animation: pvp-modal-scale-up 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.winner-overlay__avatar {
+  width: 80px;
+  height: 80px;
+  margin-bottom: 14px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+  border: 3px solid #a78bfa;
+  box-shadow: 0 8px 24px rgba(139, 92, 246, 0.35);
+}
+
+.winner-overlay__avatar--bot {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  border-color: #60a5fa;
+  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.35);
+}
+
+.winner-overlay__title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #111111;
+  word-break: break-word;
+}
+
+.winner-overlay__amount {
+  margin-top: 4px;
+  font-size: 26px;
+  font-weight: 900;
+  color: #16a34a;
+}
+
+.winner-overlay__divider {
+  width: 100%;
+  height: 1px;
+  margin: 16px 0;
+  background-color: rgba(0, 0, 0, 0.12);
+}
+
+.winner-overlay__result {
+  margin-bottom: 18px;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.winner-overlay__result--win {
+  color: #16a34a;
+}
+
+.winner-overlay__result--lose {
+  color: #dc2626;
+}
+
+.winner-overlay__btn {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+@keyframes pvp-modal-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pvp-modal-scale-up {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ===== Live feed дропов ===== */
+@keyframes live-drop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes live-feed-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* МОБИЛКА: фиксированная панель сверху (position: fixed; top: 56px; left/right),
+   полупрозрачный тёмный фон (rgba(0,0,0,0.7)), белый текст, до 3 записей вертикально */
+.live-feed {
+  position: relative;
+  top: auto;
+  left: auto;
+  right: auto;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 12px;
+  background-color: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  overflow: hidden;
+}
+
+.live-feed__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 2px;
+}
+
+.live-feed__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #ef4444;
+  animation: live-feed-pulse 1.6s ease-in-out infinite;
+}
+
+.live-feed__title {
+  letter-spacing: 0.2px;
+}
+
+.live-feed__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.live-feed__row {
+  padding: 3px 0;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.12);
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: live-drop-in 0.35s ease-out;
+}
+
+.live-feed__row:last-child {
+  border-bottom: none;
+}
+
+.live-feed__text {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ===== Мульти-открытие кейсов ×5 / ×10 ===== */
+@keyframes multi-case-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.multi-case {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background-color: rgba(0, 0, 0, 0.9);
+}
+
+.multi-case__panel {
+  width: 100%;
+  max-width: 420px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 18px;
+  border-radius: 22px;
+  background-color: #ffffff;
+  color: #111111;
+  text-align: center;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  animation: multi-case-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.multi-case__title {
+  margin: 0 0 14px;
+  font-size: 19px;
+  font-weight: 800;
+  color: #111111;
+}
+
+.multi-case__grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.multi-case__cell {
+  aspect-ratio: 3 / 4;
+  perspective: 700px;
+}
+
+.multi-case__inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 400ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+.multi-case__cell--flipped .multi-case__inner {
+  transform: rotateY(180deg);
+}
+
+.multi-case__face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 10px;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.multi-case__face--front {
+  font-size: 22px;
+  background-color: #f1f1f5;
+  border: 1px solid #e3e3ea;
+}
+
+.multi-case__face--back {
+  transform: rotateY(180deg);
+  background-color: #f7f4ff;
+  border: 1px solid #ddd6fe;
+}
+
+.multi-case__emoji {
+  font-size: 20px;
+  line-height: 1.1;
+}
+
+.multi-case__name {
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.15;
+  color: #111111;
+  word-break: break-word;
+}
+
+.multi-case__price {
+  font-size: 10px;
+  font-weight: 800;
+  color: #6d28d9;
+}
+
+.multi-case__totals {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 16px 0 12px;
+  font-size: 13px;
+  color: #333333;
+}
+
+.multi-case__diff--up {
+  font-weight: 800;
+  color: #16a34a;
+}
+
+.multi-case__diff--down {
+  font-weight: 800;
+  color: #dc2626;
+}
+
+.multi-case__close {
+  width: 100%;
+}
+
+/* ===== Переключатель ×1 / ×5 / ×10 ===== */
+.case-card__counts {
+  display: flex;
+  gap: 4px;
+  width: 100%;
+}
+
+.case-card__count {
+  flex: 1;
+  padding: 6px 4px;
+  border-radius: 9px;
+  border: 1px solid color-mix(in srgb, var(--tg-theme-hint-color) 35%, transparent);
+  background-color: transparent;
+  color: var(--tg-theme-hint-color);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.case-card__count--active {
+  background-color: var(--tg-theme-button-color);
+  border-color: transparent;
+  color: var(--tg-theme-button-text-color);
+}
+
+.case-card__open {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.case-card__open .case-card__btn {
+  margin-top: 0;
+}
+
+.case-card__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Кнопка «Пополнить» рядом с балансом */
+.balance__deposit {
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--tg-theme-button-color) 60%, transparent);
+  background-color: color-mix(in srgb, var(--tg-theme-button-color) 14%, transparent);
+  color: var(--tg-theme-text-color);
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.balance__deposit:active {
+  transform: scale(0.97);
+}
+
+/* Пополнение баланса */
+.deposit {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.deposit__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.deposit__back {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--tg-theme-button-color);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.deposit__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--tg-theme-text-color);
+}
+
+.deposit__balance {
+  font-size: 14px;
+  color: var(--tg-theme-hint-color);
+}
+
+.deposit__balance strong {
+  color: var(--tg-theme-text-color);
+}
+
+.deposit__toast,
+.referral__toast {
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.deposit__toast--ok,
+.referral__toast--ok {
+  background-color: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.deposit__toast--error,
+.referral__toast--error {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.deposit__amounts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.deposit__amount {
+  padding: 14px 0;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--tg-theme-hint-color) 35%, transparent);
+  background-color: var(--tg-theme-secondary-bg-color);
+  color: var(--tg-theme-text-color);
+  font-size: 15px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.deposit__amount--active {
+  border-color: transparent;
+  background-color: var(--tg-theme-button-color);
+  color: var(--tg-theme-button-text-color);
+}
+
+.deposit__custom {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--tg-theme-hint-color);
+}
+
+.deposit__custom input {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--tg-theme-hint-color) 35%, transparent);
+  background-color: var(--tg-theme-secondary-bg-color);
+  color: var(--tg-theme-text-color);
+  font-size: 16px;
+  font-weight: 600;
+  font-family: inherit;
+  outline: none;
+}
+
+.deposit__custom input:focus {
+  border-color: var(--tg-theme-button-color);
+}
+
+.deposit__hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--tg-theme-hint-color);
+}
+
+.deposit__dev {
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px dashed color-mix(in srgb, var(--tg-theme-hint-color) 40%, transparent);
+}
+
+/* Реферальная страница «Друзья» */
+.referral {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.referral__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--tg-theme-text-color);
+}
+
+.referral__subtitle {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--tg-theme-hint-color);
+}
+
+.referral__card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 18px;
+  background-color: var(--tg-theme-secondary-bg-color);
+}
+
+.referral__card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--tg-theme-hint-color);
+}
+
+.referral__link {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background-color: var(--tg-theme-bg-color);
+  color: var(--tg-theme-text-color);
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.referral__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.referral__actions .btn {
+  flex: 1;
+}
+
+.referral__stats {
+  display: flex;
+  gap: 10px;
+}
+
+.referral__stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px;
+  border-radius: 16px;
+  background-color: var(--tg-theme-secondary-bg-color);
+}
+
+.referral__stat-value {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--tg-theme-text-color);
+}
+
+.referral__stat-label {
+  font-size: 11px;
+  color: var(--tg-theme-hint-color);
+}
+
+.referral__history {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.referral__history-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--tg-theme-hint-color);
+}
+
+.referral__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.referral__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background-color: var(--tg-theme-secondary-bg-color);
+  font-size: 13px;
+}
+
+.referral__row-amount {
+  font-weight: 800;
+  color: #22c55e;
+  white-space: nowrap;
+}
+
+.referral__row-text {
+  color: var(--tg-theme-hint-color);
+  text-align: right;
+}
+
+.referral__empty {
+  padding: 18px;
+  border-radius: 14px;
+  background-color: var(--tg-theme-secondary-bg-color);
+  color: var(--tg-theme-hint-color);
+  font-size: 13px;
+  text-align: center;
+}
+
+.referral__error {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  font-size: 13px;
+}
+
+.referral__row-name {
+  font-weight: 700;
+  color: var(--tg-theme-text-color);
+}
+
+/* ---------- Игры: общий переключатель ---------- */
+
+.games {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.games__tabs {
+  display: flex;
+  gap: 6px;
+  padding: 5px;
+  border-radius: 16px;
+  background-color: var(--tg-theme-secondary-bg-color);
+}
+
+.games__tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 10px 4px;
+  border: none;
+  border-radius: 12px;
+  background: none;
+  color: var(--tg-theme-hint-color);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.games__tab--active {
+  color: var(--tg-theme-button-text-color);
+  background-color: var(--tg-theme-button-color);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--tg-theme-button-color) 35%, transparent);
+}
+
+.games__tab-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.games__tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.games__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ---------- Апгрейдер ---------- */
+
+.upgrader {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.upgrader__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--tg-theme-text-color);
+}
+
+.upgrader__subtitle {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--tg-theme-hint-color);
+}
+
+.upgrader__error {
+  padding: 10px 14px;
+  border-radius: 12px;
+  background-color: color-mix(in srgb, var(--tg-theme-destructive-text-color, #ff3b30) 15%, transparent);
+  color: var(--tg-theme-destructive-text-color, #ff3b30);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Мобилка — одна колонка, широкий экран — ставка слева, спидометр справа. */
+.upgrader__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 720px) {
+  .upgrader__grid {
+    grid-template-columns: 1.05fr 0.95fr;
+    align-items: start;
+  }
+
+  /* Цель занимает всю ширину под ставкой и спидометром. */
+  .upgrader__panel--target {
+    grid-column: 1 / -1;
+  }
+}
+
+/* На широком экране цель — третья колонка справа. */
+@media (min-width: 1080px) {
+  .upgrader__grid {
+    grid-template-columns: 1fr 1fr 0.9fr;
+  }
+
+  .upgrader__panel--target {
+    grid-column: auto;
+  }
+}
+
+.upgrader__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 18px;
+  background-color: var(--tg-theme-secondary-bg-color);
+}
+
+.upgrader__panel--chance {
+  align-items: stretch;
+}
+
+.upgrader__panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.upgrader__panel-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--tg-theme-text-color);
+}
+
+.upgrader__balance {
+  font-size: 12px;
+  color: var(--tg-theme-hint-color);
+}
+
+.upgrader__stars-row {
+  display: flex;
+  justify-content: center;
+}
+
+/* Ручной ввод ставки в звёздах: без спиннеров, крупные цифры. */
+.upgrader__stars-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 14px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--tg-theme-button-color) 45%, transparent);
+  background-color: var(--tg-theme-bg-color);
+}
+
+.upgrader__stars-input input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--tg-theme-text-color);
+  font-size: 22px;
+  font-weight: 800;
+  font-family: inherit;
+  text-align: center;
+  outline: none;
+  -moz-appearance: textfield;
+}
+
+.upgrader__stars-input input::-webkit-outer-spin-button,
+.upgrader__stars-input input::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.upgrader__range {
+  width: 100%;
+  accent-color: var(--tg-theme-button-color);
+}
+
+.upgrader__bounds {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--tg-theme-hint-color);
+}
+
+.upgrader__add-nft {
+  width: 100%;
+}
+
+.upgrader__nft-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: 8px;
+}
+
+.upgrader__nft {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 6px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--tg-theme-button-color) 45%, transparent);
+  background-color: var(--tg-theme-bg-color);
+  color: var(--tg-theme-text-color);
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+
+.upgrader__nft:active {
+  transform: scale(0.96);
+}
+
+.upgrader__nft-emoji {
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.upgrader__nft-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.upgrader__nft-price {
+  font-size: 11px;
+  color: var(--tg-theme-hint-color);
+}
+
+.upgrader__nft-remove {
+  position: absolute;
+  top: 2px;
+  right: 5px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--tg-theme-destructive-text-color, #ff3b30);
+}
+
+.upgrader__hint {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--tg-theme-hint-color);
+}
+
+.upgrader__hint--warn {
+  color: var(--tg-theme-destructive-text-color, #ff3b30);
+  font-weight: 600;
+}
+
+.upgrader__total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background-color: var(--tg-theme-bg-color);
+  font-size: 13px;
+  color: var(--tg-theme-hint-color);
+}
+
+.upgrader__total strong {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--tg-theme-text-color);
+}
+
+/* Колесо со стрелкой: зелёный сектор — победа, красный — проигрыш */
+.upgrader__wheel-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.upgrader__wheel {
+  position: relative;
+  width: 100%;
+  max-width: 300px;
+  aspect-ratio: 1 / 1;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 50% 32%,
+    rgba(255, 255, 255, 0.08),
+    rgba(0, 0, 0, 0.38) 72%
+  );
+  transition: box-shadow 0.3s ease, background-color 0.3s ease;
+}
+
+.upgrader__wheel-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.upgrader__wheel-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.07);
+  stroke-width: 16;
+}
+
+.upgrader__wheel-arc {
+  fill: none;
+  stroke-width: 16;
+  transition: stroke-dasharray 0.3s ease;
+}
+
+.upgrader__wheel-arc--win {
+  stroke: #22c55e;
+  filter: drop-shadow(0 0 10px rgba(34, 197, 94, 0.55));
+}
+
+.upgrader__wheel-arc--lose {
+  stroke: rgba(239, 68, 68, 0.5);
+}
+
+.upgrader__wheel-pointer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* Стрелка: игла от центра к ободу с остриём на конце */
+.upgrader__wheel-needle {
+  position: absolute;
+  left: 50%;
+  top: 10px;
+  width: 3px;
+  height: calc(50% - 10px);
+  transform: translateX(-50%);
+  border-radius: 3px;
+  background: linear-gradient(180deg, #ffffff 0%, #ffd700 60%, rgba(255, 215, 0, 0.35) 100%);
+  box-shadow: 0 0 12px rgba(255, 215, 0, 0.75);
+}
+
+.upgrader__wheel-needle::after {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  width: 0;
+  height: 0;
+  transform: translateX(-50%);
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-bottom: 13px solid #ffffff;
+  filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.95));
+}
+
+.upgrader__wheel-hub {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 17%;
+  aspect-ratio: 1 / 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffe27a, #b8860b);
+  box-shadow: 0 0 16px rgba(255, 215, 0, 0.5);
+  pointer-events: none;
+}
+
+.upgrader__wheel--spinning {
+  box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.25), 0 0 46px rgba(255, 215, 0, 0.22);
+}
+
+.upgrader__wheel--win {
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.45), 0 0 56px rgba(34, 197, 94, 0.5);
+  animation: upgrader-flash-win 0.7s ease;
+}
+
+.upgrader__wheel--lose {
+  box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.4), 0 0 56px rgba(255, 59, 48, 0.4);
+  animation: upgrader-flash-lose 0.7s ease;
+}
+
+.upgrader__wheel-readout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+}
+
+.upgrader__wheel-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--tg-theme-hint-color);
+}
+
+.upgrader__wheel-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.upgrader__wheel-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.upgrader__wheel-dot--win {
+  background-color: #22c55e;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.7);
+}
+
+.upgrader__wheel-dot--lose {
+  background-color: #ef4444;
+}
+
+@keyframes upgrader-flash-win {
+  0% {
+    background-color: rgba(34, 197, 94, 0.35);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+@keyframes upgrader-flash-lose {
+  0% {
+    background-color: rgba(255, 59, 48, 0.3);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.upgrader__gauge-chance {
+  font-size: 40px;
+  font-weight: 900;
+  line-height: 1;
+  color: #ffd700;
+}
+
+.upgrader__gauge-multiplier {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.upgrader__gauge-sub {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9ca3af;
+}
+
+.upgrader__gauge-result {
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.upgrader__gauge-result--win {
+  color: #22c55e;
+}
+
+.upgrader__gauge-result--lose {
+  color: var(--tg-theme-destructive-text-color, #ff3b30);
+}
+
+.upgrader__quick {
+  display: flex;
+  gap: 6px;
+}
+
+.upgrader__quick-chip {
+  flex: 1;
+  padding: 7px 0;
+  border-radius: 12px;
+  border: 1px solid var(--tg-theme-hint-color);
+  background-color: transparent;
+  color: var(--tg-theme-text-color);
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.upgrader__quick-chip--active {
+  border-color: var(--tg-theme-button-color);
+  color: var(--tg-theme-button-color);
+  background-color: color-mix(in srgb, var(--tg-theme-button-color) 12%, transparent);
+}
+
+.upgrader__quick-chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.upgrader__payout {
+  text-align: center;
+  font-size: 13px;
+  color: var(--tg-theme-hint-color);
+}
+
+.upgrader__payout strong {
+  font-size: 15px;
+  color: #22c55e;
+}
+
+.upgrader__play {
+  width: 100%;
+  padding: 15px 16px;
+  font-size: 17px;
+}
+
+.upgrader__result {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 18px;
+  background-color: var(--tg-theme-secondary-bg-color);
+  text-align: center;
+  animation: upgrader-pop 0.25s ease;
+}
+
+@keyframes upgrader-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.upgrader__result-title {
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.upgrader__result--win .upgrader__result-title {
+  color: #22c55e;
+}
+
+.upgrader__result--lose .upgrader__result-title {
+  color: var(--tg-theme-destructive-text-color, #ff3b30);
+}
+
+.upgrader__result-meta {
+  font-size: 12px;
+  color: var(--tg-theme-hint-color);
+}
+
+.upgrader__result .btn {
+  width: 100%;
+  margin-top: 4px;
+}
+
+/* Целевой предмет */
+.upgrader__target-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--tg-theme-button-color) 40%, transparent);
+  background-color: color-mix(in srgb, var(--tg-theme-button-color) 10%, var(--tg-theme-bg-color));
+}
+
+.upgrader__target-emoji {
+  font-size: 30px;
+  line-height: 1;
+}
+
+.upgrader__target-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.upgrader__target-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--tg-theme-text-color);
+}
+
+.upgrader__target-price {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--tg-theme-button-color);
+}
+
+.upgrader__target-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 7px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.upgrader__target {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 5px;
+  border-radius: 13px;
+  border: 1px solid color-mix(in srgb, var(--tg-theme-hint-color) 35%, transparent);
+  background-color: var(--tg-theme-bg-color);
+  color: var(--tg-theme-text-color);
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.12s ease, background-color 0.12s ease;
+}
+
+.upgrader__target:active {
+  transform: scale(0.96);
+}
+
+.upgrader__target--active {
+  border-color: var(--tg-theme-button-color);
+  background-color: color-mix(in srgb, var(--tg-theme-button-color) 16%, var(--tg-theme-bg-color));
+}
+
+.upgrader__target-item-emoji {
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.upgrader__target-item-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.upgrader__target-item-price {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--tg-theme-hint-color);
+}
+
+.upgrader__auto-hint {
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--tg-theme-hint-color);
+}
+
+/* Расчёт под кнопкой «Апгрейд» */
+.upgrader__forecast {
+  padding: 11px 13px;
+  border-radius: 14px;
+  background-color: color-mix(in srgb, #22c55e 12%, transparent);
+  color: var(--tg-theme-text-color);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.upgrader__forecast strong {
+  font-weight: 800;
+}
+
+.upgrader__forecast--low {
+  background-color: color-mix(in srgb, var(--tg-theme-destructive-text-color, #ff3b30) 12%, transparent);
+  color: var(--tg-theme-hint-color);
+}
+
+/* Конфетти и карточка выигранного NFT */
+.upgrader__confetti {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 18px;
+  pointer-events: none;
+}
+
+.upgrader__confetti-piece {
+  position: absolute;
+  top: -16px;
+  border-radius: 2px;
+  animation-name: upgrader-confetti-fall;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@keyframes upgrader-confetti-fall {
+  0% {
+    transform: translateY(-16px) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(340px) rotate(540deg);
+    opacity: 0;
+  }
+}
+
+.upgrader__prize-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  padding: 14px 12px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, #22c55e 55%, transparent);
+  background-color: color-mix(in srgb, #22c55e 12%, var(--tg-theme-bg-color));
+  animation: upgrader-prize-in 0.45s cubic-bezier(0.22, 1.4, 0.4, 1);
+}
+
+@keyframes upgrader-prize-in {
+  from {
+    opacity: 0;
+    transform: scale(0.8) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.upgrader__prize-emoji {
+  font-size: 44px;
+  line-height: 1.1;
+}
+
+.upgrader__prize-name {
+  font-size: 16px;
+  font-weight: 900;
+  color: var(--tg-theme-text-color);
+}
+
+.upgrader__prize-price {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--tg-theme-hint-color);
+}
+
+.upgrader__prize-change {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #22c55e;
+}
+
+/* Модалка выбора NFT */
+.upgrader-picker {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.upgrader-picker__backdrop {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.65);
+}
+
+.upgrader-picker__panel {
+  position: relative;
+  width: min(440px, 100%);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 18px;
+  background-color: var(--tg-theme-secondary-bg-color);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
+}
+
+.upgrader-picker__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.upgrader-picker__title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--tg-theme-text-color);
+}
+
+.upgrader-picker__close {
+  border: none;
+  background: none;
+  color: var(--tg-theme-hint-color);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.upgrader-picker__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.upgrader-picker__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background-color: var(--tg-theme-bg-color);
+  cursor: pointer;
+}
+
+.upgrader-picker__row--selected {
+  border-color: var(--tg-theme-button-color);
+  background-color: color-mix(in srgb, var(--tg-theme-button-color) 12%, transparent);
+}
+
+.upgrader-picker__row--disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.upgrader-picker__row input {
+  accent-color: var(--tg-theme-button-color);
+}
+
+.upgrader-picker__emoji {
+  font-size: 20px;
+}
+
+.upgrader-picker__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--tg-theme-text-color);
+}
+
+.upgrader-picker__price {
+  font-size: 12px;
+  color: var(--tg-theme-hint-color);
+  white-space: nowrap;
+}
+
+.upgrader-picker__empty {
+  padding: 18px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--tg-theme-hint-color);
+}
+
+.upgrader-picker__summary {
+  text-align: center;
+  font-size: 12px;
+  color: var(--tg-theme-hint-color);
+}

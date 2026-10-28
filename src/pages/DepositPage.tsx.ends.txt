@@ -1,0 +1,9 @@
+}
+
+export default function DepositPage(props: DepositPageProps) {
+  return (
+    <DepositErrorBoundary onBack={props.onBack}>
+      <DepositPageContent {...props} />
+    </DepositErrorBoundary>
+  )
+}

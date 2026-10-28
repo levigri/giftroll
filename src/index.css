@@ -1,0 +1,854 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------- Дизайн-токены GiftRoll ---------- */
+:root {
+  --gr-bg: #0b0c10;
+  --gr-surface: rgba(255, 255, 255, 0.05);
+  --gr-surface-strong: rgba(255, 255, 255, 0.08);
+  --gr-border: rgba(255, 255, 255, 0.1);
+  --gr-gold: #ffd700;
+  --gr-gold-deep: #ffa500;
+  --gr-gold-text: #1a1400;
+  --gr-violet: #8a2be2;
+  --gr-text: #ffffff;
+  --gr-muted: #9ca3af;
+
+  /* Telegram-тема: макет рисуется на своих цветах, но компоненты читают эти переменные. */
+  --tg-theme-bg-color: var(--gr-bg);
+  --tg-theme-text-color: var(--gr-text);
+  --tg-theme-hint-color: var(--gr-muted);
+  --tg-theme-link-color: var(--gr-violet);
+  --tg-theme-button-color: var(--gr-gold);
+  --tg-theme-button-text-color: var(--gr-gold-text);
+  --tg-theme-secondary-bg-color: var(--gr-surface);
+  --tg-theme-section-bg-color: rgba(255, 255, 255, 0.04);
+  --tg-theme-section-header-text-color: var(--gr-gold);
+  --tg-theme-subtitle-text-color: var(--gr-muted);
+  --tg-theme-destructive-text-color: #ff453a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: Manrope, Inter, system-ui, sans-serif;
+  color: var(--gr-text);
+  background-color: var(--gr-bg);
+  background-image:
+    radial-gradient(720px 420px at 15% -10%, rgba(138, 43, 226, 0.22), transparent 65%),
+    radial-gradient(640px 380px at 100% 0%, rgba(255, 215, 0, 0.12), transparent 60%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+
+button {
+  font-family: inherit;
+}
+
+input,
+select {
+  font-family: inherit;
+}
+
+::selection {
+  background: rgba(255, 215, 0, 0.28);
+  color: #fff;
+}
+
+/* Тонкий тёмный скроллбар — не отвлекает от стеклянных карточек. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+@layer components {
+  /* Стеклянная карточка — основной контейнер интерфейса. */
+  .glass-card {
+    @apply rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md;
+  }
+
+  .glass-card--hover {
+    @apply transition duration-200 hover:-translate-y-0.5 hover:border-[#8A2BE2]/60 hover:bg-white/[0.07] hover:shadow-violet;
+  }
+
+  /* Золотой CTA: главная кнопка экрана. */
+  .gold-btn {
+    @apply rounded-2xl bg-gradient-to-r from-[#FFD700] to-[#FFA500] font-extrabold text-[#1a1400] shadow-gold transition duration-150;
+  }
+
+  .gold-btn:hover {
+    filter: brightness(1.08);
+  }
+
+  .gold-btn:active {
+    transform: scale(0.97);
+  }
+
+  .gold-btn:disabled {
+    @apply cursor-not-allowed opacity-50 grayscale;
+  }
+
+  /* Вторичная «стеклянная» кнопка с фиолетовым акцентом на hover. */
+  .ghost-btn {
+    @apply rounded-2xl border border-white/10 bg-white/5 font-bold text-white backdrop-blur-md transition duration-150;
+  }
+
+  .ghost-btn:hover {
+    @apply border-[#8A2BE2]/60 bg-white/[0.08];
+  }
+
+  .ghost-btn:active {
+    transform: scale(0.97);
+  }
+
+  .ghost-btn:disabled {
+    @apply cursor-not-allowed opacity-50;
+  }
+
+  /* Выбранное состояние: неоново-фиолетовый акцент. */
+  .violet-chip {
+    @apply rounded-xl border border-[#8A2BE2] bg-[#8A2BE2]/20 text-white shadow-violet;
+  }
+
+  .muted {
+    @apply text-[#9CA3AF];
+  }
+}
+
+/* ===================================================================
+   ЕДИНЫЙ ВИЗУАЛЬНЫЙ СЛОЙ ДЛЯ LEGACY-ЭКРАНОВ
+   Селекторы идут с префиксом .app, поэтому перекрывают базовые стили
+   App.css независимо от порядка загрузки и не меняют раскладку.
+   =================================================================== */
+
+/* Заголовки: Manrope 800/900, плотный tracking. */
+.app .upgrader__title,
+.app .pvp__title,
+.app .roulette__title,
+.app .multi-case__title,
+.app .winner-overlay__title,
+.app .profile__name {
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+}
+
+/* ---------- Стеклянные поверхности ---------- */
+.app .upgrader__panel,
+.app .roulette__panel,
+.app .upgrader-picker__panel,
+.app .multi-case__panel,
+.app .winner-overlay__card,
+.app .pvp__lobby,
+.app .pvp__timer,
+.app .pvp__result,
+.app .pvp__history-item,
+.app .profile__row,
+.app .case-card,
+.app .bet-slider {
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  color: #ffffff;
+}
+
+/* Модалки — плотнее и с фиолетовым свечением. */
+.app .roulette__panel,
+.app .upgrader-picker__panel,
+.app .multi-case__panel,
+.app .winner-overlay__card {
+  background-color: rgba(15, 16, 24, 0.94);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 26px 80px rgba(0, 0, 0, 0.65),
+    0 0 60px rgba(138, 43, 226, 0.18);
+}
+
+/* ---------- Кнопки ---------- */
+.app .btn {
+  border-radius: 16px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.app .btn--primary {
+  background: linear-gradient(100deg, #ffd700, #ffa500);
+  color: #1a1400;
+  box-shadow: 0 0 24px rgba(255, 215, 0, 0.45);
+}
+
+.app .btn--primary:hover {
+  filter: brightness(1.06);
+}
+
+.app .btn--secondary {
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.app .btn--secondary:hover {
+  border-color: rgba(138, 43, 226, 0.6);
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* ---------- Профиль ---------- */
+.app .profile__card {
+  background:
+    radial-gradient(120% 140% at 50% 0%, rgba(138, 43, 226, 0.28), transparent 70%),
+    rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+.app .profile__avatar {
+  box-shadow:
+    0 0 0 3px rgba(255, 215, 0, 0.35),
+    0 12px 30px rgba(0, 0, 0, 0.5);
+}
+
+.app .profile__avatar--placeholder {
+  background: linear-gradient(135deg, #ffd700, #ffa500);
+  color: #1a1400;
+}
+
+.app .profile__name {
+  font-size: 22px;
+}
+
+.app .profile__username {
+  color: #9ca3af;
+}
+
+.app .profile__row {
+  border-radius: 16px;
+  color: #9ca3af;
+}
+
+.app .profile__row strong {
+  color: #ffffff;
+  font-weight: 800;
+}
+
+/* ---------- PvP ---------- */
+.app .pvp__subtitle,
+.app .upgrader__subtitle {
+  color: #9ca3af;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.app .pvp__bank {
+  color: #ffd700;
+}
+
+.app .pvp__player {
+  border-radius: 14px;
+  background-color: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.app .pvp__player--me {
+  border-color: rgba(138, 43, 226, 0.65);
+  background-color: rgba(138, 43, 226, 0.14);
+  box-shadow: 0 0 24px rgba(138, 43, 226, 0.28);
+}
+
+.app .pvp__player--winner {
+  border-color: rgba(255, 215, 0, 0.55);
+  background-color: rgba(255, 215, 0, 0.1);
+}
+
+.app .pvp__player--winner .pvp__player-name,
+.app .pvp__player--winner .pvp__player-chance {
+  color: #ffd700;
+}
+
+.app .pvp__player-stars {
+  color: #ffd700;
+}
+
+.app .pvp__timer-fill {
+  background: linear-gradient(90deg, #ffd700, #ffa500);
+  box-shadow: 0 0 12px rgba(255, 215, 0, 0.6);
+}
+
+.app .pvp__result-title--win,
+.app .pvp__result-line--win,
+.app .pvp__history-result--win,
+.app .multi-case__diff--up {
+  color: #ffd700;
+}
+
+.app .pvp__result-title--lose,
+.app .pvp__result-line--lose,
+.app .multi-case__diff--down {
+  color: #ff453a;
+}
+
+.app .pvp__history-title {
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+
+.app .pvp__history-item {
+  border-radius: 16px;
+}
+
+.app .pvp__status {
+  color: #9ca3af;
+}
+
+.app .pvp-roulette__legend-item {
+  color: #d1d5db;
+}
+
+/* ---------- Апгрейдер ---------- */
+.app .upgrader__panel {
+  border-radius: 20px;
+}
+
+.app .upgrader__panel-title {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #9ca3af;
+}
+
+.app .upgrader__balance {
+  color: #9ca3af;
+}
+
+.app .upgrader__stars-input {
+  background-color: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+}
+
+.app .upgrader__stars-input input {
+  color: #ffffff;
+  font-weight: 900;
+}
+
+.app .upgrader__bounds {
+  color: #9ca3af;
+}
+
+.app .upgrader__nft {
+  border-radius: 16px;
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.app .upgrader__nft:hover {
+  border-color: rgba(138, 43, 226, 0.6);
+  background-color: rgba(255, 255, 255, 0.08);
+  transform: translateY(-2px);
+}
+
+.app .upgrader__nft-name {
+  color: #ffffff;
+}
+
+.app .upgrader__nft-price {
+  color: #ffd700;
+}
+
+.app .upgrader__hint {
+  color: #9ca3af;
+}
+
+.app .upgrader__hint--warn {
+  color: #ff453a;
+}
+
+.app .upgrader__total {
+  border-radius: 16px;
+  background-color: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #9ca3af;
+}
+
+.app .upgrader__total strong {
+  color: #ffffff;
+}
+
+.app .upgrader__quick-chip {
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background-color: rgba(255, 255, 255, 0.04);
+  color: #d1d5db;
+}
+
+.app .upgrader__quick-chip:hover:not(:disabled) {
+  border-color: rgba(138, 43, 226, 0.6);
+  color: #ffffff;
+}
+
+.app .upgrader__quick-chip--active {
+  border-color: #8a2be2;
+  background-color: rgba(138, 43, 226, 0.22);
+  color: #ffffff;
+  box-shadow: 0 0 20px rgba(138, 43, 226, 0.4);
+}
+
+.app .upgrader__auto-hint {
+  color: #c084fc;
+}
+
+.app .upgrader__payout {
+  color: #9ca3af;
+}
+
+.app .upgrader__payout strong {
+  color: #ffd700;
+  font-weight: 900;
+}
+
+.app .upgrader__forecast {
+  border-radius: 16px;
+  background-color: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #d1fae5;
+}
+
+.app .upgrader__forecast strong {
+  color: #6ee7b7;
+}
+
+.app .upgrader__forecast--low {
+  background-color: rgba(255, 215, 0, 0.08);
+  border-color: rgba(255, 215, 0, 0.3);
+  color: #fde68a;
+}
+
+.app .upgrader__forecast--low strong {
+  color: #ffd700;
+}
+
+.app .upgrader__result {
+  border-radius: 22px;
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+.app .upgrader__result--win {
+  border-color: rgba(255, 215, 0, 0.4);
+  box-shadow: 0 0 40px rgba(255, 215, 0, 0.18);
+}
+
+.app .upgrader__result--lose {
+  border-color: rgba(255, 69, 58, 0.35);
+}
+
+.app .upgrader__result-title {
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.app .upgrader__result--win .upgrader__result-title {
+  color: #ffd700;
+}
+
+.app .upgrader__prize-card {
+  border-radius: 18px;
+  background: linear-gradient(160deg, rgba(255, 215, 0, 0.16), rgba(138, 43, 226, 0.16));
+  border: 1px solid rgba(255, 215, 0, 0.4);
+}
+
+.app .upgrader__prize-name {
+  color: #ffffff;
+}
+
+.app .upgrader__prize-price {
+  color: #ffd700;
+}
+
+.app .upgrader__prize-change {
+  color: #9ca3af;
+}
+
+.app .upgrader__result-meta {
+  color: #9ca3af;
+}
+
+.app .upgrader__target-preview {
+  border-radius: 16px;
+  border: 1px solid rgba(255, 215, 0, 0.4);
+  background-color: rgba(255, 215, 0, 0.1);
+}
+
+.app .upgrader__target-name {
+  color: #ffffff;
+}
+
+.app .upgrader__target-price {
+  color: #ffd700;
+}
+
+.app .upgrader__target {
+  border-radius: 14px;
+  background-color: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.app .upgrader__target:hover {
+  border-color: rgba(138, 43, 226, 0.55);
+  transform: translateY(-1px);
+}
+
+.app .upgrader__target--active {
+  border-color: #8a2be2;
+  background-color: rgba(138, 43, 226, 0.2);
+  box-shadow: 0 0 20px rgba(138, 43, 226, 0.4);
+}
+
+.app .upgrader__target-item-name {
+  color: #ffffff;
+}
+
+.app .upgrader__target-item-price {
+  color: #ffd700;
+}
+
+.app .upgrader__gauge-multiplier {
+  color: #ffffff;
+}
+
+.app .upgrader__gauge-sub {
+  color: #9ca3af;
+}
+
+.app .upgrader__gauge-result--win {
+  color: #ffd700;
+}
+
+.app .upgrader__gauge-result--lose {
+  color: #ff453a;
+}
+
+/* Выбор NFT из инвентаря */
+.app .upgrader-picker__backdrop {
+  background-color: rgba(0, 0, 0, 0.72);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+.app .upgrader-picker__close {
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background-color: rgba(255, 255, 255, 0.05);
+  color: #9ca3af;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.app .upgrader-picker__close:hover {
+  color: #ffffff;
+  border-color: rgba(138, 43, 226, 0.6);
+}
+
+.app .upgrader-picker__row {
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.app .upgrader-picker__row--selected {
+  border-color: #8a2be2;
+  background-color: rgba(138, 43, 226, 0.18);
+}
+
+.app .upgrader-picker__name {
+  color: #ffffff;
+}
+
+.app .upgrader-picker__price {
+  color: #ffd700;
+}
+
+.app .upgrader-picker__summary {
+  color: #9ca3af;
+}
+
+/* ---------- Рулетка / ежедневный бонус ---------- */
+.app .roulette__cell {
+  border-radius: 16px;
+  background-color: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.app .roulette__cell--win {
+  border-color: #ffd700;
+  box-shadow: 0 0 24px rgba(255, 215, 0, 0.45);
+}
+
+.app .roulette__marker {
+  background: linear-gradient(180deg, #ffd700, #ffa500);
+  box-shadow: 0 0 14px rgba(255, 215, 0, 0.7);
+}
+
+.app .roulette__spinning,
+.app .roulette__status {
+  color: #9ca3af;
+}
+
+.app .roulette__result-text--balance {
+  color: #ffd700;
+}
+
+.app .roulette__result-text--nft {
+  color: #c084fc;
+}
+
+/* ---------- Мульти-открытие кейсов ---------- */
+.app .multi-case__title {
+  font-size: 20px;
+}
+
+.app .multi-case__face--front {
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.app .multi-case__face--back {
+  background: linear-gradient(160deg, rgba(255, 215, 0, 0.14), rgba(138, 43, 226, 0.16));
+  border: 1px solid rgba(255, 215, 0, 0.35);
+}
+
+.app .multi-case__name {
+  color: #ffffff;
+}
+
+.app .multi-case__price {
+  color: #ffd700;
+}
+
+.app .multi-case__totals {
+  color: #9ca3af;
+}
+
+/* ---------- Оверлей победителя ---------- */
+.app .winner-overlay__card {
+  border-radius: 28px;
+}
+
+.app .winner-overlay__title {
+  color: #ffffff;
+}
+
+.app .winner-overlay__amount {
+  color: #ffd700;
+  text-shadow: 0 0 22px rgba(255, 215, 0, 0.4);
+}
+
+.app .winner-overlay__divider {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+.app .winner-overlay__result--win {
+  color: #ffd700;
+}
+
+.app .winner-overlay__result--lose {
+  color: #ff453a;
+}
+
+/* ---------- Слайдер ставки ---------- */
+.app .bet-slider {
+  border-radius: 20px;
+}
+
+.app .bet-slider--compact {
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+.app .bet-slider__label {
+  color: #9ca3af;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.app .bet-slider__manual {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background-color: rgba(0, 0, 0, 0.4);
+  border-radius: 12px;
+}
+
+.app .bet-slider__manual-prefix {
+  color: #ffd700;
+  display: inline-flex;
+  align-items: center;
+}
+
+.app .bet-slider__number {
+  color: #ffffff;
+  font-weight: 900;
+}
+
+.app .bet-slider__chip {
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background-color: rgba(255, 255, 255, 0.04);
+  color: #d1d5db;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.app .bet-slider__chip:hover:not(:disabled) {
+  border-color: rgba(138, 43, 226, 0.6);
+  color: #ffffff;
+}
+
+.app .bet-slider__chip--max {
+  border-color: rgba(255, 215, 0, 0.5);
+  color: #ffd700;
+}
+
+.app .bet-slider__bounds,
+.app .bet-slider__balance {
+  color: #9ca3af;
+}
+
+/* ---------- Ползунки ---------- */
+.app .upgrader__range,
+.app .bet-slider__input {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(255, 215, 0, 0.75), rgba(138, 43, 226, 0.6));
+  outline: none;
+  cursor: pointer;
+}
+
+.app .upgrader__range::-webkit-slider-thumb,
+.app .bet-slider__input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid #1a1400;
+  background: linear-gradient(135deg, #ffd700, #ffa500);
+  box-shadow: 0 0 14px rgba(255, 215, 0, 0.65);
+  cursor: pointer;
+}
+
+.app .upgrader__range::-moz-range-thumb,
+.app .bet-slider__input::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid #1a1400;
+  background: linear-gradient(135deg, #ffd700, #ffa500);
+  box-shadow: 0 0 14px rgba(255, 215, 0, 0.65);
+  cursor: pointer;
+}
+
+.app .upgrader__range:disabled,
+.app .bet-slider__input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ---------- Плавность анимаций ---------- */
+.app .roulette__strip,
+.app .multi-case__inner,
+.app .upgrader__needle-group,
+.app .upgrader__confetti-piece {
+  will-change: transform;
+}
+
+.app .roulette__strip {
+  transition-timing-function: cubic-bezier(0.12, 0.8, 0.2, 1);
+}
+
+.app .pvp-roulette__svg {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+.app .upgrader__confetti {
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app .roulette__strip,
+  .app .multi-case__inner,
+  .app .upgrader__needle-group {
+    transition-duration: 0.001ms !important;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+

@@ -1,0 +1,189 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum PrizeType {
+  BALANCE
+  NFT
+}
+
+enum InventoryStatus {
+  PENDING
+  SENT
+  CLAIMED
+}
+
+model User {
+  id        BigInt   @id // Telegram User ID
+  firstName String
+  lastName  String?
+  username  String?
+  photoUrl  String?
+  balance   Int      @default(0)
+  // Сколько ⭐ из пополнений ещё не отыграно: только эти звёзды дают рефереру 10%.
+  depositUnspent Int  @default(0)
+  // Кто пригласил (Telegram ID). null — пришёл сам.
+  referredBy     BigInt?  // Сколько ⭐ реферер уже получил.
+  refEarnings    Int      @default(0)
+  // Серия побед в апгрейдере: уменьшает реальный шанс победы (тихий нерф).
+  upgraderWinStreak Int   @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  caseOpens  CaseOpen[]
+  inventory  InventoryItem[]
+  dailyBonus DailyBonus?
+
+  @@index([referredBy])
+  @@map("users")
+}
+
+model CaseOpen {
+  id         String    @id @default(cuid())
+  userId     BigInt
+  caseId     String
+  prizeId    String
+  prizeType  PrizeType
+  prizePrice Int
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("case_opens")
+}
+
+model InventoryItem {
+  id         String          @id @default(cuid())
+  userId     BigInt
+  prizeId    String
+  prizeName  String
+  prizeEmoji String
+  prizePrice Int
+  giftId     String? // Telegram gift_id для отправки NFT
+  status     InventoryStatus @default(PENDING)
+  createdAt  DateTime        @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("inventory_items")
+}
+
+model DailyBonus {
+  id            String   @id @default(cuid())
+  userId        BigInt   @unique
+  lastClaimedAt DateTime
+  streak        Int      @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("daily_bonuses")
+}
+
+// Публичная лента дропов: пишется fire-and-forget из кейсов и PvP.
+model DropEvent {
+  id          String   @id @default(cuid())
+  userId      BigInt
+  username    String?
+  eventType   String // 'case' | 'pvp'
+  itemName    String
+  itemType    String? // 'NFT' | 'STARS' | 'PVP' | null (старые записи)
+  itemEmoji   String?
+  itemPrice   Int
+  sourceName  String?
+  sourceEmoji String?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([itemPrice])
+  @@map("drop_events")
+}
+
+// PvP-рулетка «на толпу»: одно общее лобби на весь проект.
+model PvpRound {
+  id         String    @id @default(cuid())
+  status     String // 'open' | 'spinning' | 'finished'
+  totalStars Int       @default(0)
+  winnerId   BigInt?
+  rakeStars  Int       @default(0) // сколько ⭐ ушло в кассу
+  // null — в раунде пока один участник, таймер отсчёта ещё не запущен.
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  participants PvpParticipant[]
+
+  @@index([status])
+  @@map("pvp_rounds")
+}
+
+// Участник конкретного раунда: ставка уже списана с баланса при входе.
+model PvpParticipant {
+  id       String   @id @default(cuid())
+  roundId  String
+  userId   BigInt
+  username String?
+  stars    Int
+  isBot    Boolean  @default(false)
+  joinedAt DateTime @default(now())
+
+  round PvpRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+
+  @@unique([roundId, userId])
+  @@index([userId])
+  @@map("pvp_participants")
+}
+
+// Пополнение баланса через Telegram Stars: pending → completed после successful_payment.
+model Deposit {
+  id               String    @id @default(cuid())
+  userId           BigInt
+  amount           Int // stars
+  status           String // 'pending' | 'completed' | 'failed'
+  telegramChargeId String?   @unique
+  payload          String    @unique
+  createdAt        DateTime  @default(now())
+  completedAt      DateTime?
+  currency         String    @default("STARS") // "STARS" или "GRAMS"
+  txHash           String?   @unique
+  gramsAmount      Float?
+
+  @@index([userId])
+  @@index([status])
+  @@map("deposits")
+}
+
+// Начисления рефереру: 10% от отыгранной части депозита приглашённого.
+model ReferralEarning {
+  id         String   @id @default(cuid())
+  referrerId BigInt
+  referredId BigInt
+  amount     Int
+  sourceType String // 'wagering'
+  sourceId   String?
+  createdAt  DateTime @default(now())
+
+  @@index([referrerId])
+  @@index([createdAt])
+  @@map("referral_earnings")
+}
+
+// Лог всех попыток привязки по реф-ссылке: видно, кто перешёл и почему не засчитался.
+// referrerId = 0, если код не распарсился (реферера в таком случае нет).
+model ReferralAttempt {
+  id         String   @id @default(cuid())
+  referrerId BigInt
+  referredId BigInt
+  status     String // 'success' | 'self_invite' | 'already_bound' | 'invalid'
+  createdAt  DateTime @default(now())
+
+  @@index([referrerId, createdAt])
+  @@index([referredId])
+  @@map("referral_attempts")
+}

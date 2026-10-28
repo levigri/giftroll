@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: giftroll-backend
+    env: node
+    plan: free
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: npx prisma migrate deploy && node dist/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        sync: false
+      - key: BOT_TOKEN
+        sync: false
+      - key: WEBHOOK_SECRET
+        sync: false
+      - key: TON_RECEIVER_ADDRESS
+        value: "UQCrIF5c20wufcyh7AFWgzam5KtgZtXzbT2AuIblNHApbUAg"

@@ -1,0 +1,8 @@
+# На Vercel деплоится ТОЛЬКО фронтенд — бэкенд живёт на Railway.
+server/
+node_modules/
+dist/
+# Секреты (BOT_TOKEN, DATABASE_URL и т.д.) не должны попадать в аплоад.
+.env
+.env.*
+*.local
