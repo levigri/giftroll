@@ -17,6 +17,8 @@ captureStartParamRef()
 const tonConnectManifestUrl =
   import.meta.env.VITE_TONCONNECT_MANIFEST_URL || `${window.location.origin}/tonconnect-manifest.json`
 
+console.log('[TON] manifestUrl:', tonConnectManifestUrl)
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <TonConnectUIProvider manifestUrl={tonConnectManifestUrl}>
