@@ -109,6 +109,29 @@ function formatErrorMessage(err: unknown): string {
 
 function App() {
   const [tonConnectUI] = useTonConnectUI()
+
+  useEffect(() => {
+    const unsubscribe = tonConnectUI.onStatusChange(
+      () => {},
+      (error) => {
+        const errorDetails = error as Error & {
+          code?: number | string
+          cause?: { code?: number | string; message?: string }
+        }
+
+        console.error('❌ [TON] Ошибка подключения:', error)
+        console.error(
+          'Код:',
+          errorDetails.code ?? errorDetails.cause?.code,
+          'Сообщение:',
+          errorDetails.message ?? errorDetails.cause?.message,
+        )
+      },
+    )
+
+    return () => unsubscribe()
+  }, [tonConnectUI])
+
   const wallet = useTonWallet()
   const connectionRestored = useIsConnectionRestored()
 
