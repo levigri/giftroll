@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify'
+import { Bot } from 'grammy'
 import { z } from 'zod'
 import { env } from '../config/env.js'
 import { authenticateTelegram } from '../middleware/auth.js'
@@ -9,6 +10,27 @@ import {
   setWebhook,
   type TelegramUpdate,
 } from '../services/deposit.js'
+
+const bot = new Bot(env.BOT_TOKEN)
+
+bot.command('start', async (ctx) => {
+  const welcomeText = `👋 Добро пожаловать в GiftRoll!
+
+🎁 Открывай кейсы, собирай реальные NFT и зарабатывай звёзды.
+
+🚨 Мультиаккаунты запрещены
+📢 Наш канал: t.me/giftrollchannel
+
+Жми на кнопку ниже, чтобы начать!`
+
+  await ctx.reply(welcomeText, {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '🎮 Играть в GiftRoll', web_app: { url: 'https://giftroll-six.vercel.app/' } }],
+      ],
+    },
+  })
+})
 
 const setupWebhookSchema = z.object({
   publicUrl: z.string().url('publicUrl must be a valid URL'),
@@ -25,6 +47,14 @@ export const telegramRoutes: FastifyPluginAsync = async (fastify) => {
     if (!secret || provided !== secret) {
       request.log.warn('[WEBHOOK] rejected: invalid secret token')
       return reply.code(403).send({ ok: false })
+    }
+
+    const update = request.body as Parameters<typeof bot.handleUpdate>[0]
+
+    try {
+      await bot.handleUpdate(update)
+    } catch (error) {
+      request.log.error(error, '[WEBHOOK] grammY update failed')
     }
 
     try {
