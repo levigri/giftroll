@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Plus, Sparkles, Star, Target, X } from 'lucide-react'
+import { Lock, Plus, Sparkles, Star, Target, X } from 'lucide-react'
 import type {
   CaseItem,
   InventoryItem,
@@ -132,6 +132,7 @@ export default function UpgraderPage({
   const [casesLoading, setCasesLoading] = useState(true)
   /** Явно выбранный игроком NFT в сетке целей (null → авто-подбор по выплате). */
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null)
+  const [isExpanded, setIsExpanded] = useState(false)
   const [phase, setPhase] = useState<Phase>('idle')
   const [result, setResult] = useState<UpgraderResult | null>(null)
   const [resultChance, setResultChance] = useState(DEFAULT_CHANCE)
@@ -219,7 +220,7 @@ export default function UpgraderPage({
       add(prize)
     }
 
-    return [...targets.values()].sort((a, b) => b.price - a.price)
+    return [...targets.values()].sort((a, b) => a.price - b.price)
   }, [cases, catalog])
 
   const selectedItems = useMemo(
@@ -233,11 +234,12 @@ export default function UpgraderPage({
   const payout = payoutOf(totalBet, chance)
 
   /** Авто-подбор: самый дорогой NFT, который целиком помещается в выплату. */
-  const autoTarget = useMemo(
-    () => nftPool.find((item) => item.price <= payout) ?? null,
-    [nftPool, payout],
-  )
-  const cheapestTarget = nftPool.length > 0 ? nftPool[nftPool.length - 1] : null
+  const autoTarget = useMemo(() => {
+    const affordableTargets = nftPool.filter((item) => item.price <= payout)
+    return affordableTargets[affordableTargets.length - 1] ?? null
+  }, [nftPool, payout])
+  const cheapestTarget = nftPool[0] ?? null
+  const visibleTargets = isExpanded ? nftPool : nftPool.slice(0, 5)
 
   /** Карточка, выбранная игроком вручную (сравнение по уникальному ключу id+имя). */
   const selectedTarget = useMemo(
@@ -250,17 +252,23 @@ export default function UpgraderPage({
   const targetCovered = requestTarget ? payout >= requestTarget.price : false
   const change = requestTarget && targetCovered ? payout - requestTarget.price : 0
 
-  // Шанс уменьшили вручную (слайдер/кнопки) и выбранный NFT перестал помещаться
-  // в выплату — возвращаемся к авто-подбору, иначе подсветка врала бы.
+  // Если выбранная цель вышла за допустимый шанс или перестала помещаться
+  // в текущую выплату, возвращаемся к авто-подбору.
   useEffect(() => {
     if (!selectedTargetId) {
       return
     }
     const target = nftPool.find((item) => targetKey(item) === selectedTargetId)
-    if (!target || payout < target.price) {
+    const requiredChance = target ? (totalBet * PAYOUT_PERCENT) / target.price : 0
+    if (
+      !target ||
+      requiredChance < MIN_CHANCE ||
+      requiredChance > MAX_CHANCE ||
+      payout < target.price
+    ) {
       setSelectedTargetId(null)
     }
-  }, [payout, selectedTargetId, nftPool])
+  }, [payout, totalBet, selectedTargetId, nftPool])
 
   /** Текущий угол стрелки в градусах 0–360. */
   const pointerAngle = (): number => {
@@ -320,15 +328,19 @@ export default function UpgraderPage({
       return
     }
 
-    const maxAffordableChance = Math.floor((totalBet * PAYOUT_PERCENT) / nft.price)
-    if (maxAffordableChance < MIN_CHANCE) {
+    const requiredChance = (totalBet * PAYOUT_PERCENT) / nft.price
+    if (requiredChance < MIN_CHANCE || requiredChance > MAX_CHANCE) {
       errorFeedback()
-      showError('Слишком мало звезд для этого NFT')
+      showError(
+        requiredChance > MAX_CHANCE
+          ? 'Слишком высокий шанс для этого NFT'
+          : 'Слишком низкий шанс для этого NFT',
+      )
       return
     }
 
     tapFeedback('light')
-    setChance(Math.min(MAX_CHANCE, maxAffordableChance))
+    setChance(Math.round(requiredChance))
   }
 
   const handleUpgrade = async (): Promise<void> => {
@@ -741,48 +753,86 @@ export default function UpgraderPage({
               </div>
 
               <div className="grid grid-cols-4 gap-2 pr-1">
-                {nftPool.map((nft) => {
+                {visibleTargets.map((nft) => {
                   const key = targetKey(nft)
                   const active =
                     (selectedTargetId ?? (autoTarget ? targetKey(autoTarget) : null)) === key
+                  const requiredChance = (totalBet * PAYOUT_PERCENT) / nft.price
+                  const lockedByChance =
+                    requiredChance < MIN_CHANCE || requiredChance > MAX_CHANCE
+                  const lockReason =
+                    requiredChance > MAX_CHANCE
+                      ? 'Слишком высокий шанс'
+                      : requiredChance < MIN_CHANCE
+                        ? 'Слишком низкий шанс'
+                        : null
 
                   return (
                     <button
                       key={key}
                       type="button"
                       className={`flex flex-col items-center gap-1 rounded-xl border p-2 text-center transition active:scale-95 ${
-                        active
-                          ? 'border-[#FFD700] bg-[#FFD700]/15'
-                          : 'border-white/10 bg-white/5 hover:border-[#FFD700]/40'
+                        lockedByChance
+                          ? 'cursor-not-allowed opacity-50 grayscale'
+                          : active
+                            ? 'border-[#FFD700] bg-[#FFD700]/15'
+                            : 'border-white/10 bg-white/5 hover:border-[#FFD700]/40'
                       }`}
-                      disabled={locked}
+                      disabled={locked || lockedByChance}
                       onClick={() => {
-                        if (locked) {
+                        if (locked || lockedByChance) {
                           return
                         }
                         // Запоминаем ровно ту карточку, по которой кликнули.
                         setSelectedTargetId(key)
                         selectChanceForTarget(nft)
                       }}
-                      title={`Подобрать шанс для ${nft.name} · ${nft.price} ⭐`}
-                      aria-label={`Подобрать шанс для ${nft.name}, ${nft.price} звёзд`}
+                      title={
+                        lockReason ?? `Подобрать шанс для ${nft.name} · ${nft.price} ⭐`
+                      }
+                      aria-label={`${nft.name}, ${nft.price} звёзд${lockReason ? `, ${lockReason}` : ''}`}
                     >
-                      <AssetImage
-                        src={prizeImage(nft.name, nft.emoji)}
-                        alt={nft.name}
-                        className="h-8 w-8"
-                      />
+                      <span className="relative inline-flex h-8 w-8 items-center justify-center">
+                        <AssetImage
+                          src={prizeImage(nft.name, nft.emoji)}
+                          alt={nft.name}
+                          className="h-8 w-8"
+                        />
+                        {lockedByChance && (
+                          <Lock
+                            size={16}
+                            className="absolute text-white drop-shadow"
+                            aria-hidden="true"
+                          />
+                        )}
+                      </span>
                       <span className="w-full truncate text-[10px] font-bold text-white">
                         {nft.name}
                       </span>
-                      <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-gray-400">
-                        {nft.price}
-                        <Star size={9} fill="currentColor" />
-                      </span>
+                      {lockReason ? (
+                        <span className="text-[9px] font-bold leading-tight text-red-400">
+                          {lockReason}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-gray-400">
+                          {nft.price}
+                          <Star size={9} fill="currentColor" />
+                        </span>
+                      )}
                     </button>
                   )
                 })}
               </div>
+              {nftPool.length > 5 && (
+                <button
+                  type="button"
+                  className="self-center bg-transparent px-2 py-1 text-xs font-semibold text-gray-400 transition hover:text-white"
+                  onClick={() => setIsExpanded((expanded) => !expanded)}
+                  aria-expanded={isExpanded}
+                >
+                  {isExpanded ? 'Свернуть ⬆️' : 'Показать все NFT ⬇️'}
+                </button>
+              )}
             </>
           )}
         </section>
