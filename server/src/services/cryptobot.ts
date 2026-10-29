@@ -1,6 +1,11 @@
 import { env } from '../config/env.js'
 import { prisma } from '../db/prisma.js'
-import { DepositError, MAX_DEPOSIT_STARS, MIN_DEPOSIT_STARS } from './deposit.js'
+import {
+  DEPOSIT_LOCK_MS,
+  DepositError,
+  MAX_DEPOSIT_STARS,
+  MIN_DEPOSIT_STARS,
+} from './deposit.js'
 import { getStarsBasePriceUsd } from '../utils/rates.js'
 import { notifyUser } from './bot.js'
 
@@ -151,10 +156,15 @@ export async function handleCryptoWebhook(update: unknown): Promise<{ ok: boolea
     return { ok: true }
   }
 
+  const completedAt = new Date()
   await prisma.$transaction([
     prisma.deposit.update({
       where: { id: deposit.id },
-      data: { status: 'completed', completedAt: new Date() },
+      data: {
+        status: 'completed',
+        completedAt,
+        lockUntil: new Date(completedAt.getTime() + DEPOSIT_LOCK_MS),
+      },
     }),
     prisma.user.update({
       where: { id: deposit.userId },

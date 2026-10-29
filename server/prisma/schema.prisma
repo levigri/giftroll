@@ -67,6 +67,8 @@ model InventoryItem {
   prizeEmoji String
   prizePrice Int
   giftId     String? // Telegram gift_id для отправки NFT
+  isExternal Boolean         @default(false)
+  lockUntil  DateTime?        // Дата, до которой нельзя продавать
   status     InventoryStatus @default(PENDING)
   createdAt  DateTime        @default(now())
 
@@ -74,6 +76,20 @@ model InventoryItem {
 
   @@index([userId])
   @@map("inventory_items")
+}
+
+// Идемпотентный журнал входящих подарков аккаунта-приёмщика MTProto.
+model TelegramGiftReceipt {
+  id              String   @id @default(cuid())
+  peerId          String
+  messageId       Int
+  senderUserId    BigInt
+  inventoryItemId String
+  createdAt       DateTime @default(now())
+
+  @@unique([peerId, messageId])
+  @@index([senderUserId, createdAt])
+  @@map("telegram_gift_receipts")
 }
 
 model DailyBonus {
@@ -169,6 +185,7 @@ model Deposit {
   currency         String    @default("STARS") // "STARS" или "GRAMS"
   txHash           String?   @unique
   gramsAmount      Float?
+  lockUntil        DateTime? // Дата разблокировки средств (успешное пополнение + 21 день)
 
   @@index([userId])
   @@index([status])

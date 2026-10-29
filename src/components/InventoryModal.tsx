@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Star, X } from 'lucide-react'
+import { Lock, Star, X } from 'lucide-react'
 import type { InventoryItem } from '../api/types'
 import { getInventory, sellNft } from '../api/client'
 import { errorFeedback, successFeedback, tapFeedback } from '../telegram'
@@ -130,6 +130,9 @@ export default function InventoryModal({
           {items.map((item) => {
             const sellPrice = sellPriceOf(item)
             const isBusy = busyId === item.id
+            const lockTime = item.lockUntil ? new Date(item.lockUntil).getTime() : Number.NaN
+            const daysLeft = Math.ceil((lockTime - Date.now()) / (1000 * 60 * 60 * 24))
+            const isLocked = Number.isFinite(lockTime) && daysLeft > 0
 
             return (
               <div
@@ -153,17 +156,23 @@ export default function InventoryModal({
                   </span>
                 )}
                 {item.status !== 'CLAIMED' && (
-                  <button
-                    type="button"
-                    className="gold-btn w-full py-1.5 text-[10px]"
-                    disabled={isBusy}
-                    onClick={() => {
-                      tapFeedback('light')
-                      setConfirmItem(item)
-                    }}
-                  >
-                    {isBusy ? '...' : 'Продать'}
-                  </button>
+                  isLocked ? (
+                    <span className="inline-flex w-full items-center justify-center gap-1 rounded-lg border border-red-400/25 bg-red-500/10 px-1 py-1.5 text-[10px] font-bold text-red-400">
+                      <Lock size={11} /> Через {daysLeft} дн.
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="gold-btn w-full py-1.5 text-[10px]"
+                      disabled={isBusy}
+                      onClick={() => {
+                        tapFeedback('light')
+                        setConfirmItem(item)
+                      }}
+                    >
+                      {isBusy ? '...' : 'Продать'}
+                    </button>
+                  )
                 )}
                 {item.status !== 'PENDING' && (
                   <span className="text-[9px] font-bold uppercase tracking-wide text-gray-500">

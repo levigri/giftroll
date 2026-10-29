@@ -69,6 +69,12 @@ export async function openCase(
           where: { id: userId },
           data: { balance: newBalance },
         })
+        const now = new Date()
+        const activeDeposit = await tx.deposit.findFirst({
+          where: { userId, status: 'completed', lockUntil: { gt: now } },
+          orderBy: { createdAt: 'desc' },
+          select: { lockUntil: true },
+        })
         await tx.inventoryItem.create({
           data: {
             userId,
@@ -76,6 +82,8 @@ export async function openCase(
             prizeName: prize.name,
             prizeEmoji: prize.emoji,
             prizePrice: prize.price,
+            isExternal: false,
+            lockUntil: activeDeposit?.lockUntil ?? null,
             status: 'PENDING',
           },
         })
@@ -213,6 +221,12 @@ export async function openMultiCase(
       const results: MultiCaseResultItem[] = []
       const prizes: Prize[] = []
       let starsWon = 0
+      const now = new Date()
+      const activeDeposit = await tx.deposit.findFirst({
+        where: { userId, status: 'completed', lockUntil: { gt: now } },
+        orderBy: { createdAt: 'desc' },
+        select: { lockUntil: true },
+      })
 
       for (let index = 0; index < count; index += 1) {
         // Ролл независимый для каждого открытия.
@@ -230,6 +244,8 @@ export async function openMultiCase(
               prizeName: prize.name,
               prizeEmoji: prize.emoji,
               prizePrice: prize.price,
+              isExternal: false,
+              lockUntil: activeDeposit?.lockUntil ?? null,
               status: 'PENDING',
             },
           })
@@ -398,6 +414,11 @@ export async function sellNft(
 
       if (item.status === 'CLAIMED') {
         throw new GameError('ALREADY_CLAIMED', 'Предмет уже выведен', 400)
+      }
+
+      if (item.lockUntil && item.lockUntil > new Date()) {
+        const daysLeft = Math.ceil((item.lockUntil.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+        throw new GameError('NFT_LOCKED', `Продажа заблокирована. Осталось дней: ${daysLeft}`)
       }
 
       const soldFor = Math.floor(item.prizePrice * 0.95)

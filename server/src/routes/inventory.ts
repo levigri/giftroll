@@ -24,6 +24,8 @@ export const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
           prizeEmoji: item.prizeEmoji,
           prizePrice: item.prizePrice,
           giftId: item.giftId,
+          isExternal: item.isExternal,
+          lockUntil: item.lockUntil?.toISOString() ?? null,
           status: item.status,
           createdAt: item.createdAt.toISOString(),
         })),

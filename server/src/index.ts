@@ -17,6 +17,7 @@ import { dropsRoutes } from './routes/drops.js'
 import { depositRoutes } from './routes/deposit.js'
 import { telegramRoutes } from './routes/telegram.js'
 import { referralRoutes } from './routes/referral.js'
+import { initUserbot, stopUserbot } from './services/userbot.js'
 
 const fastify = Fastify({
   logger: {
@@ -70,6 +71,7 @@ await fastify.register(referralRoutes)
 
 // Отключение от БД при остановке сервера
 fastify.addHook('onClose', async () => {
+  await stopUserbot()
   await prisma.$disconnect()
 })
 
@@ -88,6 +90,7 @@ const start = async () => {
   try {
     await fastify.listen({ port: env.PORT, host: '0.0.0.0' })
     fastify.log.info(`[Server] listening on http://0.0.0.0:${env.PORT}`)
+    await initUserbot()
   } catch (error) {
     fastify.log.error(error)
     process.exit(1)

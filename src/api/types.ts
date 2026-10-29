@@ -45,6 +45,8 @@ export interface InventoryItem {
   prizeEmoji: string
   prizePrice: number
   giftId?: string | null
+  isExternal: boolean
+  lockUntil: string | null
   status: 'PENDING' | 'SENT' | 'CLAIMED'
   createdAt: string
 }

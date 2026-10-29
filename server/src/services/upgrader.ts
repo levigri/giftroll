@@ -162,6 +162,12 @@ export async function performUpgrade(
       }
 
       if (grantNft) {
+        const now = new Date()
+        const activeDeposit = await tx.deposit.findFirst({
+          where: { userId, status: 'completed', lockUntil: { gt: now } },
+          orderBy: { createdAt: 'desc' },
+          select: { lockUntil: true },
+        })
         await tx.inventoryItem.create({
           data: {
             userId,
@@ -169,6 +175,8 @@ export async function performUpgrade(
             prizeName: targetNft.name,
             prizeEmoji: targetNft.emoji,
             prizePrice: targetNft.price,
+            isExternal: false,
+            lockUntil: activeDeposit?.lockUntil ?? null,
             status: 'PENDING',
           },
         })

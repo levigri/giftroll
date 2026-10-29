@@ -9,6 +9,7 @@ import { notifyUser } from './bot.js'
 /** Границы одного пополнения в ⭐. */
 export const MIN_DEPOSIT_STARS = 10
 export const MAX_DEPOSIT_STARS = 100_000
+export const DEPOSIT_LOCK_MS = 21 * 24 * 60 * 60 * 1000
 
 /** Реферер получает 10% от отыгранной части депозита приглашённого. */
 export const REFERRAL_RATE_PERCENT = 10
@@ -453,12 +454,14 @@ async function confirmGramsDepositInner(
   try {
     claimed = await prisma.$transaction(
       async (tx) => {
+        const completedAt = new Date()
         const result = await tx.deposit.updateMany({
           where: { id: deposit.id, status: 'pending' },
           data: {
             status: 'completed',
             txHash: transactionHash,
-            completedAt: new Date(),
+            completedAt,
+            lockUntil: new Date(completedAt.getTime() + DEPOSIT_LOCK_MS),
           },
         })
 
@@ -561,12 +564,14 @@ export async function handleWebhook(update: TelegramUpdate): Promise<void> {
 
   await prisma.$transaction(
     async (tx) => {
+      const completedAt = new Date()
       const claimed = await tx.deposit.updateMany({
         where: { id: deposit.id, status: 'pending' },
         data: {
           status: 'completed',
           telegramChargeId: payment.telegram_payment_charge_id,
-          completedAt: new Date(),
+          completedAt,
+          lockUntil: new Date(completedAt.getTime() + DEPOSIT_LOCK_MS),
         },
       })
 

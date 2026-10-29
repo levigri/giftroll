@@ -16,6 +16,12 @@ services:
         sync: false
       - key: WEBHOOK_SECRET
         sync: false
+      - key: TELEGRAM_API_ID
+        sync: false
+      - key: TELEGRAM_API_HASH
+        sync: false
+      - key: TELEGRAM_SESSION
+        sync: false
       - key: TON_RECEIVER_ADDRESS
         value: "UQCrIF5c20wufcyh7AFWgzam5KtgZtXzbT2AuIblNHApbUAg"
       # Токен бота @CryptoBot (Crypto Pay) — задай его в панели Render:
