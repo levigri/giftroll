@@ -4,6 +4,7 @@ import { env } from '../config/env.js'
 import { prisma } from '../db/prisma.js'
 import { getGramRate, getStarsBasePriceUsd } from '../utils/rates.js'
 import { logTransaction } from './transaction.js'
+import { notifyUser } from './bot.js'
 
 /** Границы одного пополнения в ⭐. */
 export const MIN_DEPOSIT_STARS = 10
@@ -12,7 +13,10 @@ export const MAX_DEPOSIT_STARS = 100_000
 /** Реферер получает 10% от отыгранной части депозита приглашённого. */
 export const REFERRAL_RATE_PERCENT = 10
 const TONAPI_BASE_URL = 'https://tonapi.io/v2'
-const TON_AMOUNT_TOLERANCE_NANO = 50_000_000n // 0.05 TON
+/** Фиксированный минимум допуска по сумме перевода: газ и округления. */
+const TON_AMOUNT_TOLERANCE_NANO = 10_000_000n // 0.01 TON
+/** Допуск в процентах от ожидаемой суммы. */
+const TON_AMOUNT_TOLERANCE_PERCENT = 5n
 
 /** ⚠️ DEV ONLY — удалить этот блок при релизе */
 const DEV_TELEGRAM_ID = 11111111n
@@ -249,6 +253,25 @@ export async function confirmGramsDeposit(
   depositId: string,
   transactionBoc: string,
 ): Promise<{ ok: boolean; starsAmount: number }> {
+  try {
+    return await confirmGramsDepositInner(userId, depositId, transactionBoc)
+  } catch (error) {
+    // Пользователь должен узнать, что перевод бот увидел, но проверить его не удалось.
+    if (
+      error instanceof DepositError &&
+      (error.code === 'INVALID_TX' || error.code === 'TONAPI_ERROR')
+    ) {
+      void notifyUser(userId, '❌ Не удалось проверить транзакцию. Обратитесь в поддержку.')
+    }
+    throw error
+  }
+}
+
+async function confirmGramsDepositInner(
+  userId: bigint,
+  depositId: string,
+  transactionBoc: string,
+): Promise<{ ok: boolean; starsAmount: number }> {
   const deposit = await prisma.deposit.findUnique({
     where: { id: depositId },
   })
@@ -326,6 +349,13 @@ export async function confirmGramsDeposit(
   }
 
   const expectedNano = BigInt(Math.round(deposit.gramsAmount * 1_000_000_000))
+  // Допуск: 5% от ожидаемой суммы или фиксированные 0.01 TON — что больше.
+  // Комиссия сети и округления не должны валить уже оплаченный перевод
+  // (например, 0.098 TON вместо ожидаемых 0.1 TON).
+  const percentNano = (expectedNano * TON_AMOUNT_TOLERANCE_PERCENT) / 100n
+  const allowedNano =
+    percentNano > TON_AMOUNT_TOLERANCE_NANO ? percentNano : TON_AMOUNT_TOLERANCE_NANO
+
   const matchingPayment = (transaction.out_msgs ?? []).some((message) => {
     if (message.bounced) return false
     const destinationRaw = normalizeAddress(message.destination)
@@ -333,7 +363,7 @@ export async function confirmGramsDeposit(
     try {
       const value = BigInt(String(message.value))
       const difference = value > expectedNano ? value - expectedNano : expectedNano - value
-      return difference <= TON_AMOUNT_TOLERANCE_NANO
+      return difference <= allowedNano
     } catch {
       return false
     }
@@ -398,6 +428,9 @@ export async function confirmGramsDeposit(
   if (!claimed) {
     throw new DepositError('INVALID_DEPOSIT_STATUS', 'Депозит уже обработан', 400)
   }
+
+  // Уведомление в бота: Gram-депозит зачислен.
+  void notifyUser(deposit.userId, `✅ Баланс успешно пополнен на ${deposit.amount} ⭐!`)
 
   return { ok: true, starsAmount: deposit.amount }
 }
@@ -489,6 +522,9 @@ export async function handleWebhook(update: TelegramUpdate): Promise<void> {
     },
     { timeout: 10000 },
   )
+
+  // Уведомление в бота: звёзды зачислены.
+  void notifyUser(deposit.userId, `✅ Баланс успешно пополнен на ${deposit.amount} ⭐!`)
 }
 
 /* ------------------------------- Wagering/рефы ------------------------------- */

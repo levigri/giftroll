@@ -61,7 +61,17 @@ function formatDepositError(err: unknown): string {
       case 'TON_RECEIVER_NOT_CONFIGURED':
         return 'Пополнение Gram временно недоступно'
       case 'INVALID_TX':
-        return 'Транзакция не найдена или её сумма не совпадает'
+        return 'Неверная сумма транзакции или она не найдена (INVALID_TX)'
+      case 'TX_ALREADY_USED':
+        return 'Эта транзакция уже использована (TX_ALREADY_USED)'
+      case 'INVALID_DEPOSIT_STATUS':
+        return 'Депозит уже обработан (INVALID_DEPOSIT_STATUS)'
+      case 'DEPOSIT_NOT_FOUND':
+        return 'Депозит не найден (DEPOSIT_NOT_FOUND)'
+      case 'INVALID_DEPOSIT':
+        return 'Депозит не относится к пополнению Gram (INVALID_DEPOSIT)'
+      case 'TONAPI_ERROR':
+        return 'Не удалось проверить транзакцию в TON (TONAPI_ERROR)'
       case 'AUTH_MISSING':
       case 'AUTH_INVALID':
         return 'Ошибка авторизации Telegram'

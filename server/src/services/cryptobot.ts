@@ -2,6 +2,7 @@ import { env } from '../config/env.js'
 import { prisma } from '../db/prisma.js'
 import { DepositError, MAX_DEPOSIT_STARS, MIN_DEPOSIT_STARS } from './deposit.js'
 import { getStarsBasePriceUsd } from '../utils/rates.js'
+import { notifyUser } from './bot.js'
 
 /** Crypto Pay API (официальный бот @CryptoBot). */
 const CRYPTO_PAY_API_URL = 'https://pay.crypt.bot/api'
@@ -172,6 +173,9 @@ export async function handleCryptoWebhook(update: unknown): Promise<{ ok: boolea
       },
     }),
   ])
+
+  // Уведомление в бота: крипто-депозит зачислен.
+  void notifyUser(deposit.userId, `✅ Баланс успешно пополнен на ${deposit.amount} ⭐!`)
 
   return { ok: true }
 }
