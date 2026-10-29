@@ -47,6 +47,23 @@ export default function InventoryModal({
     }, 3000)
   }
 
+  const handleSellClick = (item: InventoryItem) => {
+    tapFeedback('light')
+    const lockTime = item.lockUntil ? new Date(item.lockUntil).getTime() : Number.NaN
+    if (Number.isFinite(lockTime) && lockTime > Date.now()) {
+      const daysLeft = Math.ceil((lockTime - Date.now()) / (1000 * 60 * 60 * 24))
+      errorFeedback()
+      showError(
+        item.isExternal
+          ? `Продажа заблокирована на ${daysLeft} дн. Внешние NFT удерживаются 21 день с момента получения.`
+          : `Продажа заблокирована на ${daysLeft} дн. Для NFT, выигранных на Telegram Stars, действует правило удержания.`,
+      )
+      return
+    }
+
+    setConfirmItem(item)
+  }
+
   const loadItems = async () => {
     try {
       setLoading(true)
@@ -147,32 +164,22 @@ export default function InventoryModal({
                 />
                 <div className="w-full truncate text-[11px] font-bold text-white">{item.prizeName}</div>
                 <div className="text-[11px] font-bold text-[#FFD700]">{item.prizePrice}</div>
-                {item.status === 'PENDING' && (
-                  <span
-                    className="w-full rounded-lg border border-white/10 bg-white/[0.03] py-1 text-[10px] font-bold text-gray-500"
-                    title="Вывод подарков будет доступен после подключения отправки NFT"
-                  >
-                    Вывод скоро
-                  </span>
-                )}
                 {item.status !== 'CLAIMED' && (
-                  isLocked ? (
-                    <span className="inline-flex w-full items-center justify-center gap-1 rounded-lg border border-red-400/25 bg-red-500/10 px-1 py-1.5 text-[10px] font-bold text-red-400">
-                      <Lock size={11} /> Через {daysLeft} дн.
-                    </span>
-                  ) : (
+                  <>
+                    {isLocked && (
+                      <span className="inline-flex w-full items-center justify-center gap-1 rounded-lg border border-red-400/25 bg-red-500/10 px-1 py-1.5 text-[10px] font-bold text-red-400">
+                        <Lock size={11} /> Через {daysLeft} дн.
+                      </span>
+                    )}
                     <button
                       type="button"
                       className="gold-btn w-full py-1.5 text-[10px]"
                       disabled={isBusy}
-                      onClick={() => {
-                        tapFeedback('light')
-                        setConfirmItem(item)
-                      }}
+                      onClick={() => handleSellClick(item)}
                     >
                       {isBusy ? '...' : 'Продать'}
                     </button>
-                  )
+                  </>
                 )}
                 {item.status !== 'PENDING' && (
                   <span className="text-[9px] font-bold uppercase tracking-wide text-gray-500">

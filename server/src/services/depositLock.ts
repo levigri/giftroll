@@ -16,6 +16,7 @@ export async function findActiveDepositLock(
     where: {
       userId,
       status: 'completed',
+      currency: 'STARS',
       OR: [
         { lockUntil: { gt: now } },
         { lockUntil: null, completedAt: { gt: lockCutoff } },
