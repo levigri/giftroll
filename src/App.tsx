@@ -270,6 +270,13 @@ function App() {
     })
   }
 
+  const handleDisconnect = () => {
+    tapFeedback('medium')
+    void tonConnectUI.disconnect().catch((err: unknown) => {
+      console.error('[GiftRoll] Disconnect error:', err)
+    })
+  }
+
   const handleDailyBonus = async () => {
     if (!me) {
       return
@@ -528,8 +535,12 @@ function App() {
                   Пополнить баланс
                 </button>
 
-                <button type="button" className="ghost-btn py-3.5 text-sm" onClick={handleConnect}>
-                  {connected ? 'Кошелёк подключён' : 'Подключить кошелёк'}
+                <button
+                  type="button"
+                  className="ghost-btn py-3.5 text-sm"
+                  onClick={connected ? handleDisconnect : handleConnect}
+                >
+                  {connected ? 'Отключить кошелёк' : 'Подключить кошелёк'}
                 </button>
               </>
             )}

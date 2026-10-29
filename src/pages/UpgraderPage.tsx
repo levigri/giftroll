@@ -252,23 +252,18 @@ export default function UpgraderPage({
   const targetCovered = requestTarget ? payout >= requestTarget.price : false
   const change = requestTarget && targetCovered ? payout - requestTarget.price : 0
 
-  // Если выбранная цель вышла за допустимый шанс или перестала помещаться
-  // в текущую выплату, возвращаемся к авто-подбору.
+  // Ручной выбор НЕ сбрасываем из-за шанса/выплаты — просто блокируем апгрейд
+  // (targetCovered = false). Выбор обнуляется только если карточки больше нет в пуле
+  // (предмет удалили из игры) — иначе подсветка «прыгала» бы на авто-подбор.
   useEffect(() => {
     if (!selectedTargetId) {
       return
     }
-    const target = nftPool.find((item) => targetKey(item) === selectedTargetId)
-    const requiredChance = target ? (totalBet * PAYOUT_PERCENT) / target.price : 0
-    if (
-      !target ||
-      requiredChance < MIN_CHANCE ||
-      requiredChance > MAX_CHANCE ||
-      payout < target.price
-    ) {
+    const targetExists = nftPool.some((item) => targetKey(item) === selectedTargetId)
+    if (!targetExists) {
       setSelectedTargetId(null)
     }
-  }, [payout, totalBet, selectedTargetId, nftPool])
+  }, [selectedTargetId, nftPool])
 
   /** Текущий угол стрелки в градусах 0–360. */
   const pointerAngle = (): number => {
@@ -299,7 +294,13 @@ export default function UpgraderPage({
   const busy = phase === 'spinning'
   /** Блокируем настройки только на время спина. */
   const locked = busy
-  const canPlay = !busy && !tooSmall && !tooBig && !overBalance && requestTarget !== null
+  const canPlay =
+    !busy &&
+    !tooSmall &&
+    !tooBig &&
+    !overBalance &&
+    requestTarget !== null &&
+    targetCovered
 
   const applyBet = (next: number): void => {
     tapFeedback('light')
@@ -322,25 +323,40 @@ export default function UpgraderPage({
     )
   }
 
-  /** Клик по карточке лишь подбирает шанс, при котором цель попадёт в выплату. */
-  const selectChanceForTarget = (nft: UpgraderTargetNft): void => {
+  const isTargetLocked = (target: UpgraderTargetNft): boolean => {
+    if (target.price <= 0) {
+      return true // защита от деления на ноль
+    }
+    const requiredChance = (totalBet * PAYOUT_PERCENT) / target.price
+    return requiredChance < MIN_CHANCE || requiredChance > MAX_CHANCE
+  }
+
+  /**
+   * Выбирает именно нажатую цель и округляет шанс вниз, чтобы выплата её покрыла.
+   * Повторный клик по уже выбранной карточке снимает ручной выбор (возврат к авто-подбору).
+   */
+  const handleSelectTarget = (target: UpgraderTargetNft): void => {
     if (locked) {
       return
     }
 
-    const requiredChance = (totalBet * PAYOUT_PERCENT) / nft.price
-    if (requiredChance < MIN_CHANCE || requiredChance > MAX_CHANCE) {
-      errorFeedback()
-      showError(
-        requiredChance > MAX_CHANCE
-          ? 'Слишком высокий шанс для этого NFT'
-          : 'Слишком низкий шанс для этого NFT',
-      )
+    const key = targetKey(target)
+    if (selectedTargetId === key) {
+      tapFeedback('light')
+      setSelectedTargetId(null)
       return
     }
 
+    if (isTargetLocked(target)) {
+      return
+    }
+
+    const requiredChance = Math.floor((totalBet * PAYOUT_PERCENT) / target.price)
+    setSelectedTargetId(key)
     tapFeedback('light')
-    setChance(Math.round(requiredChance))
+    if (requiredChance >= MIN_CHANCE && requiredChance <= MAX_CHANCE) {
+      setChance(requiredChance)
+    }
   }
 
   const handleUpgrade = async (): Promise<void> => {
@@ -748,18 +764,45 @@ export default function UpgraderPage({
                 </div>
               )}
 
+              <div className="flex items-center justify-between gap-2">
+                <span
+                  className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider ${
+                    selectedTargetId
+                      ? 'bg-[#FFD700]/15 text-[#FFD700]'
+                      : 'bg-white/5 text-gray-400'
+                  }`}
+                >
+                  {selectedTargetId ? 'Выбрано вручную' : 'Авто-подбор'}
+                </span>
+                {selectedTargetId && (
+                  <button
+                    type="button"
+                    className="bg-transparent text-[11px] font-bold text-gray-400 transition hover:text-white"
+                    onClick={() => {
+                      tapFeedback('light')
+                      setSelectedTargetId(null)
+                    }}
+                  >
+                    Сбросить на авто
+                  </button>
+                )}
+              </div>
+
               <div className="upgrader__hint">
-                Цель обновляется при изменении шанса. Нажми на NFT ниже, чтобы подобрать шанс под его цену.
+                Нажми на NFT ниже, чтобы зафиксировать цель и подобрать шанс под её цену.
+                Повторный клик снимает выбор.
               </div>
 
               <div className="grid grid-cols-4 gap-2 pr-1">
                 {visibleTargets.map((nft) => {
                   const key = targetKey(nft)
+                  const manual = selectedTargetId === key
                   const active =
                     (selectedTargetId ?? (autoTarget ? targetKey(autoTarget) : null)) === key
                   const requiredChance = (totalBet * PAYOUT_PERCENT) / nft.price
-                  const lockedByChance =
-                    requiredChance < MIN_CHANCE || requiredChance > MAX_CHANCE
+                  const lockedByChance = isTargetLocked(nft)
+                  /** Выплата покрывает цену карточки — если нет, рамка краснеет (выбор остаётся). */
+                  const covered = payout >= nft.price
                   const lockReason =
                     requiredChance > MAX_CHANCE
                       ? 'Слишком высокий шанс'
@@ -772,21 +815,16 @@ export default function UpgraderPage({
                       key={key}
                       type="button"
                       className={`flex flex-col items-center gap-1 rounded-xl border p-2 text-center transition active:scale-95 ${
-                        lockedByChance
-                          ? 'cursor-not-allowed opacity-50 grayscale'
-                          : active
+                        active
+                          ? covered
                             ? 'border-[#FFD700] bg-[#FFD700]/15'
+                            : 'border-red-400 bg-red-500/15'
+                          : lockedByChance
+                            ? 'cursor-not-allowed opacity-50 grayscale'
                             : 'border-white/10 bg-white/5 hover:border-[#FFD700]/40'
                       }`}
-                      disabled={locked || lockedByChance}
-                      onClick={() => {
-                        if (locked || lockedByChance) {
-                          return
-                        }
-                        // Запоминаем ровно ту карточку, по которой кликнули.
-                        setSelectedTargetId(key)
-                        selectChanceForTarget(nft)
-                      }}
+                      disabled={locked || (lockedByChance && !manual)}
+                      onClick={() => handleSelectTarget(nft)}
                       title={
                         lockReason ?? `Подобрать шанс для ${nft.name} · ${nft.price} ⭐`
                       }
@@ -843,9 +881,10 @@ export default function UpgraderPage({
           {tooBig
             ? `Максимум ${MAX_BET_LABEL} ⭐`
             : overBalance
-              ? `Недостаточно ⭐ на балансе (${balance})`
-              : tooSmall
-                ? `Минимальная ставка — ${MIN_TOTAL_BET} ⭐`
+              ? `Недостаточно ⭐ на балансе (${balance})`                : tooSmall
+                  ? `Минимальная ставка — ${MIN_TOTAL_BET} ⭐`
+                : requestTarget && !targetCovered
+                  ? `Выплаты не хватит на ${requestTarget.name}`
                 : 'Не хватает на NFT'}
         </div>
       )}
@@ -856,7 +895,11 @@ export default function UpgraderPage({
         onClick={() => void handleUpgrade()}
         disabled={!canPlay}
       >
-        {busy ? 'Крутим…' : requestTarget ? `Апгрейд · ${totalBet}` : 'Не хватает на NFT'}
+        {busy
+          ? 'Крутим…'
+          : requestTarget && targetCovered
+            ? `Апгрейд · ${totalBet}`
+            : 'Не хватает на NFT'}
       </button>
       {busy && (
         <div className="upgrader__hint animate-pulse text-center">

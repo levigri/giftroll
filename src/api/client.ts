@@ -55,6 +55,8 @@ export function authHeaders(): Record<string, string> {
 
 async function request<T>(path: string, init?: RequestInit, auth = true): Promise<T> {
   const headers: Record<string, string> = {
+    // Telegram WebView кэширует ответы API — гоняем кэш при каждой загрузке.
+    'Cache-Control': 'no-cache',
     ...(auth ? authHeaders() : {}),
     ...refHeaders(),
     ...((init?.headers as Record<string, string> | undefined) ?? {}),
@@ -203,16 +205,38 @@ export async function depositCreateInvoice(
   })
 }
 
-export async function depositGramsInvoice(
-  gramsAmount: number,
-): Promise<{ depositId: string; starsAmount: number; receiverAddress: string }> {
-  return request<{ depositId: string; starsAmount: number; receiverAddress: string }>(
-    '/api/deposit/grams/invoice',
-    {
-      method: 'POST',
-      body: JSON.stringify({ gramsAmount }),
-    },
-  )
+/** Счёт @CryptoBot (Crypto Pay) на amount ⭐ — открывается в Telegram. */
+export async function depositCryptoInvoice(amount: number): Promise<{ invoiceLink: string }> {
+  return request<{ invoiceLink: string }>('/api/deposit/crypto/invoice', {
+    method: 'POST',
+    body: JSON.stringify({ amount }),
+  })
+}
+
+/**
+ * Депозит в Grams: игрок указывает, сколько звёзд хочет получить,
+ * сервер считает сумму в Gram по живому курсу CoinGecko.
+ */
+export async function depositGramsInvoice(starsAmount: number): Promise<{
+  depositId: string
+  gramsAmount: number
+  starsAmount: number
+  receiverAddress: string
+}> {
+  return request<{
+    depositId: string
+    gramsAmount: number
+    starsAmount: number
+    receiverAddress: string
+  }>('/api/deposit/grams/invoice', {
+    method: 'POST',
+    body: JSON.stringify({ starsAmount }),
+  })
+}
+
+/** Базовый курс звёзд ($1.40 за 100 ⭐) и живой курс TON в USD. */
+export async function getDepositRates(): Promise<{ starsUsd: number; tonUsd: number }> {
+  return request<{ starsUsd: number; tonUsd: number }>('/api/deposit/rates', { method: 'GET' })
 }
 
 export async function depositGramsConfirm(

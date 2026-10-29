@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto'
 import { Address, Cell, beginCell, loadMessage } from '@ton/core'
 import { env } from '../config/env.js'
 import { prisma } from '../db/prisma.js'
+import { getGramRate, getStarsBasePriceUsd } from '../utils/rates.js'
 
 /** Границы одного пополнения в ⭐. */
 export const MIN_DEPOSIT_STARS = 10
@@ -184,28 +185,54 @@ export async function createInvoice(
 
 export async function createGramsInvoice(
   userId: bigint,
-  gramsAmount: number,
-): Promise<{ depositId: string; starsAmount: number; receiverAddress: string }> {
+  starsAmount: number,
+): Promise<{
+  depositId: string
+  gramsAmount: number
+  starsAmount: number
+  receiverAddress: string
+}> {
   if (!env.TON_RECEIVER_ADDRESS) {
     throw new DepositError('TON_RECEIVER_NOT_CONFIGURED', 'TON_RECEIVER_ADDRESS не настроен', 503)
   }
 
-  // 1 Gram = 100 Stars + 5% бонус
-  const starsAmount = Math.floor(gramsAmount * 100 * 1.05)
+  if (
+    !Number.isInteger(starsAmount) ||
+    starsAmount < MIN_DEPOSIT_STARS ||
+    starsAmount > MAX_DEPOSIT_STARS
+  ) {
+    throw new DepositError(
+      'INVALID_AMOUNT',
+      `Сумма должна быть целым числом от ${MIN_DEPOSIT_STARS} до ${MAX_DEPOSIT_STARS} ⭐`,
+      400,
+    )
+  }
+
+  // Базовая цена по курсу 100 ⭐ = $1.40, курс Gram — онлайн с CoinGecko:
+  // grams = usd / tonRate, округление до 6 знаков.
+  const usdAmount = getStarsBasePriceUsd(starsAmount)
+  const tonRate = await getGramRate()
+  const gramsAmount = Math.round((usdAmount / tonRate) * 1_000_000) / 1_000_000
+
   const payload = newPayload(userId)
 
   const deposit = await prisma.deposit.create({
     data: {
       userId,
       amount: starsAmount,
-      gramsAmount: gramsAmount,
+      gramsAmount,
       status: 'pending',
       payload,
       currency: 'GRAMS',
     },
   })
 
-  return { depositId: deposit.id, starsAmount, receiverAddress: env.TON_RECEIVER_ADDRESS }
+  return {
+    depositId: deposit.id,
+    gramsAmount,
+    starsAmount,
+    receiverAddress: env.TON_RECEIVER_ADDRESS,
+  }
 }
 
 export async function confirmGramsDeposit(

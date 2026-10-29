@@ -13,6 +13,8 @@ const envSchema = z.object({
   WEBHOOK_SECRET: z.string().optional(),
   /** Адрес кошелька-получателя для пополнений в Gram (TON mainnet). */
   TON_RECEIVER_ADDRESS: z.string().min(1, 'TON_RECEIVER_ADDRESS is required'),
+  /** Токен бота @CryptoBot (Crypto Pay API) для оплаты криптой. */
+  CRYPTO_PAY_TOKEN: z.string().optional(),
 })
 
 const parsed = envSchema.parse(process.env)

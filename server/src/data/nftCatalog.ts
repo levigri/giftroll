@@ -2,7 +2,7 @@ import type { Prize } from './cases.js'
 
 /**
  * Каталог Telegram Gifts для апгрейдера.
- * Цены указаны в ⭐ по курсу 1 GRAM = 100 STARS.
+ * Цены указаны в ⭐ (игровая валюта; база 100 ⭐ = $1.40, см. utils/rates.ts).
  */
 const CATALOG: ReadonlyArray<readonly [name: string, price: number]> = [
   // Топ дорогих

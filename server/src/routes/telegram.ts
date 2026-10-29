@@ -23,7 +23,7 @@ export const telegramRoutes: FastifyPluginAsync = async (fastify) => {
     await ctx.reply(welcomeText, {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '🎮 Играть в GiftRoll', web_app: { url: 'https://giftroll-six.vercel.app/' } }],
+          [{ text: '🎮 Играть в GiftRoll', web_app: { url: 'https://giftroll-six.vercel.app/?v=2' } }],
         ],
       },
     })

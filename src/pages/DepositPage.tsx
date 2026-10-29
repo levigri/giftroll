@@ -1,4 +1,4 @@
-import { Component, useState, type ErrorInfo, type ReactNode } from 'react'
+import { Component, useEffect, useState, type ErrorInfo, type ReactNode } from 'react'
 import { AlertTriangle, ArrowLeft, Coins, Gem, Star, Wallet } from 'lucide-react'
 import { useTonConnectUI, useTonWallet } from '@tonconnect/ui-react'
 import {
@@ -6,6 +6,8 @@ import {
   depositGramsConfirm,
   depositGramsInvoice,
   depositCreateInvoice,
+  depositCryptoInvoice,
+  getDepositRates,
 } from '../api/client'
 import { errorFeedback, successFeedback, tapFeedback } from '../telegram'
 
@@ -22,6 +24,8 @@ const MIN_AMOUNT = 10
 const MAX_AMOUNT = 100_000
 interface TelegramWebAppBridge {
   openInvoice?: (url: string, callback?: (status: string) => void) => void
+  /** Открывает внешнюю ссылку внутри Telegram (например, счёт @CryptoBot). */
+  openTelegramLink?: (url: string) => void
 }
 
 function getTelegramWebApp(): TelegramWebAppBridge | undefined {
@@ -141,16 +145,53 @@ function DepositPageContent({
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState<{ text: string; tone: ToastTone } | null>(null)
 
-  const [gramsAmount, setGramsAmount] = useState('')
+  /** Сколько звёзд хочет получить игрок во вкладке Gram. */
+  const [gramsStars, setGramsStars] = useState('')
   const [gramsBusy, setGramsBusy] = useState(false)
+  /** Базовый курс ($ за 100 ⭐) и живой курс TON — приходят с бэкенда. */
+  const [rates, setRates] = useState<{ starsUsd: number; tonUsd: number }>({
+    starsUsd: 1.4,
+    tonUsd: 1.35,
+  })
+  /** Сумма пополнения криптой в ⭐ и флаг отправки счёта в @CryptoBot. */
+  const [cryptoAmount, setCryptoAmount] = useState(100)
+  const [cryptoBusy, setCryptoBusy] = useState(false)
   const [tonConnectUI] = useTonConnectUI()
   const wallet = useTonWallet()
 
   const amountValid = Number.isInteger(amount) && amount >= MIN_AMOUNT && amount <= MAX_AMOUNT
 
-  const gramsNum = parseFloat(gramsAmount.replace(',', '.'))
-  const gramsValid = Number.isFinite(gramsNum) && gramsNum > 0
-  const starsFromGrams = gramsValid ? Math.floor(gramsNum * 100 * 1.05) : 0
+  /** Игрок вводит сколько звёзд хочет получить — это и есть сумма депозита. */
+  const gramsStarsNum = Number(gramsStars.replace(/[\s\u00a0]/g, ''))
+  const gramsValid =
+    Number.isInteger(gramsStarsNum) && gramsStarsNum >= MIN_AMOUNT && gramsStarsNum <= MAX_AMOUNT
+
+  /** Сумма к оплате в Gram: базовая цена звёзд / живой курс TON (CoinGecko). */
+  const gramsToPay = gramsValid
+    ? Math.round(((gramsStarsNum / 100) * rates.starsUsd * 1_000_000) / rates.tonUsd) / 1_000_000
+    : 0
+
+  const cryptoValid =
+    Number.isInteger(cryptoAmount) && cryptoAmount >= MIN_AMOUNT && cryptoAmount <= MAX_AMOUNT
+
+  /** Счёт CryptoBot: база 100 ⭐ = $1.40 плюс комиссия шлюза 3%. */
+  const cryptoBaseUsd = (cryptoAmount / 100) * rates.starsUsd
+  const cryptoFinalUsd = cryptoBaseUsd * 1.03
+
+  // Курсы берём у бэкенда (там CoinGecko без CORS-проблем) — один раз на открытие страницы.
+  useEffect(() => {
+    let alive = true
+    void getDepositRates()
+      .then((res) => {
+        if (alive && Number.isFinite(res?.tonUsd) && res.tonUsd > 0) {
+          setRates({ starsUsd: res.starsUsd, tonUsd: res.tonUsd })
+        }
+      })
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
+  }, [])
 
   const showToast = (text: string, tone: ToastTone = 'ok') => {
     setToast({ text, tone })
@@ -223,7 +264,7 @@ function DepositPageContent({
 
   const handleGramsPay = async () => {
     if (!gramsValid) {
-      showToast('Укажите корректную сумму в Grams', 'error')
+      showToast(`Сумма от ${MIN_AMOUNT} до ${MAX_AMOUNT} ⭐`, 'error')
       return
     }
     if (!wallet) {
@@ -235,14 +276,17 @@ function DepositPageContent({
     setGramsBusy(true)
 
     try {
-      const { depositId, receiverAddress } = await depositGramsInvoice(gramsNum)
+      const payStars = gramsStarsNum
+      const { depositId, gramsAmount: invoiceGrams, receiverAddress } = await depositGramsInvoice(
+        payStars,
+      )
       const transaction = {
         validUntil: Math.floor(Date.now() / 1000) + 300,
         network: '-239',
         messages: [
           {
             address: receiverAddress || TON_RECEIVER_ADDRESS,
-            amount: String(Math.floor(gramsNum * 1e9)),
+            amount: String(Math.round(invoiceGrams * 1e9)),
           },
         ],
       }
@@ -258,9 +302,9 @@ function DepositPageContent({
         throw new Error('Сервер не подтвердил зачисление')
       }
       successFeedback()
-      showToast(`Пополнение на ${starsFromGrams} ⭐ зачислено`)
+      showToast(`Пополнение на ${payStars} ⭐ зачислено`)
       void onRefreshMe?.()
-      setGramsAmount('')
+      setGramsStars('')
     } catch (err: unknown) {
       // Пользователь отклонил транзакцию в кошельке (TonConnect code 300).
       const code = (err as { code?: number | string } | null)?.code
@@ -276,6 +320,34 @@ function DepositPageContent({
       }
     } finally {
       setGramsBusy(false)
+    }
+  }
+
+  /** Выставляет счёт в @CryptoBot и открывает его в Telegram. */
+  const handleCryptoPay = async () => {
+    if (!cryptoValid) {
+      showToast(`Сумма от ${MIN_AMOUNT} до ${MAX_AMOUNT} ⭐`, 'error')
+      return
+    }
+
+    const payAmount = cryptoAmount
+    tapFeedback('medium')
+    setCryptoBusy(true)
+
+    try {
+      const { invoiceLink } = await depositCryptoInvoice(payAmount)
+      const webApp = getTelegramWebApp()
+
+      if (webApp?.openTelegramLink) {
+        webApp.openTelegramLink(invoiceLink)
+      } else {
+        window.open?.(invoiceLink, '_blank', 'noopener')
+      }
+    } catch (err: unknown) {
+      errorFeedback()
+      showToast(formatDepositError(err), 'error')
+    } finally {
+      setCryptoBusy(false)
     }
   }
 
@@ -430,9 +502,8 @@ function DepositPageContent({
           <div className="flex items-center justify-between rounded-2xl border border-[#48A9FF]/25 bg-gradient-to-r from-[#48A9FF]/10 to-emerald-400/10 px-3.5 py-3">
             <div>
               <div className="text-sm font-extrabold text-white">Оплата в Gram</div>
-              <div className="mt-0.5 text-[11px] text-gray-400">Курс 1 Gram = 100 ⭐</div>
             </div>
-            <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-xs font-extrabold text-emerald-300">+5%</span>
+            <span className="rounded-full border border-[#48A9FF]/30 bg-[#48A9FF]/10 px-2.5 py-1 text-xs font-extrabold text-[#A9D8FF]">TON</span>
           </div>
           {!wallet ? (
             <button
@@ -447,21 +518,24 @@ function DepositPageContent({
             <>
               <label className="glass-card flex flex-col gap-1.5 px-3.5 py-3">
                 <span className="text-[11px] font-extrabold uppercase tracking-wider text-gray-400">
-                  Сумма в Grams
+                  Сколько звёзд получить
                 </span>
                 <input
                   className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-base font-bold text-white outline-none transition placeholder:text-gray-500 focus:border-[#48A9FF]/70"
                   type="number"
-                  inputMode="decimal"
-                  value={gramsAmount}
-                  placeholder="0.0"
-                  onChange={(event) => setGramsAmount(event.target.value)}
+                  inputMode="numeric"
+                  min={MIN_AMOUNT}
+                  max={MAX_AMOUNT}
+                  step={1}
+                  value={gramsStars}
+                  placeholder={`${MIN_AMOUNT}–${MAX_AMOUNT}`}
+                  onChange={(event) => setGramsStars(event.target.value)}
                 />
               </label>
 
               {gramsValid && (
-                <p className="m-0 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.06] px-3 py-2 text-center text-[12px] leading-relaxed text-gray-300">
-                  Начислим <strong className="text-white">{starsFromGrams.toLocaleString('ru-RU')} ⭐</strong> с бонусом <strong className="text-emerald-300">+5%</strong>
+                <p className="m-0 rounded-xl border border-[#48A9FF]/20 bg-[#48A9FF]/[0.06] px-3 py-2 text-center text-[12px] leading-relaxed text-gray-300">
+                  К оплате: <strong className="text-white">~{gramsToPay} Gram</strong>
                 </p>
               )}
 
@@ -479,19 +553,84 @@ function DepositPageContent({
       )}
 
       {tab === 'crypto' && (
-        <div className="relative overflow-hidden rounded-3xl border border-[#FF6572]/20 bg-gradient-to-br from-[#FF6572]/10 via-[#171014] to-[#0B0C10] px-5 py-9 text-center shadow-[0_16px_44px_rgba(255,101,114,0.08)]">
-          <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-[#FF6572]/10 blur-3xl" />
-          <div className="relative mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-[#FF6572]/25 bg-[#FF6572]/10 text-[#FF8A94] shadow-[0_0_32px_rgba(255,101,114,0.16)]">
-            <Coins size={30} strokeWidth={1.7} />
+        <>
+          <div className="flex items-center justify-between rounded-2xl border border-[#48A9FF]/25 bg-gradient-to-r from-[#48A9FF]/10 to-[#FF6572]/10 px-3.5 py-3">
+            <div>
+              <div className="text-sm font-extrabold text-white">Оплата криптовалютой</div>
+            </div>
+            <span className="rounded-full border border-[#48A9FF]/30 bg-[#48A9FF]/10 px-2.5 py-1 text-xs font-extrabold text-[#A9D8FF]">
+              USDT
+            </span>
           </div>
-          <h3 className="relative m-0 text-lg font-extrabold text-white">Раздел в разработке</h3>
-          <p className="relative mx-auto mb-0 mt-2 max-w-[270px] text-sm leading-relaxed text-gray-400">
-            Скоро здесь появится пополнение криптовалютой. Пока доступны Telegram Stars и Gram.
+
+          <div className="grid grid-cols-3 gap-2" role="group" aria-label="Сумма пополнения криптой">
+            {AMOUNTS.map((value) => {
+              const active = cryptoAmount === value
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={active}
+                  className={`flex items-center justify-center gap-1 rounded-xl border py-2.5 text-sm font-extrabold transition ${
+                    active
+                      ? 'border-[#48A9FF]/70 bg-[#48A9FF]/15 text-[#A9D8FF] shadow-[0_0_18px_rgba(72,169,255,0.18)]'
+                      : 'border-white/10 bg-white/5 text-gray-300 hover:border-[#48A9FF]/40 hover:text-white'
+                  }`}
+                  onClick={() => {
+                    tapFeedback('light')
+                    setCryptoAmount(value)
+                  }}
+                >
+                  {value.toLocaleString('ru-RU')}
+                  <Star size={12} className="text-[#FFD700]" fill="currentColor" />
+                </button>
+              )
+            })}
+          </div>
+
+          <label className="glass-card flex flex-col gap-1.5 px-3.5 py-3">
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-gray-400">
+              Сколько звёзд купить
+            </span>
+            <input
+              className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-base font-bold text-white outline-none transition placeholder:text-gray-500 focus:border-[#48A9FF]/70"
+              type="number"
+              inputMode="numeric"
+              min={MIN_AMOUNT}
+              max={MAX_AMOUNT}
+              step={1}
+              value={cryptoAmount || ''}
+              placeholder={`${MIN_AMOUNT}–${MAX_AMOUNT}`}
+              onChange={(event) => {
+                const parsed = Number(event.target.value)
+                setCryptoAmount(Number.isFinite(parsed) ? parsed : 0)
+              }}
+            />
+          </label>
+
+          {cryptoValid && (
+            <p className="m-0 rounded-xl border border-[#48A9FF]/20 bg-[#48A9FF]/[0.06] px-3 py-2 text-center text-[12px] leading-relaxed text-gray-300">
+              К оплате: <strong className="text-white">~${cryptoFinalUsd.toFixed(3)}</strong>{' '}
+              (базовая ${cryptoBaseUsd.toFixed(2)} + 3%)
+            </p>
+          )}
+
+          <button
+            type="button"
+            className="flex items-center justify-center gap-1.5 rounded-xl border border-[#48A9FF]/35 bg-gradient-to-r from-[#48A9FF] to-[#397FE6] py-3.5 text-base font-extrabold text-white shadow-[0_8px_28px_rgba(59,130,246,0.22)] transition hover:brightness-110 disabled:opacity-50"
+            disabled={cryptoBusy || !cryptoValid}
+            onClick={() => void handleCryptoPay()}
+          >
+            <Coins size={16} />
+            {cryptoBusy
+              ? 'Создаём счёт…'
+              : `Оплатить криптовалютой · ${cryptoAmount.toLocaleString('ru-RU')} ⭐`}
+          </button>
+
+          <p className="m-0 px-1 text-center text-[12px] leading-relaxed text-gray-400">
+            После оплаты вернитесь в приложение. Баланс обновится автоматически.
           </p>
-          <span className="relative mt-5 inline-flex rounded-full border border-[#FF6572]/20 bg-[#FF6572]/[0.07] px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[#FF9EA6]">
-            Скоро
-          </span>
-        </div>
+        </>
       )}
 
     </section>

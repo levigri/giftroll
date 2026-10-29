@@ -12,6 +12,8 @@ import {
   MAX_DEPOSIT_STARS,
   MIN_DEPOSIT_STARS,
 } from '../services/deposit.js'
+import { createCryptoInvoice, handleCryptoWebhook } from '../services/cryptobot.js'
+import { getGramRate, STARS_BASE_PRICE_USD } from '../utils/rates.js'
 
 const invoiceSchema = z.object({
   amount: z
@@ -22,10 +24,11 @@ const invoiceSchema = z.object({
 })
 
 const gramsInvoiceSchema = z.object({
-  gramsAmount: z
+  starsAmount: z
     .number()
-    .finite('gramsAmount must be a finite number')
-    .positive('gramsAmount must be > 0'),
+    .int('starsAmount must be an integer')
+    .min(MIN_DEPOSIT_STARS, `starsAmount must be >= ${MIN_DEPOSIT_STARS}`)
+    .max(MAX_DEPOSIT_STARS, `starsAmount must be <= ${MAX_DEPOSIT_STARS}`),
 })
 
 const gramsConfirmSchema = z.object({
@@ -84,7 +87,7 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        return await createGramsInvoice(user.id, parsed.data.gramsAmount)
+        return await createGramsInvoice(user.id, parsed.data.starsAmount)
       } catch (err) {
         if (err instanceof DepositError) {
           return reply.code(err.statusCode).send({ error: err.message, code: err.code })
@@ -123,6 +126,49 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
       }
     },
   )
+
+  // GET /api/deposit/rates — базовый курс звёзд и живой курс Gram для экрана пополнения.
+  fastify.get('/api/deposit/rates', async () => {
+    const tonUsd = await getGramRate()
+    return { starsUsd: STARS_BASE_PRICE_USD, tonUsd }
+  })
+
+  // POST /api/deposit/crypto/invoice — счёт @CryptoBot (Crypto Pay) на amount ⭐
+  fastify.post(
+    '/api/deposit/crypto/invoice',
+    { preHandler: authenticateTelegram },
+    async (request, reply) => {
+      const user = request.telegramUser
+      if (!user) {
+        return reply.code(401).send({ error: 'Unauthorized', code: 'AUTH_REQUIRED' })
+      }
+
+      const parsed = parseBody(invoiceSchema, request.body)
+      if (!parsed.ok) {
+        return reply.code(400).send({ error: parsed.error, code: 'VALIDATION_ERROR' })
+      }
+
+      try {
+        return await createCryptoInvoice(user.id, parsed.data.amount)
+      } catch (err) {
+        if (err instanceof DepositError) {
+          return reply.code(err.statusCode).send({ error: err.message, code: err.code })
+        }
+        throw err
+      }
+    },
+  )
+
+  // POST /api/deposit/crypto/webhook — публичный вебхук Crypto Pay (без авторизации).
+  // Всегда отвечает { ok: true }, чтобы Crypto Bot не повторял доставку бесконечно.
+  fastify.post('/api/deposit/crypto/webhook', async (request, reply) => {
+    try {
+      return await handleCryptoWebhook(request.body)
+    } catch (err) {
+      request.log.error(err)
+      return reply.code(200).send({ ok: true })
+    }
+  })
 
   if (env.NODE_ENV !== 'production') {
     // POST /api/deposit/dev-credit — ⚠️ DEV ONLY, мгновенное начисление без оплаты

@@ -18,3 +18,8 @@ services:
         sync: false
       - key: TON_RECEIVER_ADDRESS
         value: "UQCrIF5c20wufcyh7AFWgzam5KtgZtXzbT2AuIblNHApbUAg"
+      # Токен бота @CryptoBot (Crypto Pay) — задай его в панели Render:
+      # Dashboard → giftroll-backend → Environment → CRYPTO_PAY_TOKEN = <token>
+      # Без него вкладка Crypto вернёт 503 CRYPTO_PAY_NOT_CONFIGURED.
+      - key: CRYPTO_PAY_TOKEN
+        sync: false
