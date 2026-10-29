@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Lock, Star, X } from 'lucide-react'
+import { Lock, Send, Star, X } from 'lucide-react'
 import type { InventoryItem } from '../api/types'
-import { getInventory, sellNft } from '../api/client'
+import { getInventory, sellNft, withdrawNft } from '../api/client'
 import { errorFeedback, successFeedback, tapFeedback } from '../telegram'
 import { prizeImage } from '../utils/assets'
 import AssetImage from './AssetImage'
@@ -27,6 +27,8 @@ export default function InventoryModal({
   const [busyId, setBusyId] = useState<string | null>(null)
   /** Предмет, по которому ждём подтверждения продажи. */
   const [confirmItem, setConfirmItem] = useState<InventoryItem | null>(null)
+  /** Предмет, для которого подтверждают ручной вывод в Telegram. */
+  const [withdrawItem, setWithdrawItem] = useState<InventoryItem | null>(null)
   /** Сообщение о зачисленных звёздах после продажи. */
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -50,7 +52,7 @@ export default function InventoryModal({
   const handleSellClick = (item: InventoryItem) => {
     tapFeedback('light')
     const lockTime = item.lockUntil ? new Date(item.lockUntil).getTime() : Number.NaN
-    if (Number.isFinite(lockTime) && lockTime > Date.now()) {
+    if (!item.isExternal && Number.isFinite(lockTime) && lockTime > Date.now()) {
       const daysLeft = Math.ceil((lockTime - Date.now()) / (1000 * 60 * 60 * 24))
       errorFeedback()
       showError(
@@ -62,6 +64,19 @@ export default function InventoryModal({
     }
 
     setConfirmItem(item)
+  }
+
+  const handleWithdrawClick = (item: InventoryItem) => {
+    tapFeedback('light')
+    const lockTime = item.lockUntil ? new Date(item.lockUntil).getTime() : Number.NaN
+    if (!item.isExternal && Number.isFinite(lockTime) && lockTime > Date.now()) {
+      const daysLeft = Math.ceil((lockTime - Date.now()) / (1000 * 60 * 60 * 24))
+      errorFeedback()
+      showError(`Вывод заблокирован на ${daysLeft} дн. Для NFT, выигранных на Telegram Stars, действует правило удержания.`)
+      return
+    }
+
+    setWithdrawItem(item)
   }
 
   const loadItems = async () => {
@@ -110,6 +125,30 @@ export default function InventoryModal({
     }
   }
 
+  const handleWithdraw = async (item: InventoryItem) => {
+    tapFeedback('medium')
+    setBusyId(item.id)
+    setWithdrawItem(null)
+
+    try {
+      const result = await withdrawNft(item.id)
+      setItems((current) => current.map((currentItem) =>
+        currentItem.id === item.id
+          ? { ...currentItem, status: 'WITHDRAWAL_REQUESTED' }
+          : currentItem,
+      ))
+      successFeedback()
+      showNotice(result.message || 'Заявка создана, ожидайте до 12 часов')
+      await loadItems()
+    } catch (err: unknown) {
+      errorFeedback()
+      const message = err instanceof Error ? err.message : 'Не удалось создать заявку на вывод'
+      showError(message)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   const content = (
     <>
       <div className="mb-3 flex items-center justify-between">
@@ -149,7 +188,7 @@ export default function InventoryModal({
             const isBusy = busyId === item.id
             const lockTime = item.lockUntil ? new Date(item.lockUntil).getTime() : Number.NaN
             const daysLeft = Math.ceil((lockTime - Date.now()) / (1000 * 60 * 60 * 24))
-            const isLocked = Number.isFinite(lockTime) && daysLeft > 0
+            const isLocked = !item.isExternal && Number.isFinite(lockTime) && daysLeft > 0
 
             return (
               <div
@@ -164,21 +203,37 @@ export default function InventoryModal({
                 />
                 <div className="w-full truncate text-[11px] font-bold text-white">{item.prizeName}</div>
                 <div className="text-[11px] font-bold text-[#FFD700]">{item.prizePrice}</div>
-                {item.status !== 'CLAIMED' && (
+                {item.status === 'WITHDRAWAL_REQUESTED' ? (
+                  <span className="inline-flex w-full items-center justify-center gap-1 rounded-lg border border-amber-300/25 bg-amber-400/10 px-1 py-1.5 text-[10px] font-bold text-amber-300">
+                    <Lock size={11} /> На выводе (до 12 ч.)
+                  </span>
+                ) : item.status !== 'CLAIMED' && (
                   <>
                     {isLocked && (
                       <span className="inline-flex w-full items-center justify-center gap-1 rounded-lg border border-red-400/25 bg-red-500/10 px-1 py-1.5 text-[10px] font-bold text-red-400">
                         <Lock size={11} /> Через {daysLeft} дн.
                       </span>
                     )}
-                    <button
-                      type="button"
-                      className="gold-btn w-full py-1.5 text-[10px]"
-                      disabled={isBusy}
-                      onClick={() => handleSellClick(item)}
-                    >
-                      {isBusy ? '...' : 'Продать'}
-                    </button>
+                    <div className="grid w-full grid-cols-2 gap-1">
+                      <button
+                        type="button"
+                        className="gold-btn w-full py-1.5 text-[10px]"
+                        disabled={isBusy}
+                        onClick={() => handleSellClick(item)}
+                      >
+                        {isBusy ? '...' : 'Продать'}
+                      </button>
+                      <button
+                        type="button"
+                        className="w-full rounded-lg border border-violet-400/35 bg-violet-400/10 py-1.5 text-[10px] font-bold text-violet-200 transition hover:bg-violet-400/20 disabled:opacity-50"
+                        disabled={isBusy}
+                        onClick={() => handleWithdrawClick(item)}
+                      >
+                        <span className="inline-flex items-center justify-center gap-1">
+                          <Send size={10} /> Вывести
+                        </span>
+                      </button>
+                    </div>
                   </>
                 )}
                 {item.status !== 'PENDING' && (
@@ -237,6 +292,57 @@ export default function InventoryModal({
                 onClick={() => void handleSell(confirmItem)}
               >
                 {busyId === confirmItem.id ? '...' : 'Да'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {withdrawItem && (
+        <div
+          className="fixed inset-0 z-[1101] flex items-center justify-center p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Подтверждение вывода NFT"
+        >
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/75 backdrop-blur-sm"
+            onClick={() => setWithdrawItem(null)}
+            aria-label="Отмена"
+          />
+          <div className="relative w-full max-w-[340px] rounded-2xl border border-violet-300/20 bg-[#101018] p-5 text-center shadow-[0_20px_70px_rgba(0,0,0,0.55)]">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-violet-300/25 bg-violet-400/10 text-violet-200">
+              <Send size={21} />
+            </div>
+            <h3 className="mb-0 mt-3 text-lg font-extrabold text-white">Вывод NFT</h3>
+            <AssetImage
+              src={prizeImage(withdrawItem.prizeName, withdrawItem.prizeEmoji)}
+              alt={withdrawItem.prizeName}
+              className="mx-auto mt-3 h-16 w-16"
+              glow="rgba(139,92,246,0.45)"
+            />
+            <div className="mt-2 w-full truncate text-sm font-bold text-white">
+              {withdrawItem.prizeName}
+            </div>
+            <p className="mb-0 mt-4 rounded-xl border border-amber-300/20 bg-amber-400/[0.07] px-3 py-3 text-xs leading-relaxed text-amber-100/90">
+              ⚠️ Вывод подарка занимает до 12 часов. Подарок придет вам в Telegram от аккаунта @Giftrollgamebot.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                className="flex-1 rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-bold text-gray-300 transition hover:bg-white/10"
+                onClick={() => setWithdrawItem(null)}
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                className="flex-1 rounded-xl border border-violet-300/30 bg-violet-500/20 py-2.5 text-sm font-extrabold text-violet-100 transition hover:bg-violet-500/30 disabled:opacity-50"
+                disabled={busyId === withdrawItem.id}
+                onClick={() => void handleWithdraw(withdrawItem)}
+              >
+                {busyId === withdrawItem.id ? 'Создаём…' : 'Подтвердить вывод'}
               </button>
             </div>
           </div>

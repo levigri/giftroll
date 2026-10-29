@@ -283,6 +283,13 @@ export async function depositMock50(): Promise<{ ok: boolean }> {
   })
 }
 
+export async function withdrawNft(id: string): Promise<{ ok: boolean; message: string }> {
+  return request<{ ok: boolean; message: string }>(
+    `/api/nft/${encodeURIComponent(id)}/withdraw`,
+    { method: 'POST' },
+  )
+}
+
 /* ---------- Рефералка ---------- */
 
 export async function getReferralStats(): Promise<ReferralStats> {

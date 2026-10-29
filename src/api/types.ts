@@ -47,7 +47,7 @@ export interface InventoryItem {
   giftId?: string | null
   isExternal: boolean
   lockUntil: string | null
-  status: 'PENDING' | 'SENT' | 'CLAIMED'
+  status: 'PENDING' | 'SENT' | 'CLAIMED' | 'WITHDRAWAL_REQUESTED'
   createdAt: string
 }
 

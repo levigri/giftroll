@@ -407,7 +407,7 @@ export async function sellNft(
         throw new GameError('ALREADY_CLAIMED', 'Предмет уже выведен', 400)
       }
 
-      if (item.lockUntil && item.lockUntil > new Date()) {
+      if (!item.isExternal && item.lockUntil && item.lockUntil > new Date()) {
         const daysLeft = Math.ceil((item.lockUntil.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
         throw new GameError('NFT_LOCKED', `Продажа заблокирована. Осталось дней: ${daysLeft}`)
       }

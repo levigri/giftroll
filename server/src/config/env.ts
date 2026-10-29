@@ -23,6 +23,11 @@ const envSchema = z.object({
   TELEGRAM_API_HASH: z.string().optional(),
   /** StringSession выдаётся локальным scripts/generate-session.ts; хранить только в env. */
   TELEGRAM_SESSION: z.string().optional(),
+  /** Telegram user ID администратора для уведомлений о запросах на вывод NFT. */
+  ADMIN_ID: z.preprocess(
+    (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+    z.coerce.bigint().positive().optional(),
+  ),
 })
 
 const parsed = envSchema.parse(process.env)

@@ -73,12 +73,6 @@ async function handleIncomingMessage(event: NewMessageEvent): Promise<void> {
     'title' in action.gift && typeof action.gift.title === 'string'
       ? action.gift.title
       : `Telegram NFT #${giftId}`
-  // Telegram service message date is the time the gift was purchased/transferred
-  // to this account. Use it instead of processing time so delayed updates do not
-  // restart the 21-day holding period.
-  const acquiredAt = new Date(message.date * 1000)
-  const lockUntil = new Date(acquiredAt.getTime() + 21 * 24 * 60 * 60 * 1000)
-
   try {
     await prisma.$transaction(async (tx) => {
       const inventoryItem = await tx.inventoryItem.create({
@@ -89,7 +83,7 @@ async function handleIncomingMessage(event: NewMessageEvent): Promise<void> {
           prizeEmoji: '🎁',
           prizePrice: 0,
           isExternal: true,
-          lockUntil,
+          lockUntil: null,
         },
       })
 

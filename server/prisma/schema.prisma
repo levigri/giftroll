@@ -16,6 +16,7 @@ enum InventoryStatus {
   PENDING
   SENT
   CLAIMED
+  WITHDRAWAL_REQUESTED
 }
 
 model User {
