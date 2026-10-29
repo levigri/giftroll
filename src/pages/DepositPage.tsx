@@ -1,5 +1,5 @@
 import { Component, useEffect, useState, type ErrorInfo, type ReactNode } from 'react'
-import { AlertTriangle, ArrowLeft, Coins, Gem, Star, Wallet } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Coins, Gem, Gift, Star, Wallet } from 'lucide-react'
 import { useTonConnectUI, useTonWallet } from '@tonconnect/ui-react'
 import {
   ApiError,
@@ -49,7 +49,7 @@ export interface DepositPageProps {
 }
 
 type ToastTone = 'ok' | 'error'
-type Tab = 'stars' | 'grams' | 'crypto'
+type Tab = 'stars' | 'grams' | 'nft' | 'crypto'
 
 function formatDepositError(err: unknown): string {
   if (err instanceof ApiError) {
@@ -458,45 +458,58 @@ function DepositPageContent({
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-2" role="tablist" aria-label="Способ пополнения">
+      <div className="grid grid-cols-4 gap-1.5" role="tablist" aria-label="Способ пополнения">
         <button
           type="button"
           role="tab"
           aria-selected={tab === 'stars'}
-          className={`rounded-xl border px-3 py-2 text-sm font-extrabold transition ${
+          className={`rounded-xl border px-1.5 py-2 text-xs font-extrabold transition ${
             tab === 'stars'
               ? 'border-[#FFD700]/70 bg-[#FFD700]/15 text-[#FFE680] shadow-gold'
               : 'border-white/10 bg-white/5 text-gray-300 hover:border-[#FFD700]/40 hover:text-white'
           }`}
           onClick={() => setTab('stars')}
         >
-          <span className="inline-flex items-center gap-1.5"><Star size={14} fill="currentColor" /> Stars</span>
+          <span className="inline-flex items-center gap-1"><Star size={13} fill="currentColor" /> Stars</span>
         </button>
         <button
           type="button"
           role="tab"
           aria-selected={tab === 'grams'}
-          className={`rounded-xl border px-3 py-2 text-sm font-extrabold transition ${
+          className={`rounded-xl border px-1.5 py-2 text-xs font-extrabold transition ${
             tab === 'grams'
               ? 'border-[#48A9FF]/70 bg-[#48A9FF]/15 text-[#A9D8FF] shadow-[0_0_18px_rgba(72,169,255,0.18)]'
               : 'border-white/10 bg-white/5 text-gray-300 hover:border-[#48A9FF]/40 hover:text-white'
           }`}
           onClick={() => setTab('grams')}
         >
-          <span className="inline-flex items-center gap-1.5"><Gem size={14} /> Gram</span>
+          <span className="inline-flex items-center gap-1"><Gem size={13} /> Gram</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'nft'}
+          className={`rounded-xl border px-1.5 py-2 text-xs font-extrabold transition ${
+            tab === 'nft'
+              ? 'border-violet-400/70 bg-violet-400/15 text-violet-200 shadow-[0_0_18px_rgba(167,139,250,0.18)]'
+              : 'border-white/10 bg-white/5 text-gray-300 hover:border-violet-400/40 hover:text-white'
+          }`}
+          onClick={() => setTab('nft')}
+        >
+          <span className="inline-flex items-center gap-1"><Gift size={13} /> NFT</span>
         </button>
         <button
           type="button"
           role="tab"
           aria-selected={tab === 'crypto'}
-          className={`rounded-xl border px-3 py-2 text-sm font-extrabold transition ${
+          className={`rounded-xl border px-1.5 py-2 text-xs font-extrabold transition ${
             tab === 'crypto'
               ? 'border-[#FF6572]/70 bg-[#FF6572]/15 text-[#FFABB2] shadow-[0_0_18px_rgba(255,101,114,0.18)]'
               : 'border-white/10 bg-white/5 text-gray-300 hover:border-[#FF6572]/40 hover:text-white'
           }`}
           onClick={() => setTab('crypto')}
         >
-          <span className="inline-flex items-center gap-1.5"><Coins size={14} /> Crypto</span>
+          <span className="inline-flex items-center gap-1"><Coins size={13} /> Crypto</span>
         </button>
       </div>
 
@@ -642,6 +655,40 @@ function DepositPageContent({
             </>
           )}
         </>
+      )}
+
+      {tab === 'nft' && (
+        <div className="relative overflow-hidden rounded-2xl border border-violet-400/25 bg-gradient-to-br from-violet-500/[0.12] via-[#15131d] to-[#0B0C10] p-4 shadow-[0_12px_36px_rgba(124,58,237,0.1)]">
+          <div className="pointer-events-none absolute -right-10 -top-12 h-36 w-36 rounded-full bg-violet-500/10 blur-3xl" />
+          <div className="relative flex flex-col items-center gap-3 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-violet-300/25 bg-violet-400/10 text-violet-200 shadow-[0_8px_24px_rgba(139,92,246,0.15)]">
+              <Gift size={27} />
+            </div>
+            <div className="space-y-1">
+              <h3 className="m-0 text-base font-extrabold text-white">Пополнить NFT-подарком</h3>
+              <p className="m-0 text-sm leading-relaxed text-gray-400">
+                Отправь Telegram-подарок на аккаунт GiftRoll — после получения он появится в твоём инвентаре.
+              </p>
+            </div>
+            <a
+              href="https://t.me/RelayerGiftRoll"
+              onClick={(event) => {
+                const webApp = getTelegramWebApp()
+                if (typeof webApp?.openTelegramLink === 'function') {
+                  event.preventDefault()
+                  webApp.openTelegramLink('https://t.me/RelayerGiftRoll')
+                }
+              }}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-violet-300/30 bg-gradient-to-r from-violet-500/25 to-fuchsia-500/20 px-4 py-3 text-sm font-extrabold text-violet-100 transition hover:border-violet-200/50 hover:brightness-110"
+            >
+              <Gift size={16} />
+              Отправить на @RelayerGiftRoll
+            </a>
+            <p className="m-0 text-[11px] leading-relaxed text-gray-500">
+              Отправляй подарок с Telegram-аккаунта, привязанного к GiftRoll. На новые подарки действует блокировка продажи до 21 дня с момента получения.
+            </p>
+          </div>
+        </div>
       )}
 
       {tab === 'crypto' && (
