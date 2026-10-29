@@ -2,6 +2,7 @@ import { prisma } from '../db/prisma.js'
 import { findNftPrize } from '../data/cases.js'
 import { GameError } from './game.js'
 import { processWagering } from './deposit.js'
+import { findActiveDepositLock } from './depositLock.js'
 import { getUsername, logDrop } from './drops.js'
 import { logTransaction } from './transaction.js'
 
@@ -162,12 +163,7 @@ export async function performUpgrade(
       }
 
       if (grantNft) {
-        const now = new Date()
-        const activeDeposit = await tx.deposit.findFirst({
-          where: { userId, status: 'completed', lockUntil: { gt: now } },
-          orderBy: { createdAt: 'desc' },
-          select: { lockUntil: true },
-        })
+        const inheritedLock = await findActiveDepositLock(tx, userId)
         await tx.inventoryItem.create({
           data: {
             userId,
@@ -176,7 +172,7 @@ export async function performUpgrade(
             prizeEmoji: targetNft.emoji,
             prizePrice: targetNft.price,
             isExternal: false,
-            lockUntil: activeDeposit?.lockUntil ?? null,
+            lockUntil: inheritedLock,
             status: 'PENDING',
           },
         })

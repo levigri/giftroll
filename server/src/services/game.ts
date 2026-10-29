@@ -5,6 +5,7 @@ import { pickDailyBonusPrize, pickPrize } from '../utils/prize.js'
 import { dailyBonusPrizes, type DailyBonusPrize } from '../data/dailyBonus.js'
 import { getUsername, logDrop, type DropItemType } from './drops.js'
 import { processWagering } from './deposit.js'
+import { findActiveDepositLock } from './depositLock.js'
 import { logTransaction } from './transaction.js'
 
 /** В ленте PrizeType 'BALANCE' — это звёздный дроп, остальное считаем NFT. */
@@ -69,12 +70,7 @@ export async function openCase(
           where: { id: userId },
           data: { balance: newBalance },
         })
-        const now = new Date()
-        const activeDeposit = await tx.deposit.findFirst({
-          where: { userId, status: 'completed', lockUntil: { gt: now } },
-          orderBy: { createdAt: 'desc' },
-          select: { lockUntil: true },
-        })
+        const inheritedLock = await findActiveDepositLock(tx, userId)
         await tx.inventoryItem.create({
           data: {
             userId,
@@ -83,7 +79,7 @@ export async function openCase(
             prizeEmoji: prize.emoji,
             prizePrice: prize.price,
             isExternal: false,
-            lockUntil: activeDeposit?.lockUntil ?? null,
+            lockUntil: inheritedLock,
             status: 'PENDING',
           },
         })
@@ -221,12 +217,7 @@ export async function openMultiCase(
       const results: MultiCaseResultItem[] = []
       const prizes: Prize[] = []
       let starsWon = 0
-      const now = new Date()
-      const activeDeposit = await tx.deposit.findFirst({
-        where: { userId, status: 'completed', lockUntil: { gt: now } },
-        orderBy: { createdAt: 'desc' },
-        select: { lockUntil: true },
-      })
+      const inheritedLock = await findActiveDepositLock(tx, userId)
 
       for (let index = 0; index < count; index += 1) {
         // Ролл независимый для каждого открытия.
@@ -245,7 +236,7 @@ export async function openMultiCase(
               prizeEmoji: prize.emoji,
               prizePrice: prize.price,
               isExternal: false,
-              lockUntil: activeDeposit?.lockUntil ?? null,
+              lockUntil: inheritedLock,
               status: 'PENDING',
             },
           })

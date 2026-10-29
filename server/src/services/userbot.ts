@@ -20,17 +20,45 @@ function isUniqueConstraintError(error: unknown): boolean {
   )
 }
 
+function stringifyTelegramObject(value: unknown): string {
+  const seen = new WeakSet<object>()
+  try {
+    return JSON.stringify(
+      value,
+      (key, current: unknown) => {
+        if (key === 'client' || key === '_client') return undefined
+        if (typeof current === 'bigint') return current.toString()
+        if (current && typeof current === 'object') {
+          if (seen.has(current)) return '[Circular]'
+          seen.add(current)
+        }
+        return current
+      },
+    )
+  } catch (error) {
+    return `[unserializable: ${error instanceof Error ? error.message : String(error)}]`
+  }
+}
+
 async function handleIncomingMessage(event: NewMessageEvent): Promise<void> {
   const message = event.message
-
-  if (message.media) {
-    console.info(`[Userbot] Получено медиа: ${message.media.className}`)
-  }
-
   const action = message.action
-  if (!(action instanceof Api.MessageActionStarGift) || action.refunded) {
+
+  // Telegram represents a regular gift and a collectible NFT as different
+  // service actions. Only the unique collectible action is eligible here.
+  if (action instanceof Api.MessageActionStarGift) {
+    console.info(`[Userbot] Получен обычный гифт в сообщении ${message.id}. Игнорируем.`)
     return
   }
+  if (!(action instanceof Api.MessageActionStarGiftUnique)) {
+    return
+  }
+  if (action.refunded) {
+    console.info(`[Userbot] NFT-подарок в сообщении ${message.id} возвращён. Игнорируем.`)
+    return
+  }
+
+  console.info(`[Userbot] Пойман NFT-подарок! RAW NFT: ${stringifyTelegramObject(action).substring(0, 2000)}`)
 
   const peer = message.peerId
   const senderPeer = action.fromId
@@ -48,10 +76,10 @@ async function handleIncomingMessage(event: NewMessageEvent): Promise<void> {
   }
 
   const giftId = action.gift.id.toString()
-  const giftPrice =
-    action.gift instanceof Api.StarGift ? Number(action.gift.stars.toString()) : 0
-  const prizePrice = Number.isSafeInteger(giftPrice) && giftPrice > 0 ? giftPrice : 0
-  const prizeName = `Telegram Gift #${giftId}`
+  const prizeName =
+    'title' in action.gift && typeof action.gift.title === 'string'
+      ? action.gift.title
+      : `Telegram NFT #${giftId}`
   // Telegram service message date is the time the gift was purchased/transferred
   // to this account. Use it instead of processing time so delayed updates do not
   // restart the 21-day holding period.
@@ -66,7 +94,7 @@ async function handleIncomingMessage(event: NewMessageEvent): Promise<void> {
           prizeId: `telegram-gift:${peerId}:${message.id}`,
           prizeName,
           prizeEmoji: '🎁',
-          prizePrice,
+          prizePrice: 0,
           isExternal: true,
           lockUntil,
         },

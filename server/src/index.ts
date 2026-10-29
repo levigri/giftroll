@@ -17,6 +17,7 @@ import { dropsRoutes } from './routes/drops.js'
 import { depositRoutes } from './routes/deposit.js'
 import { telegramRoutes } from './routes/telegram.js'
 import { referralRoutes } from './routes/referral.js'
+import { devRoutes } from './routes/dev.js'
 import { initUserbot, stopUserbot } from './services/userbot.js'
 
 const fastify = Fastify({
@@ -68,6 +69,7 @@ await fastify.register(dropsRoutes)
 await fastify.register(depositRoutes)
 await fastify.register(telegramRoutes)
 await fastify.register(referralRoutes)
+await fastify.register(devRoutes)
 
 // Отключение от БД при остановке сервера
 fastify.addHook('onClose', async () => {
