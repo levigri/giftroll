@@ -17,6 +17,8 @@ const TONAPI_BASE_URL = 'https://tonapi.io/v2'
 const TON_AMOUNT_TOLERANCE_NANO = 100_000_000n
 /** Допуск в процентах от ожидаемой суммы. */
 const TON_AMOUNT_TOLERANCE_PERCENT = 5n
+/** Насколько зафиксированная фронтом котировка может разойтись с текущей (10%). */
+const GRAMS_QUOTE_DRIFT = 0.1
 
 /** ⚠️ DEV ONLY — удалить этот блок при релизе */
 const DEV_TELEGRAM_ID = 11111111n
@@ -193,6 +195,7 @@ export async function createInvoice(
 export async function createGramsInvoice(
   userId: bigint,
   starsAmount: number,
+  lockedGramsAmount?: number,
 ): Promise<{
   depositId: string
   gramsAmount: number
@@ -204,13 +207,36 @@ export async function createGramsInvoice(
   }
 
   const quote = await quoteGramsAmount(starsAmount)
+
+  // Фронт фиксирует курс при вводе и присылает эту же сумму: не пересчитываем,
+  // чтобы в кошелёк ушла ровно та цифра, что была на экране. Но проверяем,
+  // что она не разошлась с текущим котированием больше чем на 10% —
+  // иначе можно было бы «купить» звёзды по заведомо невыгодному курсу.
+  let gramsAmount = quote.gramsAmount
+  if (lockedGramsAmount !== undefined) {
+    if (!Number.isFinite(lockedGramsAmount) || lockedGramsAmount <= 0) {
+      throw new DepositError('INVALID_AMOUNT', 'Некорректная сумма в Gram', 400)
+    }
+
+    const drift = Math.abs(lockedGramsAmount - quote.gramsAmount)
+    if (drift > quote.gramsAmount * GRAMS_QUOTE_DRIFT) {
+      throw new DepositError(
+        'QUOTE_MISMATCH',
+        'Курс изменился — обнови сумму и попробуй ещё раз',
+        400,
+      )
+    }
+
+    gramsAmount = Math.round(lockedGramsAmount * 1_000_000) / 1_000_000
+  }
+
   const payload = newPayload(userId)
 
   const deposit = await prisma.deposit.create({
     data: {
       userId,
       amount: quote.starsAmount,
-      gramsAmount: quote.gramsAmount,
+      gramsAmount,
       status: 'pending',
       payload,
       currency: 'GRAMS',
@@ -219,7 +245,8 @@ export async function createGramsInvoice(
 
   return {
     depositId: deposit.id,
-    ...quote,
+    gramsAmount,
+    starsAmount: quote.starsAmount,
     receiverAddress: env.TON_RECEIVER_ADDRESS,
   }
 }

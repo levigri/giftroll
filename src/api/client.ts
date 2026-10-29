@@ -215,10 +215,13 @@ export async function depositCryptoInvoice(amount: number): Promise<{ invoiceLin
 }
 
 /**
- * Депозит в Grams: игрок указывает, сколько звёзд хочет получить,
- * сервер считает сумму в Gram по живому курсу CoinGecko.
+ * Депозит в Grams: игрок фиксирует сумму при вводе (`gramsAmount`),
+ * сервер принимает её без пересчёта курса.
  */
-export async function depositGramsInvoice(starsAmount: number): Promise<{
+export async function depositGramsInvoice(
+  starsAmount: number,
+  gramsAmount: number,
+): Promise<{
   depositId: string
   gramsAmount: number
   starsAmount: number
@@ -231,19 +234,21 @@ export async function depositGramsInvoice(starsAmount: number): Promise<{
     receiverAddress: string
   }>('/api/deposit/grams/invoice', {
     method: 'POST',
-    body: JSON.stringify({ starsAmount }),
+    body: JSON.stringify({ starsAmount, gramsAmount }),
   })
 }
 
-/** Точная серверная сумма TON со скидкой до создания Gram-депозита. */
+/** Точная серверная сумма TON — курс фиксируется на 2 минуты (expiresAt). */
 export async function depositGramsQuote(starsAmount: number): Promise<{
   gramsAmount: number
   starsAmount: number
+  expiresAt: string
 }> {
-  return request<{ gramsAmount: number; starsAmount: number }>('/api/deposit/grams/quote', {
-    method: 'POST',
-    body: JSON.stringify({ starsAmount }),
-  })
+  const query = new URLSearchParams({ stars: String(starsAmount) })
+  return request<{ gramsAmount: number; starsAmount: number; expiresAt: string }>(
+    `/api/deposit/grams/quote?${query.toString()}`,
+    { method: 'GET' },
+  )
 }
 
 /** Базовый курс звёзд ($1.40 за 100 ⭐) и живой курс TON в USD. */

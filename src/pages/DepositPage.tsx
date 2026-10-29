@@ -161,6 +161,8 @@ function DepositPageContent({
   const [gramsBusy, setGramsBusy] = useState(false)
   const [gramsQuote, setGramsQuote] = useState<{ gramsAmount: number; starsAmount: number } | null>(null)
   const [gramsQuoteLoading, setGramsQuoteLoading] = useState(false)
+  /** До какого времени зафиксирован курс (2 минуты с момента котировки). */
+  const [quoteFixedUntil, setQuoteFixedUntil] = useState<number | null>(null)
   /** Точная сумма из последнего backend invoice — отображаем её и отправляем в wallet. */
   const [invoiceGramsAmount, setInvoiceGramsAmount] = useState<number | null>(null)
   /** Базовый курс ($ за 100 ⭐) и живой курс TON — приходят с бэкенда. */
@@ -211,16 +213,20 @@ function DepositPageContent({
     if (!gramsValid) {
       setGramsQuote(null)
       setGramsQuoteLoading(false)
+      setQuoteFixedUntil(null)
       return
     }
 
     let alive = true
     setGramsQuote(null)
+    setQuoteFixedUntil(null)
     setGramsQuoteLoading(true)
     const timeoutId = window.setTimeout(() => {
       void depositGramsQuote(gramsStarsNum)
         .then((quote) => {
-          if (alive) setGramsQuote(quote)
+          if (!alive) return
+          setGramsQuote(quote)
+          setQuoteFixedUntil(Date.parse(quote.expiresAt) || Date.now() + 120_000)
         })
         .catch(() => {
           if (alive) setGramsQuote(null)
@@ -228,7 +234,7 @@ function DepositPageContent({
         .finally(() => {
           if (alive) setGramsQuoteLoading(false)
         })
-    }, 250)
+    }, 500)
 
     return () => {
       alive = false
@@ -320,12 +326,19 @@ function DepositPageContent({
 
     try {
       const payStars = gramsStarsNum
+      // Сумма уже зафиксирована котировкой при вводе — пересчёта курса нет,
+      // в кошелёк уйдёт ровно та цифра, что показана на экране.
+      const fixedGrams = gramsQuote?.gramsAmount
+      if (!fixedGrams) {
+        showToast('Дождитесь расчёта суммы', 'error')
+        return
+      }
       const {
         depositId,
         gramsAmount: invoiceGrams,
         starsAmount: creditedStars,
         receiverAddress,
-      } = await depositGramsInvoice(payStars)
+      } = await depositGramsInvoice(payStars, fixedGrams)
       setInvoiceGramsAmount(invoiceGrams)
       setGramsQuote({ gramsAmount: invoiceGrams, starsAmount: creditedStars })
       const transaction = {
@@ -358,6 +371,7 @@ function DepositPageContent({
       setGramsStars('')
       setInvoiceGramsAmount(null)
       setGramsQuote(null)
+      setQuoteFixedUntil(null)
     } catch (err: unknown) {
       // Пользователь отклонил транзакцию в кошельке (TonConnect code 300).
       const code = (err as { code?: number | string } | null)?.code
@@ -588,6 +602,7 @@ function DepositPageContent({
                     setGramsStars(event.target.value)
                     setInvoiceGramsAmount(null)
                     setGramsQuote(null)
+                    setQuoteFixedUntil(null)
                   }}
                 />
               </label>
@@ -608,13 +623,18 @@ function DepositPageContent({
                       Зачислим: <strong>{gramsQuote.starsAmount} ⭐</strong> (включая +5% бонус)
                     </p>
                   )}
+                  {gramsQuote && quoteFixedUntil !== null && quoteFixedUntil > Date.now() && (
+                    <p className="m-0 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-center text-xs font-bold text-emerald-300">
+                      ✓ Курс зафиксирован на 2 минуты — сумма не изменится
+                    </p>
+                  )}
                 </>
               )}
 
               <button
                 type="button"
                 className="flex items-center justify-center gap-1.5 rounded-xl border border-[#48A9FF]/35 bg-gradient-to-r from-[#48A9FF] to-[#397FE6] py-3.5 text-base font-extrabold text-white shadow-[0_8px_28px_rgba(59,130,246,0.22)] transition hover:brightness-110 disabled:opacity-50"
-                disabled={gramsBusy || !gramsValid}
+                disabled={gramsBusy || !gramsValid || !gramsQuote}
                 onClick={() => void handleGramsPay()}
               >
                 {gramsBusy ? 'Обработка…' : 'Пополнить'}

@@ -16,6 +16,9 @@ import {
 import { createCryptoInvoice, handleCryptoWebhook } from '../services/cryptobot.js'
 import { getGramRate, STARS_BASE_PRICE_USD } from '../utils/rates.js'
 
+/** Сколько живёт котировка Gram: фронт показывает зафиксированную сумму 2 минуты. */
+const QUOTE_TTL_MS = 120_000
+
 const invoiceSchema = z.object({
   amount: z
     .number()
@@ -30,6 +33,8 @@ const gramsInvoiceSchema = z.object({
     .int('starsAmount must be an integer')
     .min(MIN_DEPOSIT_STARS, `starsAmount must be >= ${MIN_DEPOSIT_STARS}`)
     .max(MAX_DEPOSIT_STARS, `starsAmount must be <= ${MAX_DEPOSIT_STARS}`),
+  /** Сумма в Gram, зафиксированная фронтом при вводе (курс не пересчитываем). */
+  gramsAmount: z.number().finite('gramsAmount must be a finite number').positive().optional(),
 })
 
 const gramsConfirmSchema = z.object({
@@ -88,7 +93,11 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        return await createGramsInvoice(user.id, parsed.data.starsAmount)
+        return await createGramsInvoice(
+          user.id,
+          parsed.data.starsAmount,
+          parsed.data.gramsAmount,
+        )
       } catch (err) {
         if (err instanceof DepositError) {
           return reply.code(err.statusCode).send({ error: err.message, code: err.code })
@@ -98,8 +107,10 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
     },
   )
 
-  // POST /api/deposit/grams/quote — точная серверная оценка до создания депозита.
-  fastify.post(
+  // GET /api/deposit/grams/quote?stars=100 — котировка с фиксацией курса на 2 минуты.
+  // Фронт показывает её пользователю и передаёт же значение в инвойс,
+  // поэтому сумма в кошельке не «скачет» из-за волатильности TON.
+  fastify.get(
     '/api/deposit/grams/quote',
     { preHandler: authenticateTelegram },
     async (request, reply) => {
@@ -108,13 +119,18 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(401).send({ error: 'Unauthorized', code: 'AUTH_REQUIRED' })
       }
 
-      const parsed = parseBody(gramsInvoiceSchema, request.body)
-      if (!parsed.ok) {
-        return reply.code(400).send({ error: parsed.error, code: 'VALIDATION_ERROR' })
+      const query = request.query as { stars?: unknown }
+      const stars = Number(query.stars)
+      if (!Number.isFinite(stars)) {
+        return reply.code(400).send({ error: 'stars must be a number', code: 'VALIDATION_ERROR' })
       }
 
       try {
-        return await quoteGramsAmount(parsed.data.starsAmount)
+        const quote = await quoteGramsAmount(stars)
+        return {
+          ...quote,
+          expiresAt: new Date(Date.now() + QUOTE_TTL_MS).toISOString(),
+        }
       } catch (err) {
         if (err instanceof DepositError) {
           return reply.code(err.statusCode).send({ error: err.message, code: err.code })
