@@ -166,9 +166,9 @@ function DepositPageContent({
   const gramsValid =
     Number.isInteger(gramsStarsNum) && gramsStarsNum >= MIN_AMOUNT && gramsStarsNum <= MAX_AMOUNT
 
-  /** Сумма к оплате в Gram: базовая цена звёзд / живой курс TON (CoinGecko). */
+  /** Сумма к оплате в Gram со скидкой 5% от базовой цены по курсу CoinGecko. */
   const gramsToPay = gramsValid
-    ? Math.round(((gramsStarsNum / 100) * rates.starsUsd * 1_000_000) / rates.tonUsd) / 1_000_000
+    ? Math.round((((gramsStarsNum / 100) * rates.starsUsd / rates.tonUsd) * 0.95) * 1_000_000) / 1_000_000
     : 0
 
   const cryptoValid =
@@ -501,7 +501,10 @@ function DepositPageContent({
         <>
           <div className="flex items-center justify-between rounded-2xl border border-[#48A9FF]/25 bg-gradient-to-r from-[#48A9FF]/10 to-emerald-400/10 px-3.5 py-3">
             <div>
-              <div className="text-sm font-extrabold text-white">Оплата в Gram</div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="text-sm font-extrabold text-white">Оплата в Gram</div>
+                <span className="ml-2 text-sm font-bold text-emerald-400">+5% Бонус</span>
+              </div>
             </div>
             <span className="rounded-full border border-[#48A9FF]/30 bg-[#48A9FF]/10 px-2.5 py-1 text-xs font-extrabold text-[#A9D8FF]">TON</span>
           </div>
@@ -535,7 +538,8 @@ function DepositPageContent({
 
               {gramsValid && (
                 <p className="m-0 rounded-xl border border-[#48A9FF]/20 bg-[#48A9FF]/[0.06] px-3 py-2 text-center text-[12px] leading-relaxed text-gray-300">
-                  К оплате: <strong className="text-white">~{gramsToPay} Gram</strong>
+                  К оплате: <strong className="text-white">~{gramsToPay.toFixed(3)} Gram</strong>{' '}
+                  (с учетом скидки 5%)
                 </p>
               )}
 

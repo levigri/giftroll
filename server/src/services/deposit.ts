@@ -209,11 +209,13 @@ export async function createGramsInvoice(
     )
   }
 
-  // Базовая цена по курсу 100 ⭐ = $1.40, курс Gram — онлайн с CoinGecko:
-  // grams = usd / tonRate, округление до 6 знаков.
+  // Базовая цена по курсу 100 ⭐ = $1.40, курс Gram — онлайн с CoinGecko.
+  // Даём скидку 5% к TON-сумме и округляем её до 6 знаков.
   const usdAmount = getStarsBasePriceUsd(starsAmount)
   const tonRate = await getGramRate()
-  const gramsAmount = Math.round((usdAmount / tonRate) * 1_000_000) / 1_000_000
+  const baseGrams = usdAmount / tonRate
+  const discountedGrams = baseGrams * 0.95
+  const gramsAmount = Math.round(discountedGrams * 1_000_000) / 1_000_000
 
   const payload = newPayload(userId)
 
