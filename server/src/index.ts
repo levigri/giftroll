@@ -92,10 +92,16 @@ const start = async () => {
   try {
     await fastify.listen({ port: env.PORT, host: '0.0.0.0' })
     fastify.log.info(`[Server] listening on http://0.0.0.0:${env.PORT}`)
-    await initUserbot()
   } catch (error) {
     fastify.log.error(error)
     process.exit(1)
+  }
+
+  // Telegram Userbot is optional: a connection/configuration error must not stop Fastify.
+  try {
+    await initUserbot()
+  } catch (error) {
+    fastify.log.error(error, '[Userbot] Ошибка инициализации. Сервер продолжает работу.')
   }
 }
 

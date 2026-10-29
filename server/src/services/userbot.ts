@@ -4,14 +4,7 @@ import { NewMessage, type NewMessageEvent } from 'telegram/events/index.js'
 import { env } from '../config/env.js'
 import { prisma } from '../db/prisma.js'
 
-const apiId = env.TELEGRAM_API_ID ?? 0
-const apiHash = env.TELEGRAM_API_HASH ?? ''
-const stringSession = new StringSession(env.TELEGRAM_SESSION ?? '')
-
-export const userbot = new TelegramClient(stringSession, apiId, apiHash, {
-  connectionRetries: 5,
-})
-
+let userbot: TelegramClient | null = null
 let isUserbotStarted = false
 
 function isUniqueConstraintError(error: unknown): boolean {
@@ -121,25 +114,30 @@ async function handleIncomingMessage(event: NewMessageEvent): Promise<void> {
 }
 
 export async function initUserbot(): Promise<void> {
-  if (!env.TELEGRAM_SESSION) {
-    console.warn('[Userbot] TELEGRAM_SESSION не задан. Пропускаем запуск юзербота.')
-    return
-  }
-  if (!env.TELEGRAM_API_ID || !env.TELEGRAM_API_HASH) {
-    console.warn('[Userbot] TELEGRAM_API_ID или TELEGRAM_API_HASH не заданы. Пропускаем запуск.')
+  const apiId = env.TELEGRAM_API_ID
+  const apiHash = env.TELEGRAM_API_HASH
+  const session = env.TELEGRAM_SESSION
+  if (!apiId || !apiHash || !session) {
+    console.warn('[Userbot] Пропуск запуска: нет ключей API или сессии в переменных окружения.')
     return
   }
   if (isUserbotStarted) return
 
+  const client = new TelegramClient(new StringSession(session), apiId, apiHash, {
+    connectionRetries: 5,
+  })
+  userbot = client
+
   try {
-    await userbot.connect()
-    if (!(await userbot.checkAuthorization())) {
+    await client.connect()
+    if (!(await client.checkAuthorization())) {
       console.warn('[Userbot] Сессия не авторизована. Проверьте TELEGRAM_SESSION.')
-      await userbot.disconnect()
+      await client.disconnect()
+      userbot = null
       return
     }
 
-    userbot.addEventHandler(
+    client.addEventHandler(
       (event) => {
         void handleIncomingMessage(event).catch((error: unknown) => {
           console.error('[Userbot] Ошибка обработки Telegram update:', error)
@@ -151,13 +149,16 @@ export async function initUserbot(): Promise<void> {
     console.info('[Userbot] Успешно подключен к Telegram')
   } catch (error) {
     console.error('[Userbot] Не удалось подключиться к Telegram:', error)
-    await userbot.disconnect().catch(() => undefined)
+    await client.disconnect().catch(() => undefined)
+    userbot = null
   }
 }
 
 export async function stopUserbot(): Promise<void> {
-  if (!isUserbotStarted) return
-  await userbot.disconnect()
+  const client = userbot
+  userbot = null
   isUserbotStarted = false
+  if (!client) return
+  await client.disconnect()
   console.info('[Userbot] Отключен от Telegram')
 }

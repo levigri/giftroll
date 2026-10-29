@@ -16,7 +16,10 @@ const envSchema = z.object({
   /** Токен бота @CryptoBot (Crypto Pay API) для оплаты криптой. */
   CRYPTO_PAY_TOKEN: z.string().optional(),
   /** MTProto credentials для принимающего Telegram аккаунта (Userbot). */
-  TELEGRAM_API_ID: z.coerce.number().int().positive().optional(),
+  TELEGRAM_API_ID: z.preprocess(
+    (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+    z.coerce.number().int().positive().optional(),
+  ),
   TELEGRAM_API_HASH: z.string().optional(),
   /** StringSession выдаётся локальным scripts/generate-session.ts; хранить только в env. */
   TELEGRAM_SESSION: z.string().optional(),
