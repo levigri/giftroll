@@ -345,6 +345,9 @@ function DepositPageContent({
         throw new Error('Кошелёк не вернул подписанную транзакцию')
       }
 
+      // Даём блокчейну время обработать перевод, прежде чем просим бэкенд проверить.
+      await new Promise((resolve) => setTimeout(resolve, 4000))
+
       const confirmResult = await depositGramsConfirm(depositId, transactionBoc)
       if (!confirmResult.ok) {
         throw new Error('Сервер не подтвердил зачисление')

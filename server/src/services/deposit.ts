@@ -13,8 +13,8 @@ export const MAX_DEPOSIT_STARS = 100_000
 /** Реферер получает 10% от отыгранной части депозита приглашённого. */
 export const REFERRAL_RATE_PERCENT = 10
 const TONAPI_BASE_URL = 'https://tonapi.io/v2'
-/** Фиксированный минимум допуска по сумме перевода: газ и округления. */
-const TON_AMOUNT_TOLERANCE_NANO = 10_000_000n // 0.01 TON
+/** Фиксированный минимум допуска по сумме перевода: газ и округления (0.1 TON). */
+const TON_AMOUNT_TOLERANCE_NANO = 100_000_000n
 /** Допуск в процентах от ожидаемой суммы. */
 const TON_AMOUNT_TOLERANCE_PERCENT = 5n
 
@@ -305,42 +305,49 @@ async function confirmGramsDepositInner(
   const senderRaw = sender.toRawString().toLowerCase()
   const messageUrl = `${TONAPI_BASE_URL}/blockchain/messages/${encodeURIComponent(messageHash)}/transaction`
 
-  let transactionHash: string
-  try {
-    const messageResponse = await fetch(messageUrl, { signal: AbortSignal.timeout(10_000) })
-    if (messageResponse.status === 404) {
-      throw new DepositError('INVALID_TX', 'TON-транзакция не найдена', 400)
-    }
-    if (!messageResponse.ok) {
-      throw new DepositError('TONAPI_ERROR', `TonAPI вернул HTTP ${messageResponse.status}`, 502)
+  // Блокчейн может не успеть обработать перевод к моменту запроса:
+  // пробуем достать транзакцию до 5 раз с паузой 3 сек (~15 секунд суммарно).
+  const TONAPI_ATTEMPTS = 5
+  const TONAPI_RETRY_DELAY_MS = 3000
+
+  let transactionHash: string | null = null
+  let transaction: TonApiTransaction | null = null
+
+  for (let attempt = 0; attempt < TONAPI_ATTEMPTS; attempt += 1) {
+    try {
+      const messageResponse = await fetch(messageUrl, { signal: AbortSignal.timeout(10_000) })
+      if (messageResponse.ok) {
+        const resolved = (await messageResponse.json()) as TonApiTransaction
+        if (resolved.hash) {
+          const response = await fetch(
+            `${TONAPI_BASE_URL}/blockchain/transactions/${encodeURIComponent(resolved.hash)}`,
+            { signal: AbortSignal.timeout(10_000) },
+          )
+          if (response.ok) {
+            const found = (await response.json()) as TonApiTransaction
+            if (found.hash) {
+              transactionHash = resolved.hash
+              transaction = found
+              break
+            }
+          }
+        }
+      }
+    } catch {
+      // Сетевая ошибка или TonAPI недоступен — повторяем после паузы.
     }
 
-    const resolved = (await messageResponse.json()) as TonApiTransaction
-    if (!resolved.hash) {
-      throw new DepositError('INVALID_TX', 'TonAPI не нашёл транзакцию по сообщению', 400)
+    if (attempt < TONAPI_ATTEMPTS - 1) {
+      await new Promise((resolve) => setTimeout(resolve, TONAPI_RETRY_DELAY_MS))
     }
-    transactionHash = resolved.hash
-  } catch (error) {
-    if (error instanceof DepositError) throw error
-    throw new DepositError('TONAPI_ERROR', 'Не удалось проверить TON-транзакцию', 502)
   }
 
-  let transaction: TonApiTransaction
-  try {
-    const response = await fetch(
-      `${TONAPI_BASE_URL}/blockchain/transactions/${encodeURIComponent(transactionHash)}`,
-      { signal: AbortSignal.timeout(10_000) },
+  if (!transaction || !transactionHash) {
+    throw new DepositError(
+      'INVALID_TX',
+      'Транзакция не найдена в блокчейне (таймаут 15 сек)',
+      400,
     )
-    if (response.status === 404) {
-      throw new DepositError('INVALID_TX', 'TON-транзакция не найдена', 400)
-    }
-    if (!response.ok) {
-      throw new DepositError('TONAPI_ERROR', `TonAPI вернул HTTP ${response.status}`, 502)
-    }
-    transaction = (await response.json()) as TonApiTransaction
-  } catch (error) {
-    if (error instanceof DepositError) throw error
-    throw new DepositError('TONAPI_ERROR', 'Не удалось проверить TON-транзакцию', 502)
   }
 
   const accountRaw = normalizeAddress(transaction.account)
@@ -349,9 +356,9 @@ async function confirmGramsDepositInner(
   }
 
   const expectedNano = BigInt(Math.round(deposit.gramsAmount * 1_000_000_000))
-  // Допуск: 5% от ожидаемой суммы или фиксированные 0.01 TON — что больше.
+  // Допуск: 5% от ожидаемой суммы или фиксированные 0.1 TON — что больше.
   // Комиссия сети и округления не должны валить уже оплаченный перевод
-  // (например, 0.098 TON вместо ожидаемых 0.1 TON).
+  // (например, 0.0985 TON вместо ожидаемых 0.0985+за газ).
   const percentNano = (expectedNano * TON_AMOUNT_TOLERANCE_PERCENT) / 100n
   const allowedNano =
     percentNano > TON_AMOUNT_TOLERANCE_NANO ? percentNano : TON_AMOUNT_TOLERANCE_NANO
@@ -362,6 +369,8 @@ async function confirmGramsDepositInner(
     if (destinationRaw !== receiver.toRawString().toLowerCase()) return false
     try {
       const value = BigInt(String(message.value))
+      // Платёж заметно меньше ожидаемого не принимаем (защита от «пылевых» переводов).
+      if (value * 100n < expectedNano * 95n) return false
       const difference = value > expectedNano ? value - expectedNano : expectedNano - value
       return difference <= allowedNano
     } catch {
@@ -430,7 +439,7 @@ async function confirmGramsDepositInner(
   }
 
   // Уведомление в бота: Gram-депозит зачислен.
-  void notifyUser(deposit.userId, `✅ Баланс успешно пополнен на ${deposit.amount} ⭐!`)
+  await notifyUser(deposit.userId, `✅ Успешно пополнено на ${deposit.amount} ⭐ (через Gram)!`)
 
   return { ok: true, starsAmount: deposit.amount }
 }
