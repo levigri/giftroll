@@ -82,7 +82,9 @@ function getNormalizedMessageHash(transactionBoc: string): { hash: string; sende
 
     return { hash: normalized.hash().toString('hex'), sender: message.info.dest }
   } catch {
-    throw new DepositError('INVALID_TX', 'Подписанная TON-транзакция некорректна', 400)
+    // Ошибка разбора BOC не зависит от блокчейна: ретраи здесь бесполезны,
+    // поэтому код отдельный — чтобы не выдавалась за «жду транзакцию».
+    throw new DepositError('TX_PARSE_ERROR', 'Подписанная TON-транзакция некорректна', 400)
   }
 }
 
@@ -253,13 +255,28 @@ export async function confirmGramsDeposit(
   depositId: string,
   transactionBoc: string,
 ): Promise<{ ok: boolean; starsAmount: number }> {
+  const startTime = Date.now()
+  console.log(`[DEPOSIT] Start confirming deposit ${depositId} for user ${userId}`)
+
   try {
-    return await confirmGramsDepositInner(userId, depositId, transactionBoc)
+    const result = await confirmGramsDepositInner(userId, depositId, transactionBoc)
+    console.log(
+      `[DEPOSIT] End confirming deposit ${depositId}. Elapsed: ${Date.now() - startTime} ms`,
+    )
+    return result
   } catch (error) {
-    // Пользователь должен узнать, что перевод бот увидел, но проверить его не удалось.
+    console.log(
+      `[DEPOSIT] End confirming deposit ${depositId} after ${Date.now() - startTime} ms ` +
+        `(error: ${error instanceof DepositError ? error.code : 'UNKNOWN'})`,
+    )
+    // Уведомляем ТОЛЬКО когда ошибка пришла после ретраев TonAPI
+    // (таймаут ожидания или итоговая проверка). Ошибки разбора BOC
+    // и прочие мгновенные — не трогаем, их видно фронту.
     if (
       error instanceof DepositError &&
-      (error.code === 'INVALID_TX' || error.code === 'TONAPI_ERROR')
+      (error.code === 'TONAPI_TIMEOUT' ||
+        error.code === 'TONAPI_ERROR' ||
+        error.code === 'INVALID_TX')
     ) {
       void notifyUser(userId, '❌ Не удалось проверить транзакцию. Обратитесь в поддержку.')
     }
@@ -307,6 +324,7 @@ async function confirmGramsDepositInner(
 
   // Блокчейн может не успеть обработать перевод к моменту запроса:
   // пробуем достать транзакцию до 5 раз с паузой 3 сек (~15 секунд суммарно).
+  // 404 от TonAPI — это НЕ ошибка: перевод ещё не виден, идём на следующую попытку.
   const TONAPI_ATTEMPTS = 5
   const TONAPI_RETRY_DELAY_MS = 3000
 
@@ -315,26 +333,43 @@ async function confirmGramsDepositInner(
 
   for (let attempt = 0; attempt < TONAPI_ATTEMPTS; attempt += 1) {
     try {
-      const messageResponse = await fetch(messageUrl, { signal: AbortSignal.timeout(10_000) })
+      const messageResponse = await fetch(messageUrl, { signal: AbortSignal.timeout(20_000) })
       if (messageResponse.ok) {
         const resolved = (await messageResponse.json()) as TonApiTransaction
         if (resolved.hash) {
           const response = await fetch(
             `${TONAPI_BASE_URL}/blockchain/transactions/${encodeURIComponent(resolved.hash)}`,
-            { signal: AbortSignal.timeout(10_000) },
+            { signal: AbortSignal.timeout(20_000) },
           )
           if (response.ok) {
             const found = (await response.json()) as TonApiTransaction
             if (found.hash) {
               transactionHash = resolved.hash
               transaction = found
+              console.log(
+                `[DEPOSIT] TonAPI ready on attempt ${attempt + 1}/${TONAPI_ATTEMPTS} ` +
+                  `(deposit ${depositId})`,
+              )
               break
             }
           }
+          console.log(
+            `[DEPOSIT] TonAPI attempt ${attempt + 1}/${TONAPI_ATTEMPTS}: ` +
+              `transactions HTTP ${response.status} (deposit ${depositId})`,
+          )
         }
+      } else {
+        console.log(
+          `[DEPOSIT] TonAPI attempt ${attempt + 1}/${TONAPI_ATTEMPTS}: ` +
+            `messages HTTP ${messageResponse.status} (deposit ${depositId})`,
+        )
       }
-    } catch {
-      // Сетевая ошибка или TonAPI недоступен — повторяем после паузы.
+    } catch (err) {
+      // Сетевая ошибка или таймаут — повторяем после паузы.
+      console.log(
+        `[DEPOSIT] TonAPI attempt ${attempt + 1}/${TONAPI_ATTEMPTS} failed: ` +
+          `${err instanceof Error ? err.message : String(err)} (deposit ${depositId})`,
+      )
     }
 
     if (attempt < TONAPI_ATTEMPTS - 1) {
@@ -344,7 +379,7 @@ async function confirmGramsDepositInner(
 
   if (!transaction || !transactionHash) {
     throw new DepositError(
-      'INVALID_TX',
+      'TONAPI_TIMEOUT',
       'Транзакция не найдена в блокчейне (таймаут 15 сек)',
       400,
     )
