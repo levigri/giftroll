@@ -38,6 +38,7 @@ model User {
   caseOpens  CaseOpen[]
   inventory  InventoryItem[]
   dailyBonus DailyBonus?
+  transactions Transaction[]
 
   @@index([referredBy])
   @@map("users")
@@ -138,6 +139,21 @@ model PvpParticipant {
   @@unique([roundId, userId])
   @@index([userId])
   @@map("pvp_participants")
+}
+
+// История всех изменений баланса: пополнения, траты в играх, выигрыши, бонусы.
+model Transaction {
+  id        String   @id @default(uuid())
+  userId    BigInt
+  type      String // 'DEPOSIT' | 'CASE_OPEN' | 'UPGRADE' | 'PVP_BET' | 'PVP_WIN' | 'SELL_NFT' | 'DAILY_BONUS' | 'REFERRAL'
+  amount    Int // положительное — доход, отрицательное — расход
+  details   String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("transactions")
 }
 
 // Пополнение баланса через Telegram Stars: pending → completed после successful_payment.

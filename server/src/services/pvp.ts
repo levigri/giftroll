@@ -2,6 +2,7 @@ import type { Prisma, PvpParticipant, PvpRound } from '@prisma/client'
 import { prisma } from '../db/prisma.js'
 import { GameError } from './game.js'
 import { processWagering } from './deposit.js'
+import { logTransaction } from './transaction.js'
 
 /** Границы ставки в звёздах. */
 export const MIN_BET_STARS = 10
@@ -318,6 +319,9 @@ export async function joinRound(
         data: { roundId: round.id, userId, username, stars },
       })
 
+      // История операций: вход в PvP-раунд.
+      await logTransaction(userId, 'PVP_BET', -stars, 'Ставка в PvP', tx)
+
       // ⚠️ DEV ONLY — блок удалить при релизе: дев-игроку сразу подсаживается бот
       // с половинной ставкой, поэтому лобби не ждёт второго живого игрока.
       if (active === null && userId === DEV_TELEGRAM_ID) {
@@ -421,6 +425,9 @@ export async function addToBet(
         where: { id: participant.id },
         data: { stars: nextStars },
       })
+
+      // История операций: докид ставки в PvP.
+      await logTransaction(userId, 'PVP_BET', -extraStars, 'Ставка в PvP', tx)
 
       const participants = await tx.pvpParticipant.findMany({ where: { roundId } })
       return tx.pvpRound.update({
@@ -535,6 +542,9 @@ export async function performSpin(roundId: string): Promise<PvpSpinResult> {
           where: { id: winner.userId },
           data: { balance: { increment: payoutStars } },
         })
+
+        // История операций: выигрыш в PvP.
+        await logTransaction(winner.userId, 'PVP_WIN', payoutStars, 'Победа в PvP', tx)
       }
 
       return {

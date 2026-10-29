@@ -3,6 +3,7 @@ import { Address, Cell, beginCell, loadMessage } from '@ton/core'
 import { env } from '../config/env.js'
 import { prisma } from '../db/prisma.js'
 import { getGramRate, getStarsBasePriceUsd } from '../utils/rates.js'
+import { logTransaction } from './transaction.js'
 
 /** Границы одного пополнения в ⭐. */
 export const MIN_DEPOSIT_STARS = 10
@@ -361,6 +362,15 @@ export async function confirmGramsDeposit(
             depositUnspent: { increment: deposit.amount },
           },
         })
+
+        // История операций: зачисление пополнения через Gram.
+        await logTransaction(
+          deposit.userId,
+          'DEPOSIT',
+          deposit.amount,
+          'Пополнение (Gram)',
+          tx,
+        )
         return true
       },
       { timeout: 10000 },
@@ -459,6 +469,15 @@ export async function handleWebhook(update: TelegramUpdate): Promise<void> {
           depositUnspent: { increment: deposit.amount },
         },
       })
+
+      // История операций: зачисление пополнения через Telegram Stars.
+      await logTransaction(
+        deposit.userId,
+        'DEPOSIT',
+        deposit.amount,
+        'Пополнение (Stars)',
+        tx,
+      )
     },
     { timeout: 10000 },
   )
@@ -529,6 +548,9 @@ export async function processWagering(
             sourceId: sourceId ?? null,
           },
         })
+
+        // История операций: реферальный бонус пригласившему.
+        await logTransaction(referrerId, 'REFERRAL', bonus, 'Реферальный бонус', tx)
       },
       { timeout: 10000 },
     )

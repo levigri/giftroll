@@ -5,6 +5,7 @@ import { pickDailyBonusPrize, pickPrize } from '../utils/prize.js'
 import { dailyBonusPrizes, type DailyBonusPrize } from '../data/dailyBonus.js'
 import { getUsername, logDrop, type DropItemType } from './drops.js'
 import { processWagering } from './deposit.js'
+import { logTransaction } from './transaction.js'
 
 /** В ленте PrizeType 'BALANCE' — это звёздный дроп, остальное считаем NFT. */
 function dropItemTypeOf(prize: Prize): DropItemType {
@@ -89,6 +90,9 @@ export async function openCase(
           prizePrice: prize.price,
         },
       })
+
+      // История операций: расход на открытие кейса.
+      await logTransaction(userId, 'CASE_OPEN', -caseItem.price, `Кейс: ${caseItem.name}`, tx)
 
       return {
         prize,
@@ -257,6 +261,9 @@ export async function openMultiCase(
         data: { balance: newBalance },
       })
 
+      // История операций: расход на пакетное открытие (price × count).
+      await logTransaction(userId, 'CASE_OPEN', -spent, `Кейс: ${caseItem.name}`, tx)
+
       return { results, prizes, newBalance }
     },
     { timeout: 10000 },
@@ -338,6 +345,9 @@ export async function claimDaily(userId: bigint): Promise<{
           streak,
         },
       })
+
+      // История операций: ежедневный бонус.
+      await logTransaction(userId, 'DAILY_BONUS', prize.amount, 'Ежедневный бонус', tx)
 
       return nextBalance
     },
@@ -421,6 +431,9 @@ export async function sellNft(
         where: { id: userId },
         data: { balance: newBalance },
       })
+
+      // История операций: зачисление за проданное NFT.
+      await logTransaction(userId, 'SELL_NFT', soldFor, `Продажа: ${item.prizeName}`, tx)
 
       return {
         newBalance,

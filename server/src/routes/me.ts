@@ -44,4 +44,37 @@ export const meRoutes: FastifyPluginAsync = async (fastify) => {
       }
     },
   )
+
+  // GET /api/transactions?limit=30 — история операций по балансу (новые сверху).
+  fastify.get(
+    '/api/transactions',
+    { preHandler: authenticateTelegram },
+    async (request, reply) => {
+      const user = request.telegramUser
+      if (!user) {
+        return reply.code(401).send({
+          error: 'Unauthorized',
+          code: 'AUTH_REQUIRED',
+        })
+      }
+
+      const rawLimit = Number((request.query as { limit?: unknown } | undefined)?.limit)
+      const limit =
+        Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(Math.floor(rawLimit), 100) : 30
+
+      const rows = await prisma.transaction.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+      })
+
+      return rows.map((row) => ({
+        id: row.id,
+        type: row.type,
+        amount: row.amount,
+        details: row.details,
+        createdAt: row.createdAt.toISOString(),
+      }))
+    },
+  )
 }

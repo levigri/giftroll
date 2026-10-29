@@ -3,6 +3,7 @@ import { findNftPrize } from '../data/cases.js'
 import { GameError } from './game.js'
 import { processWagering } from './deposit.js'
 import { getUsername, logDrop } from './drops.js'
+import { logTransaction } from './transaction.js'
 
 /**
  * Апгрейдер: игрок ставит ⭐ + NFT и выбирает шанс.
@@ -180,6 +181,12 @@ export async function performUpgrade(
           upgraderWinStreak: win ? { increment: 1 } : 0,
         },
       })
+
+      // История операций: ставка апгрейдера и (при победе) выигрыш.
+      await logTransaction(userId, 'UPGRADE', -starsBet, `Апгрейд: ${targetNft.name}`, tx)
+      if (remainingStars > 0) {
+        await logTransaction(userId, 'UPGRADE', remainingStars, 'Выигрыш в апгрейдере', tx)
+      }
 
       const receivedNft = grantNft
         ? {

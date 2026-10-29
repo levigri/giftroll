@@ -13,6 +13,7 @@ import type {
   PvpRoundView,
   ReferralStats,
   SellNftResponse,
+  TransactionEntry,
   UpgraderResult,
 } from './types'
 import { getInitData, getStoredRefCode } from '../telegram'
@@ -270,4 +271,9 @@ export async function depositMock50(): Promise<{ ok: boolean }> {
 
 export async function getReferralStats(): Promise<ReferralStats> {
   return request<ReferralStats>('/api/referral/stats')
+}
+
+/** История операций по балансу: новые сверху, пачками по `limit`. */
+export async function getTransactions(limit = 30): Promise<TransactionEntry[]> {
+  return request<TransactionEntry[]>(`/api/transactions?limit=${limit}`)
 }

@@ -4,13 +4,14 @@ import {
   useTonConnectUI,
   useTonWallet,
 } from '@tonconnect/ui-react'
-import { Backpack, Gamepad2, Gift, Plus, Star, User, Users } from 'lucide-react'
-import type { CaseItem, DailyBonusPrize, MeResponse, Prize } from './api/types'
+import { ArrowDown, ArrowUp, Backpack, Gamepad2, Gift, Plus, Star, User, Users } from 'lucide-react'
+import type { CaseItem, DailyBonusPrize, MeResponse, Prize, TransactionEntry } from './api/types'
 import {
   ApiError,
   claimDaily,
   getCases,
   getMe,
+  getTransactions,
   openCase as openCaseApi,
   openMultiCase as openMultiCaseApi,
 } from './api/client'
@@ -176,6 +177,33 @@ function App() {
 
     showToastError(text)
   }
+
+  /** История операций (вкладка «Профиль»): грузим пачками по 30 записей. */
+  const [transactions, setTransactions] = useState<TransactionEntry[]>([])
+  const [txLimit, setTxLimit] = useState(30)
+  const [txLoading, setTxLoading] = useState(false)
+  const [txLoaded, setTxLoaded] = useState(false)
+
+  const loadTransactions = useCallback(async (limit: number) => {
+    try {
+      setTxLoading(true)
+      const rows = await getTransactions(limit)
+      setTransactions(rows)
+      setTxLimit(limit)
+      setTxLoaded(true)
+    } catch (err) {
+      console.error('[GiftRoll] failed to load transactions:', err)
+    } finally {
+      setTxLoading(false)
+    }
+  }, [])
+
+  // Первый переход во вкладку «Профиль» подтягивает историю операций.
+  useEffect(() => {
+    if (tab === 'profile' && me && !txLoaded && !txLoading) {
+      void loadTransactions(30)
+    }
+  }, [tab, me, txLoaded, txLoading, loadTransactions])
 
   const loadInitialData = async () => {
     try {
@@ -542,6 +570,78 @@ function App() {
                 >
                   {connected ? 'Отключить кошелёк' : 'Подключить кошелёк'}
                 </button>
+
+                <section className="glass-card flex flex-col gap-2.5 p-3.5">
+                  <div className="flex items-center justify-between">
+                    <h3 className="m-0 text-[13px] font-extrabold uppercase tracking-wider text-gray-400">
+                      История операций
+                    </h3>
+                    {txLoading && <span className="text-[11px] text-gray-500">Загрузка…</span>}
+                  </div>
+
+                  {!txLoading && transactions.length === 0 && (
+                    <p className="m-0 text-xs text-gray-500">Операций пока нет</p>
+                  )}
+
+                  <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
+                    {transactions.map((tx) => {
+                      const income = tx.amount > 0
+                      return (
+                        <li
+                          key={tx.id}
+                          className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-black/30 px-3 py-2"
+                        >
+                          <span
+                            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+                              income ? 'bg-emerald-500/15' : 'bg-red-500/15'
+                            }`}
+                            aria-hidden="true"
+                          >
+                            {income ? (
+                              <ArrowDown size={14} className="text-emerald-400" />
+                            ) : (
+                              <ArrowUp size={14} className="text-red-400" />
+                            )}
+                          </span>
+
+                          <div className="min-w-0 flex-1">
+                            <p className="m-0 truncate text-[13px] font-bold text-white">
+                              {tx.details || tx.type}
+                            </p>
+                            <p className="m-0 text-[10px] text-gray-500">
+                              {new Date(tx.createdAt).toLocaleString('ru-RU', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </p>
+                          </div>
+
+                          <span
+                            className={`shrink-0 text-[13px] font-extrabold ${
+                              income ? 'text-emerald-400' : 'text-red-400'
+                            }`}
+                          >
+                            {income ? '+' : ''}
+                            {tx.amount} ⭐
+                          </span>
+                        </li>
+                      )
+                    })}
+                  </ul>
+
+                  {!txLoading && transactions.length >= txLimit && (
+                    <button
+                      type="button"
+                      className="ghost-btn py-2 text-xs"
+                      onClick={() => void loadTransactions(txLimit + 30)}
+                    >
+                      Показать ещё
+                    </button>
+                  )}
+                </section>
               </>
             )}
           </section>

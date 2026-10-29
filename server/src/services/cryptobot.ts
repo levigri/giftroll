@@ -162,6 +162,15 @@ export async function handleCryptoWebhook(update: unknown): Promise<{ ok: boolea
         depositUnspent: { increment: deposit.amount },
       },
     }),
+    // История операций: зачисление пополнения через CryptoBot (ровно звёзды).
+    prisma.transaction.create({
+      data: {
+        userId: deposit.userId,
+        type: 'DEPOSIT',
+        amount: deposit.amount,
+        details: 'Пополнение (CryptoBot)',
+      },
+    }),
   ])
 
   return { ok: true }

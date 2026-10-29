@@ -230,3 +230,12 @@ export interface PvpHistoryEntry {
   iWon: boolean
   payoutStars: number
 }
+
+/** Строка истории операций: amount > 0 — доход, < 0 — расход. */
+export interface TransactionEntry {
+  id: string
+  type: 'DEPOSIT' | 'CASE_OPEN' | 'UPGRADE' | 'PVP_BET' | 'PVP_WIN' | 'SELL_NFT' | 'DAILY_BONUS' | 'REFERRAL'
+  amount: number
+  details: string | null
+  createdAt: string
+}
