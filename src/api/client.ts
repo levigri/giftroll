@@ -235,6 +235,17 @@ export async function depositGramsInvoice(starsAmount: number): Promise<{
   })
 }
 
+/** Точная серверная сумма TON со скидкой до создания Gram-депозита. */
+export async function depositGramsQuote(starsAmount: number): Promise<{
+  gramsAmount: number
+  starsAmount: number
+}> {
+  return request<{ gramsAmount: number; starsAmount: number }>('/api/deposit/grams/quote', {
+    method: 'POST',
+    body: JSON.stringify({ starsAmount }),
+  })
+}
+
 /** Базовый курс звёзд ($1.40 за 100 ⭐) и живой курс TON в USD. */
 export async function getDepositRates(): Promise<{ starsUsd: number; tonUsd: number }> {
   return request<{ starsUsd: number; tonUsd: number }>('/api/deposit/rates', { method: 'GET' })

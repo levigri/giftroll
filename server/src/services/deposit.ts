@@ -197,6 +197,31 @@ export async function createGramsInvoice(
     throw new DepositError('TON_RECEIVER_NOT_CONFIGURED', 'TON_RECEIVER_ADDRESS не настроен', 503)
   }
 
+  const quote = await quoteGramsAmount(starsAmount)
+  const payload = newPayload(userId)
+
+  const deposit = await prisma.deposit.create({
+    data: {
+      userId,
+      amount: quote.starsAmount,
+      gramsAmount: quote.gramsAmount,
+      status: 'pending',
+      payload,
+      currency: 'GRAMS',
+    },
+  })
+
+  return {
+    depositId: deposit.id,
+    ...quote,
+    receiverAddress: env.TON_RECEIVER_ADDRESS,
+  }
+}
+
+export async function quoteGramsAmount(starsAmount: number): Promise<{
+  gramsAmount: number
+  starsAmount: number
+}> {
   if (
     !Number.isInteger(starsAmount) ||
     starsAmount < MIN_DEPOSIT_STARS ||
@@ -209,33 +234,14 @@ export async function createGramsInvoice(
     )
   }
 
-  // Сумма TON считается по введённому количеству ⭐ без скидки;
-  // после оплаты к депозиту добавляется 5% бонусных ⭐.
+  // Начисляемые ⭐ включают 5% бонус, а сумма TON получает 5% скидку.
   const creditedStarsAmount = Math.round(starsAmount * 1.05)
   const usdAmount = getStarsBasePriceUsd(starsAmount)
   const tonRate = await getGramRate()
   const baseGrams = usdAmount / tonRate
-  const gramsAmount = Math.round(baseGrams * 1_000_000) / 1_000_000
-
-  const payload = newPayload(userId)
-
-  const deposit = await prisma.deposit.create({
-    data: {
-      userId,
-      amount: creditedStarsAmount,
-      gramsAmount,
-      status: 'pending',
-      payload,
-      currency: 'GRAMS',
-    },
-  })
-
-  return {
-    depositId: deposit.id,
-    gramsAmount,
-    starsAmount: creditedStarsAmount,
-    receiverAddress: env.TON_RECEIVER_ADDRESS,
-  }
+  const discountedGrams = baseGrams * 0.95
+  const gramsAmount = Math.round(discountedGrams * 1_000_000) / 1_000_000
+  return { gramsAmount, starsAmount: creditedStarsAmount }
 }
 
 export async function confirmGramsDeposit(

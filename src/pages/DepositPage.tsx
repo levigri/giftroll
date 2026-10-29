@@ -7,6 +7,7 @@ import {
   depositGramsInvoice,
   depositCreateInvoice,
   depositCryptoInvoice,
+  depositGramsQuote,
   getDepositRates,
 } from '../api/client'
 import { errorFeedback, successFeedback, tapFeedback } from '../telegram'
@@ -148,6 +149,10 @@ function DepositPageContent({
   /** Сколько звёзд хочет получить игрок во вкладке Gram. */
   const [gramsStars, setGramsStars] = useState('')
   const [gramsBusy, setGramsBusy] = useState(false)
+  const [gramsQuote, setGramsQuote] = useState<{ gramsAmount: number; starsAmount: number } | null>(null)
+  const [gramsQuoteLoading, setGramsQuoteLoading] = useState(false)
+  /** Точная сумма из последнего backend invoice — отображаем её и отправляем в wallet. */
+  const [invoiceGramsAmount, setInvoiceGramsAmount] = useState<number | null>(null)
   /** Базовый курс ($ за 100 ⭐) и живой курс TON — приходят с бэкенда. */
   const [rates, setRates] = useState<{ starsUsd: number; tonUsd: number }>({
     starsUsd: 1.4,
@@ -166,11 +171,7 @@ function DepositPageContent({
   const gramsValid =
     Number.isInteger(gramsStarsNum) && gramsStarsNum >= MIN_AMOUNT && gramsStarsNum <= MAX_AMOUNT
 
-  /** Цена в TON считается по введённой сумме; бонусные ⭐ начисляются сверху на сервере. */
-  const gramsToPay = gramsValid
-    ? Math.round(((gramsStarsNum / 100) * rates.starsUsd * 1_000_000) / rates.tonUsd) / 1_000_000
-    : 0
-  const gramsCreditStars = gramsValid ? Math.round(gramsStarsNum * 1.05) : 0
+  const gramsDisplayAmount = invoiceGramsAmount ?? gramsQuote?.gramsAmount ?? null
 
   const cryptoValid =
     Number.isInteger(cryptoAmount) && cryptoAmount >= MIN_AMOUNT && cryptoAmount <= MAX_AMOUNT
@@ -193,6 +194,37 @@ function DepositPageContent({
       alive = false
     }
   }, [])
+
+  // Получаем рассчитанную сервером сумму со скидкой, не создавая pending-депозит
+  // на каждый символ, который игрок вводит в поле.
+  useEffect(() => {
+    if (!gramsValid) {
+      setGramsQuote(null)
+      setGramsQuoteLoading(false)
+      return
+    }
+
+    let alive = true
+    setGramsQuote(null)
+    setGramsQuoteLoading(true)
+    const timeoutId = window.setTimeout(() => {
+      void depositGramsQuote(gramsStarsNum)
+        .then((quote) => {
+          if (alive) setGramsQuote(quote)
+        })
+        .catch(() => {
+          if (alive) setGramsQuote(null)
+        })
+        .finally(() => {
+          if (alive) setGramsQuoteLoading(false)
+        })
+    }, 250)
+
+    return () => {
+      alive = false
+      window.clearTimeout(timeoutId)
+    }
+  }, [gramsValid, gramsStarsNum])
 
   const showToast = (text: string, tone: ToastTone = 'ok') => {
     setToast({ text, tone })
@@ -284,13 +316,15 @@ function DepositPageContent({
         starsAmount: creditedStars,
         receiverAddress,
       } = await depositGramsInvoice(payStars)
+      setInvoiceGramsAmount(invoiceGrams)
+      setGramsQuote({ gramsAmount: invoiceGrams, starsAmount: creditedStars })
       const transaction = {
         validUntil: Math.floor(Date.now() / 1000) + 300,
         network: '-239',
         messages: [
           {
             address: receiverAddress || TON_RECEIVER_ADDRESS,
-            amount: String(Math.round(invoiceGrams * 1e9)),
+            amount: String(Math.floor(invoiceGrams * 1e9)),
           },
         ],
       }
@@ -309,6 +343,8 @@ function DepositPageContent({
       showToast(`Пополнение на ${confirmResult.starsAmount ?? creditedStars} ⭐ зачислено`)
       void onRefreshMe?.()
       setGramsStars('')
+      setInvoiceGramsAmount(null)
+      setGramsQuote(null)
     } catch (err: unknown) {
       // Пользователь отклонил транзакцию в кошельке (TonConnect code 300).
       const code = (err as { code?: number | string } | null)?.code
@@ -535,18 +571,30 @@ function DepositPageContent({
                   step={1}
                   value={gramsStars}
                   placeholder={`${MIN_AMOUNT}–${MAX_AMOUNT}`}
-                  onChange={(event) => setGramsStars(event.target.value)}
+                  onChange={(event) => {
+                    setGramsStars(event.target.value)
+                    setInvoiceGramsAmount(null)
+                    setGramsQuote(null)
+                  }}
                 />
               </label>
 
               {gramsValid && (
                 <>
                   <p className="m-0 rounded-xl border border-[#48A9FF]/20 bg-[#48A9FF]/[0.06] px-3 py-2 text-center text-[12px] leading-relaxed text-gray-300">
-                    К оплате: <strong className="text-white">~{gramsToPay.toFixed(3)} Gram</strong>
+                    {gramsDisplayAmount !== null ? (
+                      <>К оплате: <strong className="text-white">~{gramsDisplayAmount.toFixed(3)} Gram</strong></>
+                    ) : gramsQuoteLoading ? (
+                      'Рассчитываем сумму…'
+                    ) : (
+                      'Не удалось рассчитать сумму'
+                    )}
                   </p>
-                  <p className="m-0 text-center text-xs text-emerald-400">
-                    Зачислим: <strong>{gramsCreditStars} ⭐</strong> (включая +5% бонус)
-                  </p>
+                  {gramsQuote && (
+                    <p className="m-0 text-center text-xs text-emerald-400">
+                      Зачислим: <strong>{gramsQuote.starsAmount} ⭐</strong> (включая +5% бонус)
+                    </p>
+                  )}
                 </>
               )}
 

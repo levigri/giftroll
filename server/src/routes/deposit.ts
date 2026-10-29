@@ -6,6 +6,7 @@ import { parseBody } from '../utils/validators.js'
 import {
   createInvoice,
   createGramsInvoice,
+  quoteGramsAmount,
   confirmGramsDeposit,
   devCredit,
   DepositError,
@@ -88,6 +89,32 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
 
       try {
         return await createGramsInvoice(user.id, parsed.data.starsAmount)
+      } catch (err) {
+        if (err instanceof DepositError) {
+          return reply.code(err.statusCode).send({ error: err.message, code: err.code })
+        }
+        throw err
+      }
+    },
+  )
+
+  // POST /api/deposit/grams/quote — точная серверная оценка до создания депозита.
+  fastify.post(
+    '/api/deposit/grams/quote',
+    { preHandler: authenticateTelegram },
+    async (request, reply) => {
+      const user = request.telegramUser
+      if (!user) {
+        return reply.code(401).send({ error: 'Unauthorized', code: 'AUTH_REQUIRED' })
+      }
+
+      const parsed = parseBody(gramsInvoiceSchema, request.body)
+      if (!parsed.ok) {
+        return reply.code(400).send({ error: parsed.error, code: 'VALIDATION_ERROR' })
+      }
+
+      try {
+        return await quoteGramsAmount(parsed.data.starsAmount)
       } catch (err) {
         if (err instanceof DepositError) {
           return reply.code(err.statusCode).send({ error: err.message, code: err.code })
