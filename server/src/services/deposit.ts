@@ -209,20 +209,20 @@ export async function createGramsInvoice(
     )
   }
 
-  // Базовая цена по курсу 100 ⭐ = $1.40, курс Gram — онлайн с CoinGecko.
-  // Даём скидку 5% к TON-сумме и округляем её до 6 знаков.
+  // Сумма TON считается по введённому количеству ⭐ без скидки;
+  // после оплаты к депозиту добавляется 5% бонусных ⭐.
+  const creditedStarsAmount = Math.round(starsAmount * 1.05)
   const usdAmount = getStarsBasePriceUsd(starsAmount)
   const tonRate = await getGramRate()
   const baseGrams = usdAmount / tonRate
-  const discountedGrams = baseGrams * 0.95
-  const gramsAmount = Math.round(discountedGrams * 1_000_000) / 1_000_000
+  const gramsAmount = Math.round(baseGrams * 1_000_000) / 1_000_000
 
   const payload = newPayload(userId)
 
   const deposit = await prisma.deposit.create({
     data: {
       userId,
-      amount: starsAmount,
+      amount: creditedStarsAmount,
       gramsAmount,
       status: 'pending',
       payload,
@@ -233,7 +233,7 @@ export async function createGramsInvoice(
   return {
     depositId: deposit.id,
     gramsAmount,
-    starsAmount,
+    starsAmount: creditedStarsAmount,
     receiverAddress: env.TON_RECEIVER_ADDRESS,
   }
 }

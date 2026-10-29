@@ -166,10 +166,11 @@ function DepositPageContent({
   const gramsValid =
     Number.isInteger(gramsStarsNum) && gramsStarsNum >= MIN_AMOUNT && gramsStarsNum <= MAX_AMOUNT
 
-  /** Сумма к оплате в Gram со скидкой 5% от базовой цены по курсу CoinGecko. */
+  /** Цена в TON считается по введённой сумме; бонусные ⭐ начисляются сверху на сервере. */
   const gramsToPay = gramsValid
-    ? Math.round((((gramsStarsNum / 100) * rates.starsUsd / rates.tonUsd) * 0.95) * 1_000_000) / 1_000_000
+    ? Math.round(((gramsStarsNum / 100) * rates.starsUsd * 1_000_000) / rates.tonUsd) / 1_000_000
     : 0
+  const gramsCreditStars = gramsValid ? Math.round(gramsStarsNum * 1.05) : 0
 
   const cryptoValid =
     Number.isInteger(cryptoAmount) && cryptoAmount >= MIN_AMOUNT && cryptoAmount <= MAX_AMOUNT
@@ -277,9 +278,12 @@ function DepositPageContent({
 
     try {
       const payStars = gramsStarsNum
-      const { depositId, gramsAmount: invoiceGrams, receiverAddress } = await depositGramsInvoice(
-        payStars,
-      )
+      const {
+        depositId,
+        gramsAmount: invoiceGrams,
+        starsAmount: creditedStars,
+        receiverAddress,
+      } = await depositGramsInvoice(payStars)
       const transaction = {
         validUntil: Math.floor(Date.now() / 1000) + 300,
         network: '-239',
@@ -302,7 +306,7 @@ function DepositPageContent({
         throw new Error('Сервер не подтвердил зачисление')
       }
       successFeedback()
-      showToast(`Пополнение на ${payStars} ⭐ зачислено`)
+      showToast(`Пополнение на ${confirmResult.starsAmount ?? creditedStars} ⭐ зачислено`)
       void onRefreshMe?.()
       setGramsStars('')
     } catch (err: unknown) {
@@ -501,9 +505,8 @@ function DepositPageContent({
         <>
           <div className="flex items-center justify-between rounded-2xl border border-[#48A9FF]/25 bg-gradient-to-r from-[#48A9FF]/10 to-emerald-400/10 px-3.5 py-3">
             <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="text-sm font-extrabold text-white">Оплата в Gram</div>
-                <span className="ml-2 text-sm font-bold text-emerald-400">+5% Бонус</span>
+              <div className="text-sm font-extrabold text-white">
+                Оплата в <span className="font-extrabold text-emerald-400">Gram +5%</span>
               </div>
             </div>
             <span className="rounded-full border border-[#48A9FF]/30 bg-[#48A9FF]/10 px-2.5 py-1 text-xs font-extrabold text-[#A9D8FF]">TON</span>
@@ -537,10 +540,14 @@ function DepositPageContent({
               </label>
 
               {gramsValid && (
-                <p className="m-0 rounded-xl border border-[#48A9FF]/20 bg-[#48A9FF]/[0.06] px-3 py-2 text-center text-[12px] leading-relaxed text-gray-300">
-                  К оплате: <strong className="text-white">~{gramsToPay.toFixed(3)} Gram</strong>{' '}
-                  (с учетом скидки 5%)
-                </p>
+                <>
+                  <p className="m-0 rounded-xl border border-[#48A9FF]/20 bg-[#48A9FF]/[0.06] px-3 py-2 text-center text-[12px] leading-relaxed text-gray-300">
+                    К оплате: <strong className="text-white">~{gramsToPay.toFixed(3)} Gram</strong>
+                  </p>
+                  <p className="m-0 text-center text-xs text-emerald-400">
+                    Зачислим: <strong>{gramsCreditStars} ⭐</strong> (включая +5% бонус)
+                  </p>
+                </>
               )}
 
               <button
