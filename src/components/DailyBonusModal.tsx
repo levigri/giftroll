@@ -45,9 +45,11 @@ const DEPOSIT_POOL: PoolEntry[] = [
 
 /** Призы промокод-кейса — зеркало `server/src/data/promoCase.ts`. */
 const PROMO_POOL: PoolEntry[] = [
-  { id: 'p-10', label: '10', emoji: '⭐', amount: 10, type: 'BALANCE', chance: 40 },
-  { id: 'p-20', label: '20', emoji: '⭐', amount: 20, type: 'BALANCE', chance: 35 },
-  { id: 'p-50', label: '50', emoji: '⭐', amount: 50, type: 'BALANCE', chance: 24.9 },
+  { id: 'p-1', label: '1', emoji: '⭐', amount: 1, type: 'BALANCE', chance: 55 },
+  { id: 'p-5', label: '5', emoji: '⭐', amount: 5, type: 'BALANCE', chance: 25 },
+  { id: 'p-10', label: '10', emoji: '⭐', amount: 10, type: 'BALANCE', chance: 12 },
+  { id: 'p-20', label: '20', emoji: '⭐', amount: 20, type: 'BALANCE', chance: 6 },
+  { id: 'p-50', label: '50', emoji: '⭐', amount: 50, type: 'BALANCE', chance: 1.9 },
   { id: 'p-ice', label: 'Ice Cream', emoji: '🍦', amount: 0, type: 'NFT', chance: 0.1 },
   { id: 'p-clover', label: 'Clover Pin', emoji: '🍀', amount: 0, type: 'NFT', chance: 0 },
   { id: 'p-sakura', label: 'Sakura Flower', emoji: '🌸', amount: 0, type: 'NFT', chance: 0 },
