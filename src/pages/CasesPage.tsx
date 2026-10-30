@@ -198,6 +198,7 @@ export default function CasesPage({
               </div>
             </article>
 
+            {me?.depositBonusOpened !== true && (
             <article
               role="button"
               tabIndex={isBonusAvailable ? 0 : -1}
@@ -242,6 +243,7 @@ export default function CasesPage({
                 {isBonusAvailable ? 'Открыть кейс' : 'Пополнить баланс'}
               </div>
             </article>
+            )}
 
             <article className="glass-card relative flex flex-col items-center gap-2 overflow-hidden p-3.5 text-center">
               <span className="absolute right-2 top-2 rounded-full border border-violet-400/40 bg-violet-400/15 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-violet-200">

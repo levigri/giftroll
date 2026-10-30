@@ -414,6 +414,7 @@ export async function claimFreeCase(userId: bigint): Promise<{
           balance: nextBalance,
           // false — билет доступен, true — билет сожжён.
           hasClaimedDepositBonus: true,
+          depositBonusOpened: true,
         },
       })
 

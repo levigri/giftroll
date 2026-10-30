@@ -368,6 +368,7 @@ function App() {
                 ...prev,
                 balance: res.newBalance,
                 hasClaimedDepositBonus: true,
+                depositBonusOpened: true,
                 inventoryCount:
                   res.prize.type === 'NFT' ? prev.inventoryCount + 1 : prev.inventoryCount,
               }

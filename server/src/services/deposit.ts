@@ -16,8 +16,8 @@ export const DEPOSIT_LOCK_MS = 21 * 24 * 60 * 60 * 1000
 export const FREE_CASE_DEPOSIT_STARS = 200
 
 /**
- * Выдаёт билет на бонусный кейс после успешного депозита от 200 ⭐.
- * Вызывать только внутри транзакции подтверждения реального пополнения.
+ * Выдаёт единственный билет на бонусный кейс после успешного депозита от 200 ⭐.
+ * После открытия (depositBonusOpened=true) повторно билет не выдаётся.
  */
 export async function grantDepositBonusTicket(
   client: Prisma.TransactionClient | typeof prisma,
@@ -28,11 +28,15 @@ export async function grantDepositBonusTicket(
     return false
   }
 
-  await client.user.update({
-    where: { id: userId },
+  const result = await client.user.updateMany({
+    where: {
+      id: userId,
+      hasClaimedDepositBonus: true,
+      depositBonusOpened: false,
+    },
     data: { hasClaimedDepositBonus: false },
   })
-  return true
+  return result.count === 1
 }
 
 /** Реферер получает 10% от отыгранной части депозита приглашённого. */

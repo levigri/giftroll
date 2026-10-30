@@ -40,6 +40,7 @@ export interface MeResponse {
   freeCases?: number
   /** Бонусный кейс за депозит уже открыт — карточка скрыта. */
   hasClaimedDepositBonus: boolean
+  depositBonusOpened: boolean
   /** Итог привязки по реф-ссылке при первом заходе; null — кода не было. */
   referral?: { ok: boolean; reason?: string } | null
   createdAt: string

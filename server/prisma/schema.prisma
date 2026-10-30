@@ -39,6 +39,8 @@ model User {
   depositBonusGranted Boolean @default(false)
   // true — no ticket / already opened; false — eligible for the bonus case.
   hasClaimedDepositBonus Boolean @default(true)
+  // Hides the bonus-case card after it has been opened; reset by a new eligible deposit.
+  depositBonusOpened Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

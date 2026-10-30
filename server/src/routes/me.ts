@@ -48,6 +48,7 @@ export const meRoutes: FastifyPluginAsync = async (fastify) => {
         freeCases: user.freeCases,
         // Открыт ли уже бонусный кейс за депозит — скрывает карточку в сетке.
         hasClaimedDepositBonus: user.hasClaimedDepositBonus,
+        depositBonusOpened: user.depositBonusOpened,
         // Итог привязки по реф-ссылке в этом запросе; null — кода не было.
         referral: request.referralBind ?? null,
         createdAt: user.createdAt.toISOString(),
