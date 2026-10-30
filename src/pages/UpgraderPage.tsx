@@ -230,6 +230,14 @@ export default function UpgraderPage({
 
   const nftValue = selectedItems.reduce((sum, item) => sum + item.prizePrice, 0)
   const totalBet = starsBet + nftValue
+  const cheapestTarget = nftPool[0] ?? null
+  const cheapestPrice = cheapestTarget?.price ?? 350
+  const maxChanceForCheapest = Math.floor((totalBet * PAYOUT_PERCENT) / cheapestPrice)
+  const dynamicMaxChance = Math.min(
+    MAX_CHANCE,
+    Math.max(MIN_CHANCE, maxChanceForCheapest),
+  )
+  const nftBetTooSmall = maxChanceForCheapest < MIN_CHANCE
   const multiplier = multiplierOf(chance)
   const payout = payoutOf(totalBet, chance)
 
@@ -238,7 +246,6 @@ export default function UpgraderPage({
     const affordableTargets = nftPool.filter((item) => item.price <= payout)
     return affordableTargets[affordableTargets.length - 1] ?? null
   }, [nftPool, payout])
-  const cheapestTarget = nftPool[0] ?? null
   const visibleTargets = isExpanded ? nftPool : nftPool.slice(0, 5)
 
   /** Карточка, выбранная игроком вручную (сравнение по уникальному ключу id+имя). */
@@ -251,6 +258,14 @@ export default function UpgraderPage({
   const requestTarget = selectedTarget ?? autoTarget
   const targetCovered = requestTarget ? payout >= requestTarget.price : false
   const change = requestTarget && targetCovered ? payout - requestTarget.price : 0
+
+  // Уменьшение ставки может понизить доступный потолок шанса; сохраняем цель,
+  // ограничивая только сам шанс, чтобы минимальная выплата покрывала дешевый NFT.
+  useEffect(() => {
+    if (chance > dynamicMaxChance) {
+      setChance(dynamicMaxChance)
+    }
+  }, [chance, dynamicMaxChance])
 
   // Ручной выбор НЕ сбрасываем из-за шанса/выплаты — просто блокируем апгрейд
   // (targetCovered = false). Выбор обнуляется только если карточки больше нет в пуле
@@ -298,6 +313,7 @@ export default function UpgraderPage({
     !busy &&
     !tooSmall &&
     !tooBig &&
+    !nftBetTooSmall &&
     !overBalance &&
     requestTarget !== null &&
     targetCovered
@@ -652,16 +668,16 @@ export default function UpgraderPage({
             className="upgrader__range"
             type="range"
             min={MIN_CHANCE}
-            max={MAX_CHANCE}
+            max={dynamicMaxChance}
             step={1}
             value={chance}
-            disabled={locked}
-            onChange={(event) => setChance(Number(event.target.value))}
+            disabled={locked || nftBetTooSmall || dynamicMaxChance === MIN_CHANCE}
+            onChange={(event) => setChance(Math.min(dynamicMaxChance, Number(event.target.value)))}
             aria-label="Шанс победы в процентах"
           />
           <div className="upgrader__bounds">
             <span>{MIN_CHANCE}%</span>
-            <span>{MAX_CHANCE}%</span>
+            <span>{dynamicMaxChance}%</span>
           </div>
 
           <div className="grid grid-cols-5 gap-1.5">
@@ -675,10 +691,10 @@ export default function UpgraderPage({
                     : 'border-white/10 bg-white/5 text-gray-300 hover:border-[#FFD700]/50 hover:text-white'
                 }`}
                 aria-pressed={chance === value}
-                disabled={locked}
+                disabled={locked || value > dynamicMaxChance || nftBetTooSmall}
                 onClick={() => {
                   tapFeedback('light')
-                  setChance(value)
+                  setChance(Math.min(value, dynamicMaxChance))
                 }}
               >
                 {value}%
@@ -693,6 +709,11 @@ export default function UpgraderPage({
               <Star size={12} fill="currentColor" />
             </strong>
           </div>
+          {nftBetTooSmall && (
+            <p className="m-0 rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-300">
+              Ставка слишком мала для получения NFT
+            </p>
+          )}
         </section>
 
         {/* 3. Цель: автоматически выбирается по текущей выплате */}
@@ -762,6 +783,12 @@ export default function UpgraderPage({
                     или уменьши шанс.
                   </p>
                 </div>
+              )}
+
+              {selectedTarget && !targetCovered && (
+                <p className="m-0 rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-300">
+                  Выплаты не хватает. Уменьшите шанс или увеличьте ставку.
+                </p>
               )}
 
               <div className="flex items-center justify-between gap-2">

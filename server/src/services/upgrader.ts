@@ -22,9 +22,6 @@ export const MAX_CHANCE = 80
 /** Возврат при 100% шансе — база для множителя. */
 export const PAYOUT_PERCENT = 95
 
-/** Выигрыш от этой суммы попадает в публичную ленту. */
-export const FEED_MIN_WIN = 5000
-
 /** Сколько NFT можно положить в одну ставку (защита от гигантских запросов). */
 export const MAX_NFT_IDS = 50
 
@@ -41,9 +38,9 @@ export interface UpgradeResult {
   winAmount: number
   multiplier: number
   totalBet: number
-  /** Целевой NFT, если выплаты хватило на него; иначе null. */
+  /** Целевой NFT при победе; при проигрыше null. */
   receivedNft: UpgraderNftView | null
-  /** Сколько ⭐ зачислено на баланс: вся выплата или сдача после NFT. */
+  /** Сдача ⭐ после вычета стоимости выигранного NFT. */
   remainingStars: number
 }
 
@@ -65,8 +62,7 @@ function assertChance(chance: number): void {
 /**
  * Проводит апгрейд: списывает ⭐, сжигает выбранные NFT, при победе начисляет выплату.
  *
- * Выплата идёт на целевой NFT из cases.ts: если её хватает на предмет, он падает
- * в инвентарь, а разница уходит на баланс. Если не хватает — вся выплата идёт ⭐.
+ * При победе игрок получает целевой NFT, а сдача сверх цены NFT зачисляется ⭐.
  *
  * Цена NFT в ставке берётся из InventoryItem.prizePrice — это серверный снимок
  * цены из cases.ts на момент выпадения, поэтому клиент не может завысить стоимость.
@@ -150,9 +146,16 @@ export async function performUpgrade(
       }
 
       const winAmount = win ? Math.floor(totalBet * multiplier) : 0
-      // Выплаты хватает на целевой NFT — забираем предмет, остаток идёт ⭐.
-      const grantNft = win && winAmount >= targetNft.price
-      const remainingStars = win ? (grantNft ? winAmount - targetNft.price : winAmount) : 0
+      if (win && winAmount < targetNft.price) {
+        throw new GameError(
+          'INVALID_BET',
+          'Выплата меньше стоимости NFT. Увеличьте ставку или уменьшите шанс.',
+          400,
+        )
+      }
+
+      const grantNft = win
+      const remainingStars = win ? winAmount - targetNft.price : 0
       const newBalance = userRow.balance - starsBet + remainingStars
 
       // NFT сгорают в любом случае — и при победе, и при проигрыше.
@@ -227,7 +230,7 @@ export async function performUpgrade(
   // Списанные ⭐ отыгрывают депозит и приносят рефереру 10%.
   processWagering(userId, starsBet, 'upgrader').catch(console.error)
 
-  // Выигранный NFT показываем в ленте всегда, крупный звёздный выигрыш — от FEED_MIN_WIN.
+  // При победе в апгрейдере всегда выдаётся NFT; в ленту звёзды не попадают.
   const feedItem = result.receivedNft
     ? {
         itemName: result.receivedNft.name,
@@ -235,14 +238,7 @@ export async function performUpgrade(
         itemEmoji: result.receivedNft.emoji,
         itemPrice: result.receivedNft.price,
       }
-    : result.win && result.remainingStars >= FEED_MIN_WIN
-      ? {
-          itemName: `Апгрейд ×${result.multiplier.toFixed(2)}`,
-          itemType: 'STARS' as const,
-          itemEmoji: '⭐',
-          itemPrice: result.remainingStars,
-        }
-      : null
+    : null
 
   if (feedItem) {
     void getUsername(userId)
