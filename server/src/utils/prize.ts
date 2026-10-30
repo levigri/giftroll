@@ -21,8 +21,17 @@ export function pickPrize(prizes: Prize[]): Prize {
     }
   }
 
-  // Fallback на случай погрешности округления чисел с плавающей точкой
-  return prizes[prizes.length - 1]!
+  // Fallback на случай погрешности округления чисел с плавающей точкой:
+  // берём последний приз с ненулевым шансом, чтобы 0%-приз (например,
+  // декоративный NFT или Sakura Flower) не выпал из-за арифметики.
+  for (let index = prizes.length - 1; index >= 0; index -= 1) {
+    const prize = prizes[index]!
+    if (prize.chance > 0) {
+      return prize
+    }
+  }
+
+  return prizes[0]!
 }
 
 /**

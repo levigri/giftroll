@@ -128,6 +128,39 @@ for (const c of allCases) {
   }
 }
 
+/**
+ * Бонусный кейс за депозит от 200 ⭐ — открывается только через
+ * `POST /api/daily-bonus/claim-deposit` (`claimFreeCase` в game.ts).
+ *
+ * Сознательно НЕ входит в `allCases`: цена 0, иначе игрок мог бы открывать
+ * его бесконечно и бесплатно через обычный `/api/open-case`.
+ */
+export const depositBonusCase: CaseItem = {
+  id: 'case-deposit-bonus',
+  name: 'Бонусный кейс',
+  price: 0,
+  currency: 'STARS',
+  emoji: '💎',
+  prizes: [
+    { id: 'db-10', name: '+10', emoji: '⭐', type: 'BALANCE', price: 10, chance: 45 },
+    { id: 'db-20', name: '+20', emoji: '⭐', type: 'BALANCE', price: 20, chance: 30 },
+    { id: 'db-50', name: '+50', emoji: '⭐', type: 'BALANCE', price: 50, chance: 24.8 },
+    { id: 'ice-cream', name: 'Ice Cream', emoji: '🍦', type: 'NFT', price: 364, chance: 0.1 },
+    { id: 'clover-pin', name: 'Clover Pin', emoji: '🍀', type: 'NFT', price: 480, chance: 0.1 },
+    { id: 'sakura-flower', name: 'Sakura Flower', emoji: '🌸', type: 'NFT', price: 1040, chance: 0 },
+  ],
+}
+
+// Сумма шансов бонусного кейса (включая NFT) — тоже строго 100%.
+{
+  const totalChance = depositBonusCase.prizes.reduce((sum, p) => sum + p.chance, 0)
+  if (Math.abs(totalChance - 100) > 0.001) {
+    throw new Error(
+      `[Cases] Invalid configuration for case "${depositBonusCase.id}": total chance is ${totalChance}%, expected 100%`,
+    )
+  }
+}
+
 export function findCase(id: string): CaseItem | undefined {
   return allCases.find((c) => c.id === id)
 }

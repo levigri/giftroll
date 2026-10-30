@@ -12,12 +12,10 @@ export interface DailyBonusPromoProps {
  * Промо-модалка «Твой бесплатный кейс готов!»: 3D-картинка с коробкой «free»,
  * поясняющий текст и золотая кнопка-CTA.
  *
- * Картинка лежит на белом фоне, поэтому она посажена в белую рамку с закруглением —
- * так белое поле превращается в намеренный дизайн-элемент, а не в «белый квадрат»
- * на тёмной теме. `mix-blend-mode: screen` не помогает (screen(белый, что угодно) = белый),
- * а `multiply` на тёмной карточке (#18181b) почти вычеркнул бы саму коробку:
- * цвет пикселя умножается на ~0.09. На белой подложке multiply даёт тот же результат,
- * что и отсутствие смешивания, поэтому выбрана белая рамка.
+ * Фон у картинки уже вырезан (в `public/promo.png` — PNG с альфа-каналом), поэтому
+ * она ложится прямо на тёмную карточку: ни белой рамки, ни `mix-blend-mode` не нужно.
+ * Смешивание здесь и вредно: `screen` оставляет светлое поле нетронутым,
+ * а `multiply` на #18181b умножает цвета коробки на ~0.09 и практически её стирает.
  */
 export default function DailyBonusPromo({ onClose, onStart }: DailyBonusPromoProps) {
   const [imageFailed, setImageFailed] = useState(false)
@@ -42,21 +40,19 @@ export default function DailyBonusPromo({ onClose, onStart }: DailyBonusPromoPro
           <X size={16} />
         </button>
 
-        {/* Белая «рамка-бейдж» вокруг картинки с белым фоном. */}
-        <div className="mb-4 rounded-2xl bg-white p-2 shadow-[0_8px_30px_rgba(0,0,0,0.35)]">
-          {imageFailed ? (
-            <span className="flex h-56 w-56 items-center justify-center rounded-xl bg-[#0B0C10]">
-              <Gift size={88} className="text-[#FFD700]" />
-            </span>
-          ) : (
-            <img
-              src="/promo.png"
-              alt="Free Case"
-              className="w-56 h-56 object-contain"
-              onError={() => setImageFailed(true)}
-            />
-          )}
-        </div>
+        {/* Картинка без подложки: фон в самом файле прозрачный. */}
+        {imageFailed ? (
+          <span className="mb-4 flex h-48 w-48 items-center justify-center rounded-2xl bg-white/5">
+            <Gift size={72} className="text-[#FFD700]" />
+          </span>
+        ) : (
+          <img
+            src="/promo.png"
+            alt="Free Case"
+            className="w-48 h-48 object-contain mb-4"
+            onError={() => setImageFailed(true)}
+          />
+        )}
 
         <h2 className="text-2xl font-black text-white text-center mb-1">
           Твой бесплатный кейс готов!

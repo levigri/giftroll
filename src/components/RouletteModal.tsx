@@ -181,13 +181,31 @@ export default function RouletteModal({
 
       <div className="relative flex max-h-[100dvh] w-full max-w-[430px] flex-col overflow-hidden rounded-t-[28px] border border-white/10 bg-[#0B0C10] shadow-[0_-20px_80px_rgba(138,43,226,0.25)]">
         <header className="flex items-start justify-between gap-3 border-b border-white/10 px-4 pb-3 pt-4">
-          <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Кейс</p>
-            <h2 className="truncate text-xl font-extrabold text-white">{caseItem.name}</h2>
-            <p className="mt-0.5 flex items-center gap-1 text-xs font-bold text-gray-300">
-              {caseItem.price} ⭐ за штуку
-              {count > 1 && <span className="text-gray-500">· {count} шт = {totalPrice} ⭐</span>}
-            </p>
+          <div className="flex min-w-0 items-start gap-3">
+            {/* Иконка кейса берётся из самого объекта caseItem: картинка, если есть, иначе эмодзи. */}
+            {caseItem.imageUrl ? (
+              <img
+                src={caseItem.imageUrl}
+                alt={caseItem.name}
+                referrerPolicy="no-referrer"
+                className="h-12 w-12 shrink-0 object-contain"
+              />
+            ) : (
+              <span
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-2xl leading-none"
+                aria-hidden="true"
+              >
+                {caseItem.emoji}
+              </span>
+            )}
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Кейс</p>
+              <h2 className="truncate text-xl font-extrabold text-white">{caseItem.name}</h2>
+              <p className="mt-0.5 flex items-center gap-1 text-xs font-bold text-gray-300">
+                {caseItem.price} ⭐ за штуку
+                {count > 1 && <span className="text-gray-500">· {count} шт = {totalPrice} ⭐</span>}
+              </p>
+            </div>
           </div>
           <button
             type="button"

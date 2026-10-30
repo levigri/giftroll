@@ -15,6 +15,8 @@ export interface CaseItem {
   emoji: string
   tonPrice?: number
   prizes: Prize[]
+  /** Опциональная картинка кейса для модалки открытия. */
+  imageUrl?: string
 }
 
 export interface CasesResponse {

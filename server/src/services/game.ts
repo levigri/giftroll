@@ -1,6 +1,6 @@
 import type { InventoryItem } from '@prisma/client'
 import { prisma } from '../db/prisma.js'
-import { findCase, type CaseItem, type Prize } from '../data/cases.js'
+import { depositBonusCase, findCase, type CaseItem, type Prize } from '../data/cases.js'
 import { pickDailyBonusPrize, pickPrize } from '../utils/prize.js'
 import { dailyBonusPrizes, type DailyBonusPrize } from '../data/dailyBonus.js'
 import { getUsername, logDrop, type DropItemType } from './drops.js'
@@ -290,7 +290,7 @@ export async function openMultiCase(
 }
 
 /**
- * Начисление ежедневного бонуса раз в 24 часа через взвешенную рулетку (1⭐, 5⭐, 25⭐, 50⭐).
+ * Начисление ежедневного бонуса раз в 24 часа через взвешенную рулетку (10⭐, 20⭐, 50⭐).
  */
 export async function claimDaily(userId: bigint): Promise<{
   prize: { id: string; label: string; emoji: string; amount: number; type: 'BALANCE' | 'NFT' }
@@ -378,14 +378,15 @@ export async function claimDaily(userId: bigint): Promise<{
 
 /**
  * Бонусный кейс за депозит от 200 ⭐: атомарно списывает одну единицу freeCases
- * и выигрывает приз из того же пула, что и ежедневный бонус.
+ * и выигрывает приз из пула `depositBonusCase` (10/20/50 ⭐ и редкие NFT 0.1%).
  */
 export async function claimFreeCase(userId: bigint): Promise<{
   prize: { id: string; label: string; emoji: string; amount: number; type: 'BALANCE' | 'NFT' }
   newBalance: number
   freeCasesLeft: number
 }> {
-  const prize = pickDailyBonusPrize(dailyBonusPrizes)
+  const won = pickPrize(depositBonusCase.prizes)
+  const starsWon = won.type === 'BALANCE' ? won.price : 0
 
   const result = await prisma.$transaction(
     async (tx) => {
@@ -405,7 +406,7 @@ export async function claimFreeCase(userId: bigint): Promise<{
         throw new GameError('NO_FREE_CASE', 'Бонусный кейс за депозит уже получен', 400)
       }
 
-      const nextBalance = userRow.balance + prize.amount
+      const nextBalance = userRow.balance + starsWon
 
       await tx.user.update({
         where: { id: userId },
@@ -417,29 +418,51 @@ export async function claimFreeCase(userId: bigint): Promise<{
         },
       })
 
-      // История операций: бонусный кейс за депозит.
-      await logTransaction(
-        userId,
-        'DAILY_BONUS',
-        prize.amount,
-        'Бонусный кейс за депозит',
-        tx,
-      )
+      // Выпавший NFT уходит в инвентарь (звёзды уже на балансе).
+      if (won.type === 'NFT') {
+        const inheritedLock = await findActiveDepositLock(tx, userId)
+        await tx.inventoryItem.create({
+          data: {
+            userId,
+            prizeId: won.id,
+            prizeName: won.name,
+            prizeEmoji: won.emoji,
+            prizePrice: won.price,
+            isExternal: false,
+            lockUntil: inheritedLock,
+            status: 'PENDING',
+          },
+        })
+      } else {
+        // История операций: бонусный кейс за депозит (только для звёзд).
+        await logTransaction(
+          userId,
+          'DAILY_BONUS',
+          starsWon,
+          `Бонусный кейс за депозит: ${won.name}`,
+          tx,
+        )
+      }
 
       return { newBalance: nextBalance, freeCasesLeft: userRow.freeCases - 1 }
     },
     { timeout: 10000 },
   )
 
-  console.log(`[FREE_CASE] user=${userId} prize=${prize.id} amount=${prize.amount} left=${result.freeCasesLeft}`)
+  // Лента дропов: публикует NFT, звёздные дропы getFeed отсекает.
+  logCaseDrops(userId, [won], depositBonusCase)
+
+  console.log(
+    `[FREE_CASE] user=${userId} prize=${won.id} type=${won.type} stars=${starsWon} left=${result.freeCasesLeft}`,
+  )
 
   return {
     prize: {
-      id: prize.id,
-      label: prize.label,
-      emoji: prize.emoji,
-      amount: prize.amount,
-      type: prize.type,
+      id: won.id,
+      label: won.name,
+      emoji: won.emoji,
+      amount: starsWon,
+      type: won.type,
     },
     newBalance: result.newBalance,
     freeCasesLeft: result.freeCasesLeft,

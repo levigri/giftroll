@@ -4,6 +4,7 @@ import type { CaseItem } from '../api/types'
 import { tapFeedback } from '../telegram'
 import { FALLBACK_PRIZE_IMAGE, getBestPrize, prizeImage } from '../utils/assets'
 import type { BonusState } from './GamesPage'
+import { DEPOSIT_BONUS_CASE } from '../data/cases'
 
 /** Сколько кейсов открывать за один клик. */
 export type OpenCount = 1 | 2 | 5
@@ -198,12 +199,14 @@ export default function CasesPage({
                       : 'border-[#FFD700]/35 from-[#FFD700]/15 to-[#FFA500]/5'
                   }`}
                 >
-                  <Gift
-                    size={42}
-                    className={`transition-transform duration-300 group-hover:scale-110 ${
-                      bonus.freeCases > 0 ? 'text-emerald-300' : 'text-[#FFD700]/75'
+                  <span
+                    className={`text-[42px] leading-none transition-transform duration-300 group-hover:scale-110 ${
+                      bonus.freeCases > 0 ? '' : 'opacity-70 grayscale'
                     }`}
-                  />
+                    aria-hidden="true"
+                  >
+                    {DEPOSIT_BONUS_CASE.emoji}
+                  </span>
                 </div>
 
                 <h3 className="m-0 text-[15px] font-extrabold text-white">Бонусный кейс</h3>

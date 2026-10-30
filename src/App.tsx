@@ -148,6 +148,8 @@ function App() {
 
   const [dailyBonusPrize, setDailyBonusPrize] = useState<DailyBonusPrize | null>(null)
   const [showDailyBonus, setShowDailyBonus] = useState(false)
+  /** Какой кейс крутим: ежедневный или бонусный за депозит — меняет заголовок и иконку модалки. */
+  const [dailyBonusSource, setDailyBonusSource] = useState<'daily' | 'deposit'>('daily')
   /** Модалка условий бесплатного кейса (подписка + шеринг). */
   const [showFreeCase, setShowFreeCase] = useState(false)
   /** Баннер «бесплатный кейс за 24 часа готов» при входе. */
@@ -338,6 +340,7 @@ function App() {
   const handleDailyBonusClaimed = (result: { prize: DailyBonusPrize; newBalance: number }) => {
     setShowFreeCase(false)
     setMe((prev) => (prev ? { ...prev, balance: result.newBalance, dailyBonusAvailable: false } : null))
+    setDailyBonusSource('daily')
     setDailyBonusPrize(result.prize)
     setShowDailyBonus(true)
   }
@@ -364,6 +367,7 @@ function App() {
       )
       // Подстраховка: перечитываем профиль, чтобы карточка исчезла и у других экранов.
       void refreshMe()
+      setDailyBonusSource('deposit')
       setDailyBonusPrize(res.prize)
       setShowDailyBonus(true)
       successFeedback()
@@ -815,6 +819,7 @@ function App() {
       {showDailyBonus && dailyBonusPrize && (
         <DailyBonusModal
           winningPrize={dailyBonusPrize}
+          source={dailyBonusSource}
           onClose={() => {
             setShowDailyBonus(false)
             setDailyBonusPrize(null)
