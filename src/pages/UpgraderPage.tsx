@@ -132,6 +132,7 @@ export default function UpgraderPage({
   const [casesLoading, setCasesLoading] = useState(true)
   /** Явно выбранный игроком NFT в сетке целей (null → авто-подбор по выплате). */
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null)
+  const [isTargetAutoAdjusted, setIsTargetAutoAdjusted] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
   const [phase, setPhase] = useState<Phase>('idle')
   const [result, setResult] = useState<UpgraderResult | null>(null)
@@ -223,6 +224,17 @@ export default function UpgraderPage({
     return [...targets.values()].sort((a, b) => a.price - b.price)
   }, [cases, catalog])
 
+  /** Пул отсортирован по цене по возрастанию — последний подходящий будет самым дорогим. */
+  const findBestAffordableTarget = (availablePayout: number): UpgraderTargetNft | null => {
+    for (let index = nftPool.length - 1; index >= 0; index -= 1) {
+      const target = nftPool[index]
+      if (target && target.price <= availablePayout) {
+        return target
+      }
+    }
+    return null
+  }
+
   const selectedItems = useMemo(
     () => inventory.filter((item) => nftIds.includes(item.id)),
     [inventory, nftIds],
@@ -242,10 +254,7 @@ export default function UpgraderPage({
   const payout = payoutOf(totalBet, chance)
 
   /** Авто-подбор: самый дорогой NFT, который целиком помещается в выплату. */
-  const autoTarget = useMemo(() => {
-    const affordableTargets = nftPool.filter((item) => item.price <= payout)
-    return affordableTargets[affordableTargets.length - 1] ?? null
-  }, [nftPool, payout])
+  const autoTarget = findBestAffordableTarget(payout)
   const visibleTargets = isExpanded ? nftPool : nftPool.slice(0, 5)
 
   /** Карточка, выбранная игроком вручную (сравнение по уникальному ключу id+имя). */
@@ -277,6 +286,7 @@ export default function UpgraderPage({
     const targetExists = nftPool.some((item) => targetKey(item) === selectedTargetId)
     if (!targetExists) {
       setSelectedTargetId(null)
+      setIsTargetAutoAdjusted(false)
     }
   }, [selectedTargetId, nftPool])
 
@@ -318,9 +328,35 @@ export default function UpgraderPage({
     requestTarget !== null &&
     targetCovered
 
+  const updateBetAndTarget = (requestedBet: number): void => {
+    const nextBet = Math.min(MAX_TOTAL_BET, Math.max(MIN_STARS_BET, Math.round(requestedBet)))
+    const nextTotalBet = nextBet + nftValue
+    const nextPayout = payoutOf(nextTotalBet, chance)
+    const bestTarget = findBestAffordableTarget(nextPayout)
+
+    setStarsBet(nextBet)
+    if (!bestTarget) {
+      setSelectedTargetId(null)
+      setIsTargetAutoAdjusted(false)
+      return
+    }
+
+    setSelectedTargetId(targetKey(bestTarget))
+    setIsTargetAutoAdjusted(true)
+
+    // Подбираем шанс под выбранную цену: целевой NFT остаётся покрыт выплатой,
+    // а при слишком высоком текущем шансе он автоматически снижается.
+    const maxChanceForTarget = Math.floor((nextTotalBet * PAYOUT_PERCENT) / bestTarget.price)
+    const maxChanceForBet = Math.min(
+      MAX_CHANCE,
+      Math.max(MIN_CHANCE, Math.floor((nextTotalBet * PAYOUT_PERCENT) / cheapestPrice)),
+    )
+    setChance(Math.min(maxChanceForBet, Math.max(MIN_CHANCE, maxChanceForTarget)))
+  }
+
   const applyBet = (next: number): void => {
     tapFeedback('light')
-    setStarsBet(Math.min(MAX_TOTAL_BET, Math.max(MIN_STARS_BET, Math.round(next))))
+    updateBetAndTarget(next)
   }
 
   const commitStars = (): void => {
@@ -329,7 +365,7 @@ export default function UpgraderPage({
       ? Math.min(MAX_TOTAL_BET, Math.max(MIN_STARS_BET, Math.round(parsed)))
       : starsBet
     setStarsDraft(String(next))
-    setStarsBet(next)
+    updateBetAndTarget(next)
   }
 
   const toggleNft = (id: string): void => {
@@ -360,6 +396,7 @@ export default function UpgraderPage({
     if (selectedTargetId === key) {
       tapFeedback('light')
       setSelectedTargetId(null)
+      setIsTargetAutoAdjusted(false)
       return
     }
 
@@ -369,6 +406,7 @@ export default function UpgraderPage({
 
     const requiredChance = Math.floor((totalBet * PAYOUT_PERCENT) / target.price)
     setSelectedTargetId(key)
+    setIsTargetAutoAdjusted(false)
     tapFeedback('light')
     if (requiredChance >= MIN_CHANCE && requiredChance <= MAX_CHANCE) {
       setChance(requiredChance)
@@ -725,7 +763,11 @@ export default function UpgraderPage({
             </span>
             <span className="inline-flex items-center gap-1 rounded-full border border-[#FFD700]/35 bg-[#FFD700]/10 px-2.5 py-1 text-[11px] font-extrabold text-[#FFE680]">
               <Sparkles size={12} />
-              {selectedTarget ? 'Выбрано вручную' : 'Авто-подбор'}
+              {selectedTarget
+                ? isTargetAutoAdjusted
+                  ? 'Лучший доступный'
+                  : 'Выбрано вручную'
+                : 'Авто-подбор'}
             </span>
           </div>
 
@@ -794,20 +836,25 @@ export default function UpgraderPage({
               <div className="flex items-center justify-between gap-2">
                 <span
                   className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider ${
-                    selectedTargetId
+                    selectedTarget
                       ? 'bg-[#FFD700]/15 text-[#FFD700]'
                       : 'bg-white/5 text-gray-400'
                   }`}
                 >
-                  {selectedTargetId ? 'Выбрано вручную' : 'Авто-подбор'}
+                  {selectedTarget
+                    ? isTargetAutoAdjusted
+                      ? 'Лучший доступный'
+                      : 'Выбрано вручную'
+                    : 'Авто-подбор'}
                 </span>
-                {selectedTargetId && (
+                {selectedTarget && (
                   <button
                     type="button"
                     className="bg-transparent text-[11px] font-bold text-gray-400 transition hover:text-white"
                     onClick={() => {
                       tapFeedback('light')
                       setSelectedTargetId(null)
+                      setIsTargetAutoAdjusted(false)
                     }}
                   >
                     Сбросить на авто
@@ -816,8 +863,8 @@ export default function UpgraderPage({
               </div>
 
               <div className="upgrader__hint">
-                Нажми на NFT ниже, чтобы зафиксировать цель и подобрать шанс под её цену.
-                Повторный клик снимает выбор.
+                Изменение ставки выбирает самый дорогой доступный NFT. Ручная цель сохраняется,
+                когда меняешь только шанс; повторный клик снимает её.
               </div>
 
               <div className="grid grid-cols-4 gap-2 pr-1">
