@@ -1,0 +1,2 @@
+ALTER TABLE "PromoCode"
+ALTER COLUMN "id" TYPE UUID USING "id"::UUID;

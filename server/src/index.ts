@@ -11,6 +11,7 @@ import { casesRoutes } from './routes/cases.js'
 import { openCaseRoutes } from './routes/openCase.js'
 import { inventoryRoutes } from './routes/inventory.js'
 import { dailyBonusRoutes } from './routes/dailyBonus.js'
+import { promoRoutes } from './routes/promo.js'
 import { pvpRoutes } from './routes/pvp.js'
 import { upgraderRoutes } from './routes/upgrader.js'
 import { dropsRoutes } from './routes/drops.js'
@@ -63,6 +64,7 @@ await fastify.register(casesRoutes)
 await fastify.register(openCaseRoutes)
 await fastify.register(inventoryRoutes)
 await fastify.register(dailyBonusRoutes)
+await fastify.register(promoRoutes)
 await fastify.register(pvpRoutes)
 await fastify.register(upgraderRoutes)
 await fastify.register(dropsRoutes)

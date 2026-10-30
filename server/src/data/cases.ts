@@ -142,8 +142,8 @@ export const depositBonusCase: CaseItem = {
   currency: 'STARS',
   emoji: '💎',
   prizes: [
-    { id: 'db-10', name: '+10', emoji: '⭐', type: 'BALANCE', price: 10, chance: 45 },
-    { id: 'db-20', name: '+20', emoji: '⭐', type: 'BALANCE', price: 20, chance: 30 },
+    { id: 'db-10', name: '+10', emoji: '⭐', type: 'BALANCE', price: 10, chance: 55 },
+    { id: 'db-20', name: '+20', emoji: '⭐', type: 'BALANCE', price: 20, chance: 20 },
     { id: 'db-50', name: '+50', emoji: '⭐', type: 'BALANCE', price: 50, chance: 24.8 },
     { id: 'ice-cream', name: 'Ice Cream', emoji: '🍦', type: 'NFT', price: 364, chance: 0.1 },
     { id: 'clover-pin', name: 'Clover Pin', emoji: '🍀', type: 'NFT', price: 480, chance: 0.1 },

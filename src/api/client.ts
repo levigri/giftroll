@@ -11,6 +11,8 @@ import type {
   PvpHistoryEntry,
   PvpJoinResponse,
   PvpRoundView,
+  PromoCheckResponse,
+  PromoOpenResponse,
   ReferralStats,
   SellNftResponse,
   TransactionEntry,
@@ -163,6 +165,20 @@ export async function claimFreeCase(): Promise<ClaimDailyResponse & { freeCasesL
       method: 'POST',
     },
   )
+}
+
+export async function checkPromoCode(code: string): Promise<PromoCheckResponse> {
+  return request<PromoCheckResponse>('/api/promo/check', {
+    method: 'POST',
+    body: JSON.stringify({ code }),
+  })
+}
+
+export async function openPromoCase(code: string): Promise<PromoOpenResponse> {
+  return request<PromoOpenResponse>('/api/promo/open', {
+    method: 'POST',
+    body: JSON.stringify({ code }),
+  })
 }
 
 /* ---------- PvP «Рулетка на толпу» ---------- */

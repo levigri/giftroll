@@ -47,6 +47,6 @@ export function pickDailyBonusPrize(prizes: DailyBonusPrize[]): DailyBonusPrize 
       return prize
     }
   }
-  // Fallback — минимальный приз (1⭐)
+  // Fallback — первый приз пула (самый маленький ежедневный бонус).
   return prizes[0]!
 }

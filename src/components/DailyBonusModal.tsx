@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Gift, Star } from 'lucide-react'
+import { Gift, KeyRound, Star } from 'lucide-react'
 import type { DailyBonusPrize } from '../api/types'
 import { DEPOSIT_BONUS_CASE } from '../data/cases'
 import { tapFeedback } from '../telegram'
@@ -10,7 +10,7 @@ export interface DailyBonusModalProps {
   winningPrize: DailyBonusPrize
   onClose: () => void
   /** Откуда пришли: ежедневный бесплатный кейс или бонусный кейс за депозит. */
-  source?: 'daily' | 'deposit'
+  source?: 'daily' | 'deposit' | 'promo'
 }
 
 const STRIP_LENGTH = 30
@@ -25,20 +25,32 @@ export type PoolEntry = DailyBonusPrize & { chance: number }
 
 /** Призы ежедневного бесплатного кейса — зеркало `dailyBonusPrizes` на сервере. */
 const DAILY_POOL: PoolEntry[] = [
-  { id: 'db-10', label: '10', emoji: '⭐', amount: 10, type: 'BALANCE', chance: 70 },
-  { id: 'db-20', label: '20', emoji: '⭐', amount: 20, type: 'BALANCE', chance: 25 },
-  { id: 'db-50', label: '50', emoji: '⭐', amount: 50, type: 'BALANCE', chance: 5 },
+  { id: 'db-1', label: '1', emoji: '⭐', amount: 1, type: 'BALANCE', chance: 45 },
+  { id: 'db-5', label: '5', emoji: '⭐', amount: 5, type: 'BALANCE', chance: 30 },
+  { id: 'db-10', label: '10', emoji: '⭐', amount: 10, type: 'BALANCE', chance: 15 },
+  { id: 'db-25', label: '25', emoji: '⭐', amount: 25, type: 'BALANCE', chance: 8 },
+  { id: 'db-50', label: '50', emoji: '⭐', amount: 50, type: 'BALANCE', chance: 2 },
   { id: 'db-nft', label: 'NFT', emoji: '🍦', amount: 0, type: 'NFT', chance: 0 },
 ]
 
 /** Призы бонусного кейса за депозит — зеркало `depositBonusCase` на сервере. */
 const DEPOSIT_POOL: PoolEntry[] = [
-  { id: 'db-10', label: '10', emoji: '⭐', amount: 10, type: 'BALANCE', chance: 45 },
-  { id: 'db-20', label: '20', emoji: '⭐', amount: 20, type: 'BALANCE', chance: 30 },
+  { id: 'db-10', label: '10', emoji: '⭐', amount: 10, type: 'BALANCE', chance: 55 },
+  { id: 'db-20', label: '20', emoji: '⭐', amount: 20, type: 'BALANCE', chance: 20 },
   { id: 'db-50', label: '50', emoji: '⭐', amount: 50, type: 'BALANCE', chance: 24.8 },
   { id: 'ice-cream', label: 'Ice Cream', emoji: '🍦', amount: 0, type: 'NFT', chance: 0.1 },
   { id: 'clover-pin', label: 'Clover Pin', emoji: '🍀', amount: 0, type: 'NFT', chance: 0.1 },
   { id: 'sakura-flower', label: 'Sakura Flower', emoji: '🌸', amount: 0, type: 'NFT', chance: 0 },
+]
+
+/** Призы промокод-кейса — зеркало `server/src/data/promoCase.ts`. */
+const PROMO_POOL: PoolEntry[] = [
+  { id: 'p-10', label: '10', emoji: '⭐', amount: 10, type: 'BALANCE', chance: 40 },
+  { id: 'p-20', label: '20', emoji: '⭐', amount: 20, type: 'BALANCE', chance: 30 },
+  { id: 'p-50', label: '50', emoji: '⭐', amount: 50, type: 'BALANCE', chance: 29.9 },
+  { id: 'p-ice', label: 'Ice Cream', emoji: '🍦', amount: 0, type: 'NFT', chance: 0.1 },
+  { id: 'p-clover', label: 'Clover Pin', emoji: '🍀', amount: 0, type: 'NFT', chance: 0 },
+  { id: 'p-sakura', label: 'Sakura Flower', emoji: '🌸', amount: 0, type: 'NFT', chance: 0 },
 ]
 
 export const dailyBonusPool: DailyBonusPrize[] = DAILY_POOL
@@ -63,7 +75,8 @@ export default function DailyBonusModal({
   source = 'daily',
 }: DailyBonusModalProps) {
   const isDeposit = source === 'deposit'
-  const pool = isDeposit ? DEPOSIT_POOL : DAILY_POOL
+  const isPromo = source === 'promo'
+  const pool = isDeposit ? DEPOSIT_POOL : isPromo ? PROMO_POOL : DAILY_POOL
   const strip = useMemo(() => buildStrip(pool, winningPrize), [pool, winningPrize])
   const viewportRef = useRef<HTMLDivElement>(null)
   const [offset, setOffset] = useState(0)
@@ -99,7 +112,7 @@ export default function DailyBonusModal({
       className="roulette"
       role="dialog"
       aria-modal="true"
-      aria-label={isDeposit ? DEPOSIT_BONUS_CASE.name : 'Ежедневный бонус'}
+      aria-label={isDeposit ? DEPOSIT_BONUS_CASE.name : isPromo ? 'Промокод-кейс' : 'Ежедневный бонус'}
     >
       <div className="roulette__backdrop" onClick={onClose} />
 
@@ -109,10 +122,12 @@ export default function DailyBonusModal({
             <span className="text-lg leading-none" aria-hidden="true">
               {DEPOSIT_BONUS_CASE.emoji}
             </span>
+          ) : isPromo ? (
+            <KeyRound size={18} className="text-violet-300" />
           ) : (
             <Gift size={18} className="text-[#FFD700]" />
           )}
-          {isDeposit ? DEPOSIT_BONUS_CASE.name : 'Ежедневный бонус'}
+          {isDeposit ? DEPOSIT_BONUS_CASE.name : isPromo ? 'Промокод-кейс' : 'Ежедневный бонус'}
         </h2>
 
         <div className="roulette__stage">
@@ -179,9 +194,15 @@ export default function DailyBonusModal({
                     className="h-full w-full"
                   />
                 </div>
-                <span className="w-full truncate text-[10px] font-bold leading-tight text-white">
-                  {prize.type === 'BALANCE' ? `+${prize.amount} ⭐` : prize.label}
-                </span>
+                {prize.type === 'BALANCE' ? (
+                  <span className="font-extrabold leading-tight text-[10px] text-[#FFD700]">
+                    +{prize.amount} ⭐
+                  </span>
+                ) : (
+                  <span className="w-full truncate text-[10px] font-bold leading-tight text-white">
+                    {prize.label}
+                  </span>
+                )}
                 <span className="rounded-full border border-white/10 bg-black/35 px-1.5 py-0.5 text-[9px] font-bold tabular-nums text-gray-300">
                   {formatChance(prize.chance)}
                 </span>

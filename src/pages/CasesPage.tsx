@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Gift, Star, Wallet } from 'lucide-react'
-import type { CaseItem } from '../api/types'
+import { Gift, KeyRound, Star, Wallet } from 'lucide-react'
+import { checkPromoCode, openPromoCase } from '../api/client'
+import type { CaseItem, DailyBonusPrize, PromoOpenResponse } from '../api/types'
 import { tapFeedback } from '../telegram'
 import { FALLBACK_PRIZE_IMAGE, getBestPrize, prizeImage } from '../utils/assets'
 import type { BonusState } from './GamesPage'
 import { DEPOSIT_BONUS_CASE } from '../data/cases'
+import DailyBonusModal from '../components/DailyBonusModal'
 
 /** Сколько кейсов открывать за один клик. */
 export type OpenCount = 1 | 2 | 5
@@ -55,6 +57,7 @@ export interface CasesPageProps {
   onClaimDepositBonus: () => void
   /** Переход на вкладку пополнения (для заблокированной карточки бонусного кейса). */
   onGoDeposit: () => void
+  onPromoOpened: (result: PromoOpenResponse) => void
 }
 
 /** Вкладка «Кейсы»: сетка кейсов и подключение TON-кошелька. */
@@ -70,9 +73,50 @@ export default function CasesPage({
   onOpenFreeCase,
   onClaimDepositBonus,
   onGoDeposit,
+  onPromoOpened,
 }: CasesPageProps) {
+  const [promoCode, setPromoCode] = useState('')
+  const [isPromoValid, setIsPromoValid] = useState(false)
+  const [promoError, setPromoError] = useState<string | null>(null)
+  const [promoBusy, setPromoBusy] = useState(false)
+  const [promoPrize, setPromoPrize] = useState<DailyBonusPrize | null>(null)
+
   const hottestPrice = cases.reduce((max, item) => Math.max(max, item.price), 0)
   const countdown = useCountdown(bonus.dailyAvailableAt, !bonus.dailyAvailable)
+
+  const handleCheckPromo = async () => {
+    const code = promoCode.trim()
+    if (!code || promoBusy) return
+    setPromoBusy(true)
+    setPromoError(null)
+    try {
+      const result = await checkPromoCode(code)
+      setIsPromoValid(result.valid)
+      if (!result.valid) setPromoError(result.error ?? 'Код не найден или исчерпан')
+    } catch (error) {
+      setIsPromoValid(false)
+      setPromoError(error instanceof Error ? error.message : 'Не удалось проверить код')
+    } finally {
+      setPromoBusy(false)
+    }
+  }
+
+  const handleOpenPromo = async () => {
+    if (!isPromoValid || promoBusy) return
+    setPromoBusy(true)
+    setPromoError(null)
+    try {
+      const result = await openPromoCase(promoCode.trim())
+      onPromoOpened(result)
+      setPromoPrize(result.prize)
+      tapFeedback('medium')
+    } catch (error) {
+      setIsPromoValid(false)
+      setPromoError(error instanceof Error ? error.message : 'Не удалось открыть промокод-кейс')
+    } finally {
+      setPromoBusy(false)
+    }
+  }
 
   return (
     <>
@@ -231,6 +275,56 @@ export default function CasesPage({
               </article>
             )}
 
+            <article className="glass-card relative flex flex-col items-center gap-2 overflow-hidden p-3.5 text-center">
+              <span className="absolute right-2 top-2 rounded-full border border-violet-400/40 bg-violet-400/15 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-violet-200">
+                По коду
+              </span>
+              <div className="relative mt-1 flex h-24 w-24 items-center justify-center rounded-2xl border border-violet-400/40 bg-gradient-to-br from-violet-400/20 to-indigo-600/10">
+                <KeyRound size={42} className="text-violet-300" />
+              </div>
+              <h3 className="m-0 text-[15px] font-extrabold text-white">Промокод-кейс</h3>
+              <form
+                className="flex w-full flex-col gap-2"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  if (isPromoValid) void handleOpenPromo()
+                  else void handleCheckPromo()
+                }}
+              >
+                <input
+                  value={promoCode}
+                  onChange={(event) => {
+                    setPromoCode(event.target.value)
+                    setIsPromoValid(false)
+                    setPromoError(null)
+                  }}
+                  placeholder="Введите код..."
+                  aria-label="Промокод"
+                  autoCapitalize="characters"
+                  maxLength={64}
+                  className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-center text-sm font-bold uppercase text-white outline-none placeholder:normal-case placeholder:text-gray-500 focus:border-violet-400/60"
+                />
+                {isPromoValid ? (
+                  <button
+                    type="submit"
+                    disabled={promoBusy}
+                    className="w-full rounded-xl border border-violet-400/50 bg-violet-500/20 py-2 text-xs font-extrabold text-violet-100 transition hover:bg-violet-500/30 disabled:opacity-50"
+                  >
+                    {promoBusy ? 'Открываем…' : 'Открыть кейс'}
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={!promoCode.trim() || promoBusy}
+                    className="w-full rounded-xl border border-white/10 bg-white/5 py-2 text-xs font-bold text-gray-200 transition hover:border-violet-400/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {promoBusy ? 'Проверяем…' : 'Проверить'}
+                  </button>
+                )}
+              </form>
+              {promoError && <p className="m-0 text-xs font-semibold text-red-300">{promoError}</p>}
+            </article>
+
             {cases.map((caseItem) => {
               const isHot = caseItem.price === hottestPrice && hottestPrice > 0
               const bestPrize = getBestPrize(caseItem.prizes)
@@ -306,6 +400,14 @@ export default function CasesPage({
             ? 'TON-кошелёк активен'
             : 'Кошелёк не подключён'}
       </footer>
+
+      {promoPrize && (
+        <DailyBonusModal
+          winningPrize={promoPrize}
+          source="promo"
+          onClose={() => setPromoPrize(null)}
+        />
+      )}
     </>
   )
 }

@@ -315,12 +315,18 @@ export default function RouletteModal({
                       }
                     />
                   </div>
-                  <span
-                    className="w-full truncate text-[10px] font-bold leading-tight text-white"
-                    title={prize.name}
-                  >
-                    {prize.type === 'BALANCE' ? `+${prize.price} ⭐` : prize.name}
-                  </span>
+                  {prize.type === 'BALANCE' ? (
+                    <span className="font-extrabold leading-tight text-[10px] text-[#FFD700]">
+                      +{prize.price} ⭐
+                    </span>
+                  ) : (
+                    <span
+                      className="w-full truncate text-[10px] font-bold leading-tight text-white"
+                      title={prize.name}
+                    >
+                      {prize.name}
+                    </span>
+                  )}
                   {prize.type === 'NFT' && (
                     <span className="text-[10px] font-extrabold leading-none text-[#FFD700]">
                       {prize.price} ⭐

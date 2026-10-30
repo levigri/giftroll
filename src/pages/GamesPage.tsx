@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Gauge, Package, Swords } from 'lucide-react'
-import type { CaseItem } from '../api/types'
+import type { CaseItem, PromoOpenResponse } from '../api/types'
 import CasesPage from './CasesPage'
 import UpgraderPage from './UpgraderPage'
 import PvpPage from './PvpPage'
@@ -31,6 +31,7 @@ export interface GamesPageProps {
   onClaimDepositBonus: () => void
   /** Переход на вкладку пополнения (заблокированная карточка бонусного кейса). */
   onGoDeposit: () => void
+  onPromoOpened: (result: PromoOpenResponse) => void
 }
 
 /** Состояние бонусных кейсов в сетке кейсов. */
@@ -60,6 +61,7 @@ export default function GamesPage({
   onOpenFreeCase,
   onClaimDepositBonus,
   onGoDeposit,
+  onPromoOpened,
 }: GamesPageProps) {
   const [game, setGame] = useState<GamesTab>('cases')
 
@@ -113,6 +115,7 @@ export default function GamesPage({
             onOpenFreeCase={onOpenFreeCase}
             onClaimDepositBonus={onClaimDepositBonus}
             onGoDeposit={onGoDeposit}
+            onPromoOpened={onPromoOpened}
           />
         )}
 

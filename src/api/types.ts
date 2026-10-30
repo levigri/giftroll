@@ -111,6 +111,17 @@ export interface ClaimDailyResponse {
   streak: number
 }
 
+export interface PromoCheckResponse {
+  valid: boolean
+  error?: string
+}
+
+export interface PromoOpenResponse {
+  prize: DailyBonusPrize
+  newBalance: number
+  currentUses: number
+}
+
 export interface SellNftResponse {
   newBalance: number
   soldFor: number

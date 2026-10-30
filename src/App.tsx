@@ -575,6 +575,19 @@ function App() {
             }}
             onClaimDepositBonus={() => void handleClaimDepositBonus()}
             onGoDeposit={openDeposit}
+            onPromoOpened={(result) => {
+              setMe((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      balance: result.newBalance,
+                      inventoryCount:
+                        result.prize.type === 'NFT' ? prev.inventoryCount + 1 : prev.inventoryCount,
+                    }
+                  : null,
+              )
+              void refreshMe()
+            }}
           />
         )}
 

@@ -110,6 +110,14 @@ model DailyBonus {
   @@map("daily_bonuses")
 }
 
+model PromoCode {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique
+  maxUses     Int      @default(1)
+  currentUses Int      @default(0)
+  createdAt   DateTime @default(now())
+}
+
 // Публичная лента дропов: пишется fire-and-forget из кейсов и PvP.
 model DropEvent {
   id          String   @id @default(cuid())
