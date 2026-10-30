@@ -377,6 +377,71 @@ export async function claimDaily(userId: bigint): Promise<{
 }
 
 /**
+ * Бонусный кейс за депозит от 200 ⭐: атомарно списывает одну единицу freeCases
+ * и выигрывает приз из того же пула, что и ежедневный бонус.
+ */
+export async function claimFreeCase(userId: bigint): Promise<{
+  prize: { id: string; label: string; emoji: string; amount: number; type: 'BALANCE' | 'NFT' }
+  newBalance: number
+  freeCasesLeft: number
+}> {
+  const prize = pickDailyBonusPrize(dailyBonusPrizes)
+
+  const result = await prisma.$transaction(
+    async (tx) => {
+      const rows = await tx.$queryRaw<{
+        id: bigint
+        balance: number
+        freeCases: number
+      }[]>`
+        SELECT id, balance, "freeCases" FROM users WHERE id = ${userId} FOR UPDATE
+      `
+
+      const userRow = rows[0]
+      if (!userRow) {
+        throw new GameError('USER_NOT_FOUND', 'Пользователь не найден', 404)
+      }
+      if (userRow.freeCases <= 0) {
+        throw new GameError('NO_FREE_CASE', 'Бонусный кейс за депозит уже получен', 400)
+      }
+
+      const nextBalance = userRow.balance + prize.amount
+
+      await tx.user.update({
+        where: { id: userId },
+        data: { balance: nextBalance, freeCases: { decrement: 1 } },
+      })
+
+      // История операций: бонусный кейс за депозит.
+      await logTransaction(
+        userId,
+        'DAILY_BONUS',
+        prize.amount,
+        'Бонусный кейс за депозит',
+        tx,
+      )
+
+      return { newBalance: nextBalance, freeCasesLeft: userRow.freeCases - 1 }
+    },
+    { timeout: 10000 },
+  )
+
+  console.log(`[FREE_CASE] user=${userId} prize=${prize.id} amount=${prize.amount} left=${result.freeCasesLeft}`)
+
+  return {
+    prize: {
+      id: prize.id,
+      label: prize.label,
+      emoji: prize.emoji,
+      amount: prize.amount,
+      type: prize.type,
+    },
+    newBalance: result.newBalance,
+    freeCasesLeft: result.freeCasesLeft,
+  }
+}
+
+/**
  * Получение инвентаря пользователя.
  */
 export async function getInventory(userId: bigint): Promise<InventoryItem[]> {

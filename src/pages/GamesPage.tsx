@@ -25,6 +25,21 @@ export interface GamesPageProps {
   walletLabel: string | null
   connectionRestored: boolean
   onConnect: () => void
+  /** Бонусные кейсы: ежедневный и за депозит от 200 ⭐. */
+  bonus: BonusState
+  onOpenFreeCase: () => void
+  onClaimDepositBonus: () => void
+  /** Переход на вкладку пополнения (заблокированная карточка бонусного кейса). */
+  onGoDeposit: () => void
+}
+
+/** Состояние бонусных кейсов в сетке кейсов. */
+export interface BonusState {
+  dailyAvailable: boolean
+  /** Когда откроется следующий ежедневный кейс; null — если уже доступен. */
+  dailyAvailableAt: string | null
+  /** Неоткрытые бонусные кейсы за депозит от 200 ⭐. */
+  freeCases: number
 }
 
 /** Вкладка «Игры»: кейсы, апгрейдер и PvP под общим переключателем. */
@@ -39,6 +54,10 @@ export default function GamesPage({
   walletLabel,
   connectionRestored,
   onConnect,
+  bonus,
+  onOpenFreeCase,
+  onClaimDepositBonus,
+  onGoDeposit,
 }: GamesPageProps) {
   const [game, setGame] = useState<GamesTab>('cases')
 
@@ -88,6 +107,10 @@ export default function GamesPage({
             walletLabel={walletLabel}
             connectionRestored={connectionRestored}
             onConnect={onConnect}
+            bonus={bonus}
+            onOpenFreeCase={onOpenFreeCase}
+            onClaimDepositBonus={onClaimDepositBonus}
+            onGoDeposit={onGoDeposit}
           />
         )}
 

@@ -3,6 +3,7 @@ import { prisma } from '../db/prisma.js'
 import {
   DEPOSIT_LOCK_MS,
   DepositError,
+  freeCaseGrant,
   MAX_DEPOSIT_STARS,
   MIN_DEPOSIT_STARS,
 } from './deposit.js'
@@ -171,6 +172,8 @@ export async function handleCryptoWebhook(update: unknown): Promise<{ ok: boolea
       data: {
         balance: { increment: deposit.amount },
         depositUnspent: { increment: deposit.amount },
+        // Депозит от 200 ⭐ — бесплатный бонусный кейс.
+        ...freeCaseGrant(deposit.amount),
       },
     }),
     // История операций: зачисление пополнения через CryptoBot (ровно звёзды).

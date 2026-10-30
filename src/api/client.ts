@@ -143,9 +143,26 @@ export async function claimNft(id: string): Promise<ClaimNftResponse> {
 }
 
 export async function claimDaily(): Promise<ClaimDailyResponse> {
-  return request<ClaimDailyResponse>('/api/claim-daily', {
+  return request<ClaimDailyResponse>('/api/daily-bonus/claim', {
     method: 'POST',
   })
+}
+
+/** Подписан ли игрок на канал @NewsGiftRoll (условие бесплатного кейса). */
+export async function checkSubscription(): Promise<{ subscribed: boolean }> {
+  return request<{ subscribed: boolean }>('/api/daily-bonus/check-subscription', {
+    method: 'GET',
+  })
+}
+
+/** Бонусный кейс за депозит от 200 ⭐: выдаёт приз и списывает одну единицу. */
+export async function claimFreeCase(): Promise<ClaimDailyResponse & { freeCasesLeft: number }> {
+  return request<ClaimDailyResponse & { freeCasesLeft: number }>(
+    '/api/daily-bonus/claim-deposit',
+    {
+      method: 'POST',
+    },
+  )
 }
 
 /* ---------- PvP «Рулетка на толпу» ---------- */

@@ -8,7 +8,7 @@ import { ArrowDown, ArrowUp, Backpack, Gamepad2, Gift, Plus, Star, User, Users }
 import type { CaseItem, DailyBonusPrize, MeResponse, Prize, TransactionEntry } from './api/types'
 import {
   ApiError,
-  claimDaily,
+  claimFreeCase,
   getCases,
   getMe,
   getTransactions,
@@ -26,6 +26,7 @@ import {
 import RouletteModal from './components/RouletteModal'
 import InventoryModal from './components/InventoryModal'
 import DailyBonusModal from './components/DailyBonusModal'
+import FreeCaseModal from './components/FreeCaseModal'
 import LiveFeed from './components/LiveFeed'
 import GamesPage from './pages/GamesPage'
 import type { OpenCount } from './pages/CasesPage'
@@ -146,6 +147,13 @@ function App() {
 
   const [dailyBonusPrize, setDailyBonusPrize] = useState<DailyBonusPrize | null>(null)
   const [showDailyBonus, setShowDailyBonus] = useState(false)
+  /** Модалка условий бесплатного кейса (подписка + шеринг). */
+  const [showFreeCase, setShowFreeCase] = useState(false)
+
+  // Статичный прелоадер из index.html убираем после первого рендера React.
+  useEffect(() => {
+    document.getElementById('boot-preloader')?.remove()
+  }, [])
   const [tab, setTab] = useState<TabId>(() => readRoute() ?? 'games')
   /** Куда вернуть с DepositPage, если открыли его из вкладки. */
   const [depositReturnTab, setDepositReturnTab] = useState<TabId>('games')
@@ -305,29 +313,29 @@ function App() {
     })
   }
 
-  const handleDailyBonus = async () => {
-    if (!me) {
+  const handleDailyBonusClaimed = (result: { prize: DailyBonusPrize; newBalance: number }) => {
+    setShowFreeCase(false)
+    setMe((prev) => (prev ? { ...prev, balance: result.newBalance, dailyBonusAvailable: false } : null))
+    setDailyBonusPrize(result.prize)
+    setShowDailyBonus(true)
+  }
+
+  /** Бонусный кейс за депозит от 200 ⭐ — одна единица из freeCases. */
+  const handleClaimDepositBonus = async () => {
+    if (!me || (me.freeCases ?? 0) <= 0) {
       return
     }
 
-    tapFeedback('light')
+    tapFeedback('medium')
     try {
-      const res = await claimDaily()
-      setMe((prev) =>
-        prev
-          ? {
-              ...prev,
-              balance: res.newBalance,
-              dailyBonusAvailable: false,
-            }
-          : null,
-      )
+      const res = await claimFreeCase()
+      setMe((prev) => (prev ? { ...prev, balance: res.newBalance, freeCases: res.freeCasesLeft } : null))
       setDailyBonusPrize(res.prize)
       setShowDailyBonus(true)
       successFeedback()
     } catch (err: unknown) {
       errorFeedback()
-      showToastError(err instanceof Error ? err.message : 'Ошибка бонуса')
+      showToastError(err instanceof Error ? err.message : 'Ошибка бонусного кейса')
     }
   }
 
@@ -398,6 +406,19 @@ function App() {
 
   return (
     <div className="min-h-screen bg-[#0B0C10] font-sans text-white">
+      {/* Прелоадер: живёт поверх всего, пока грузятся getMe/getCases, и плавно уходит. */}
+      <div
+        className={`app-preloader${loading ? '' : ' app-preloader--hidden'}`}
+        role="status"
+        aria-live="polite"
+        aria-hidden={!loading}
+      >
+        <span className="app-preloader__icon">
+          <Gift size={34} />
+        </span>
+        <span className="app-preloader__spinner" />
+        <p className="app-preloader__text">Загрузка...</p>
+      </div>
       <div className="relative mx-auto min-h-screen max-w-[430px] overflow-x-hidden bg-[#0B0C10] bg-[radial-gradient(120%_60%_at_50%_-10%,rgba(138,43,226,0.2),transparent_65%)] shadow-[0_0_80px_rgba(138,43,226,0.18)]">
         <div className="app">
       {!inTelegram && (
@@ -464,17 +485,6 @@ function App() {
         )}
       </header>
 
-      {me?.dailyBonusAvailable && (
-        <button
-          type="button"
-          className="gold-btn flex w-full items-center justify-center gap-2 py-2.5 text-sm"
-          onClick={() => void handleDailyBonus()}
-        >
-          <Gift size={16} />
-          Ежедневный бонус
-        </button>
-      )}
-
       <LiveFeed />
 
       <main className="app__main">
@@ -492,6 +502,17 @@ function App() {
             walletLabel={walletLabel}
             connectionRestored={connectionRestored}
             onConnect={handleConnect}
+            bonus={{
+              dailyAvailable: me?.dailyBonusAvailable ?? false,
+              dailyAvailableAt: me?.dailyBonusAvailableAt ?? null,
+              freeCases: me?.freeCases ?? 0,
+            }}
+            onOpenFreeCase={() => {
+              tapFeedback('light')
+              setShowFreeCase(true)
+            }}
+            onClaimDepositBonus={() => void handleClaimDepositBonus()}
+            onGoDeposit={openDeposit}
           />
         )}
 
@@ -707,6 +728,16 @@ function App() {
           onCountChange={(newCount) =>
             setMe((prev) => (prev ? { ...prev, inventoryCount: newCount } : null))
           }
+        />
+      )}
+
+      {showFreeCase && (
+        <FreeCaseModal
+          onClose={() => {
+            tapFeedback('light')
+            setShowFreeCase(false)
+          }}
+          onClaimed={handleDailyBonusClaimed}
         />
       )}
 

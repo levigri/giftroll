@@ -32,6 +32,10 @@ export interface MeResponse {
   balance: number
   inventoryCount: number
   dailyBonusAvailable: boolean
+  /** Когда откроется следующий бесплатный кейс; null — если уже доступен. */
+  dailyBonusAvailableAt?: string | null
+  /** Неоткрытые бонусные кейсы за депозиты от 200 ⭐. */
+  freeCases?: number
   /** Итог привязки по реф-ссылке при первом заходе; null — кода не было. */
   referral?: { ok: boolean; reason?: string } | null
   createdAt: string

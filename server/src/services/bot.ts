@@ -19,6 +19,29 @@ function getNotifyBot(): Bot | null {
   return notifyBot
 }
 
+/** Канал, на которую обязана подписаться для бесплатного кейса. */
+export const FREE_CASE_CHANNEL = '@NewsGiftRoll'
+
+/**
+ * Проверяет подписку пользователя на канал.
+ * Без токена бота (локальная разработка) пропускаем, в проде считаем неподписанным.
+ */
+export async function checkChannelSubscription(userId: bigint): Promise<boolean> {
+  const bot = getNotifyBot()
+  if (!bot) {
+    return env.NODE_ENV !== 'production'
+  }
+
+  try {
+    const member = await bot.api.getChatMember(FREE_CASE_CHANNEL, Number(userId))
+    return member.status === 'member' || member.status === 'administrator' || member.status === 'creator'
+  } catch (err) {
+    // Ошибка API (нет сети, бот не админ) — считаем, что не подписан, с логом.
+    console.error(`[Bot] subscription check failed for user ${userId}:`, err)
+    return false
+  }
+}
+
 /**
  * Отправляет пользователю служебное сообщение в Telegram.
  * Ошибка доставки не должна ломать зачисление — поэтому глотаем её с логом.
