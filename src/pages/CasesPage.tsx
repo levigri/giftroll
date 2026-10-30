@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Gift, KeyRound, Star, Wallet } from 'lucide-react'
+import { Gift, KeyRound, Lock, Star, Wallet } from 'lucide-react'
 import { checkPromoCode, openPromoCase } from '../api/client'
-import type { CaseItem, DailyBonusPrize, PromoOpenResponse } from '../api/types'
+import type { CaseItem, DailyBonusPrize, MeResponse, PromoOpenResponse } from '../api/types'
 import { tapFeedback } from '../telegram'
 import { FALLBACK_PRIZE_IMAGE, getBestPrize, prizeImage } from '../utils/assets'
 import type { BonusState } from './GamesPage'
@@ -55,9 +55,8 @@ export interface CasesPageProps {
   bonus: BonusState
   onOpenFreeCase: () => void
   onClaimDepositBonus: () => void
-  /** Переход на вкладку пополнения (для заблокированной карточки бонусного кейса). */
-  onGoDeposit: () => void
   onPromoOpened: (result: PromoOpenResponse) => void
+  me: MeResponse | null
 }
 
 /** Вкладка «Кейсы»: сетка кейсов и подключение TON-кошелька. */
@@ -72,8 +71,8 @@ export default function CasesPage({
   bonus,
   onOpenFreeCase,
   onClaimDepositBonus,
-  onGoDeposit,
   onPromoOpened,
+  me,
 }: CasesPageProps) {
   const [promoCode, setPromoCode] = useState('')
   const [isPromoValid, setIsPromoValid] = useState(false)
@@ -83,6 +82,9 @@ export default function CasesPage({
 
   const hottestPrice = cases.reduce((max, item) => Math.max(max, item.price), 0)
   const countdown = useCountdown(bonus.dailyAvailableAt, !bonus.dailyAvailable)
+  const isDepositBonusLocked = me?.hasClaimedDepositBonus !== false
+
+  console.log('Флаг депозитного бонуса:', me?.hasClaimedDepositBonus)
 
   const handleCheckPromo = async () => {
     const code = promoCode.trim()
@@ -196,84 +198,50 @@ export default function CasesPage({
               </div>
             </article>
 
-            {/* Бонусный кейс за депозит от 200 ⭐ — виден, пока игрок не открыл его ни разу: до награды "зацепка" (бесплатно, но только за депозит от 200 ⭐), после — кнопка «Забрать». */}
-            {!bonus.depositBonusClaimed && (
-              <article
-                role="button"
-                tabIndex={0}
-                onClick={() => {
-                  tapFeedback('light')
-                  if (bonus.freeCases > 0) {
-                    onClaimDepositBonus()
-                  } else {
-                    onGoDeposit()
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    tapFeedback('light')
-                    if (bonus.freeCases > 0) {
-                      onClaimDepositBonus()
-                    } else {
-                      onGoDeposit()
-                    }
-                  }
-                }}
-                className={`glass-card group relative flex cursor-pointer flex-col items-center gap-2 overflow-hidden p-3.5 text-center transition hover:scale-[1.02] active:scale-[0.98] ${
-                  bonus.freeCases > 0
-                    ? 'border-emerald-400/50 shadow-[0_0_24px_rgba(52,211,153,0.18)]'
-                    : 'border-dashed border-[#FFD700]/35 shadow-[0_0_20px_rgba(255,215,0,0.10)]'
-                }`}
-              >
-                <span
-                  className={`absolute right-2 top-2 rounded-full border px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider ${
-                    bonus.freeCases > 0
-                      ? 'border-emerald-400/40 bg-emerald-400/15 text-emerald-300'
-                      : 'border-[#FFD700]/40 bg-[#FFD700]/15 text-[#FFD700]'
-                  }`}
-                >
-                  {bonus.freeCases > 0 ? `×${bonus.freeCases}` : '200 ⭐'}
+            <article
+              role="button"
+              tabIndex={isDepositBonusLocked ? -1 : 0}
+              aria-disabled={isDepositBonusLocked}
+              onClick={() => {
+                if (isDepositBonusLocked) return
+                tapFeedback('light')
+                onClaimDepositBonus()
+              }}
+              onKeyDown={(event) => {
+                if (isDepositBonusLocked || (event.key !== 'Enter' && event.key !== ' ')) return
+                event.preventDefault()
+                tapFeedback('light')
+                onClaimDepositBonus()
+              }}
+              className={`glass-card group relative flex flex-col items-center gap-2 overflow-hidden p-3.5 text-center transition ${
+                isDepositBonusLocked
+                  ? 'cursor-not-allowed opacity-55 grayscale'
+                  : 'cursor-pointer border-emerald-400/50 shadow-[0_0_24px_rgba(52,211,153,0.18)] hover:scale-[1.02] active:scale-[0.98]'
+              }`}
+            >
+              <span className="absolute right-2 top-2 rounded-full border border-emerald-400/40 bg-emerald-400/15 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-300">
+                {isDepositBonusLocked ? 'Открыт' : bonus.freeCases > 0 ? `×${bonus.freeCases}` : 'Бонус'}
+              </span>
+
+              <div className="relative mt-1 flex h-24 w-24 items-center justify-center rounded-2xl border border-emerald-400/40 bg-gradient-to-br from-emerald-400/20 to-emerald-600/10">
+                <span className="text-[42px] leading-none transition-transform duration-300 group-hover:scale-110" aria-hidden="true">
+                  {DEPOSIT_BONUS_CASE.emoji}
                 </span>
-
-                <div
-                  className={`relative mt-1 flex h-24 w-24 items-center justify-center rounded-2xl border bg-gradient-to-br ${
-                    bonus.freeCases > 0
-                      ? 'border-emerald-400/40 from-emerald-400/20 to-emerald-600/10'
-                      : 'border-[#FFD700]/35 from-[#FFD700]/15 to-[#FFA500]/5'
-                  }`}
-                >
-                  <span
-                    className={`text-[42px] leading-none transition-transform duration-300 group-hover:scale-110 ${
-                      bonus.freeCases > 0 ? '' : 'opacity-70 grayscale'
-                    }`}
-                    aria-hidden="true"
-                  >
-                    {DEPOSIT_BONUS_CASE.emoji}
+                {isDepositBonusLocked && (
+                  <span className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/45">
+                    <Lock size={24} className="text-gray-300" />
                   </span>
-                </div>
+                )}
+              </div>
 
-                <h3 className="m-0 text-[15px] font-extrabold text-white">Бонусный кейс</h3>
-
-                <div
-                  className={`flex items-center gap-1 text-sm font-extrabold ${
-                    bonus.freeCases > 0 ? 'text-emerald-300' : 'text-[#FFD700]'
-                  }`}
-                >
-                  {bonus.freeCases > 0 ? 'За депозит' : 'Бесплатно'}
-                </div>
-
-                <div
-                  className={`mt-1 flex w-full items-center justify-center rounded-xl border py-1.5 text-xs font-bold transition group-hover:text-white ${
-                    bonus.freeCases > 0
-                      ? 'border-emerald-400/50 bg-emerald-400/10 text-emerald-200'
-                      : 'border-[#FFD700]/40 bg-[#FFD700]/10 text-[#FFE9A3]'
-                  }`}
-                >
-                  {bonus.freeCases > 0 ? 'Забрать' : 'за депозит от 200 ⭐'}
-                </div>
-              </article>
-            )}
+              <h3 className="m-0 text-[15px] font-extrabold text-white">Бонусный кейс</h3>
+              <div className="flex items-center gap-1 text-sm font-extrabold text-emerald-300">
+                {isDepositBonusLocked ? 'Уже открыт' : 'Бесплатно'}
+              </div>
+              <div className="mt-1 flex w-full items-center justify-center rounded-xl border border-emerald-400/50 bg-emerald-400/10 py-1.5 text-xs font-bold text-emerald-200">
+                {isDepositBonusLocked ? 'Недоступен' : 'Открыть кейс'}
+              </div>
+            </article>
 
             <article className="glass-card relative flex flex-col items-center gap-2 overflow-hidden p-3.5 text-center">
               <span className="absolute right-2 top-2 rounded-full border border-violet-400/40 bg-violet-400/15 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-violet-200">

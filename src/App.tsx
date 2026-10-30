@@ -17,7 +17,6 @@ import {
 } from './api/client'
 import {
   captureStartParamRef,
-  errorFeedback,
   getTelegramUser,
   isTelegramEnv,
   successFeedback,
@@ -28,6 +27,7 @@ import InventoryModal from './components/InventoryModal'
 import DailyBonusModal from './components/DailyBonusModal'
 import FreeCaseModal from './components/FreeCaseModal'
 import DailyBonusPromo from './components/DailyBonusPromo'
+import { DEPOSIT_BONUS_CASE } from './data/cases'
 import LiveFeed from './components/LiveFeed'
 import GamesPage from './pages/GamesPage'
 import type { OpenCount } from './pages/CasesPage'
@@ -345,36 +345,10 @@ function App() {
     setShowDailyBonus(true)
   }
 
-  /** Бонусный кейс за депозит от 200 ⭐ — одна единица из freeCases. */
-  const handleClaimDepositBonus = async () => {
-    if (!me || (me.freeCases ?? 0) <= 0) {
-      return
-    }
-
-    tapFeedback('medium')
-    try {
-      const res = await claimFreeCase()
-      setMe((prev) =>
-        prev
-          ? {
-              ...prev,
-              balance: res.newBalance,
-              freeCases: res.freeCasesLeft,
-              // Кейс за депозит одноразовый: сразу скрываем карточку в сетке.
-              hasClaimedDepositBonus: true,
-            }
-          : null,
-      )
-      // Подстраховка: перечитываем профиль, чтобы карточка исчезла и у других экранов.
-      void refreshMe()
-      setDailyBonusSource('deposit')
-      setDailyBonusPrize(res.prize)
-      setShowDailyBonus(true)
-      successFeedback()
-    } catch (err: unknown) {
-      errorFeedback()
-      showToastError(err instanceof Error ? err.message : 'Ошибка бонусного кейса')
-    }
+  /** Открываем рулетку; сервер проверит наличие заработанного бонусного кейса. */
+  const handleClaimDepositBonus = () => {
+    if (me?.hasClaimedDepositBonus !== false) return
+    setActiveCase(DEPOSIT_BONUS_CASE)
   }
 
   /**
@@ -383,6 +357,35 @@ function App() {
    */
   const openCaseBatch = useCallback(
     async (caseItem: CaseItem, count: OpenCount): Promise<Prize[]> => {
+      if (caseItem.id === DEPOSIT_BONUS_CASE.id) {
+        if (count !== 1) {
+          throw new Error('Бонусный кейс можно открыть только один раз')
+        }
+        const res = await claimFreeCase()
+        setMe((prev) =>
+          prev
+            ? {
+                ...prev,
+                balance: res.newBalance,
+                freeCases: res.freeCasesLeft,
+                hasClaimedDepositBonus: true,
+                inventoryCount:
+                  res.prize.type === 'NFT' ? prev.inventoryCount + 1 : prev.inventoryCount,
+              }
+            : null,
+        )
+        successFeedback()
+        void refreshMe()
+        const prizeTemplate = DEPOSIT_BONUS_CASE.prizes.find((prize) => prize.id === res.prize.id)
+        return [{
+          id: res.prize.id,
+          name: res.prize.label,
+          emoji: res.prize.emoji,
+          type: res.prize.type,
+          price: res.prize.type === 'BALANCE' ? res.prize.amount : (prizeTemplate?.price ?? 0),
+        }]
+      }
+
       if (count === 1) {
         const res = await openCaseApi(caseItem.id)
         setMe((prev) =>
@@ -567,14 +570,13 @@ function App() {
               dailyAvailable: me?.dailyBonusAvailable ?? false,
               dailyAvailableAt: me?.dailyBonusAvailableAt ?? null,
               freeCases: me?.freeCases ?? 0,
-              depositBonusClaimed: me?.hasClaimedDepositBonus ?? false,
             }}
             onOpenFreeCase={() => {
               tapFeedback('light')
               setShowFreeCase(true)
             }}
             onClaimDepositBonus={() => void handleClaimDepositBonus()}
-            onGoDeposit={openDeposit}
+            me={me}
             onPromoOpened={(result) => {
               setMe((prev) =>
                 prev

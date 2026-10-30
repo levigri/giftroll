@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Gauge, Package, Swords } from 'lucide-react'
-import type { CaseItem, PromoOpenResponse } from '../api/types'
+import type { CaseItem, MeResponse, PromoOpenResponse } from '../api/types'
 import CasesPage from './CasesPage'
 import UpgraderPage from './UpgraderPage'
 import PvpPage from './PvpPage'
@@ -29,9 +29,8 @@ export interface GamesPageProps {
   bonus: BonusState
   onOpenFreeCase: () => void
   onClaimDepositBonus: () => void
-  /** Переход на вкладку пополнения (заблокированная карточка бонусного кейса). */
-  onGoDeposit: () => void
   onPromoOpened: (result: PromoOpenResponse) => void
+  me: MeResponse | null
 }
 
 /** Состояние бонусных кейсов в сетке кейсов. */
@@ -41,8 +40,6 @@ export interface BonusState {
   dailyAvailableAt: string | null
   /** Неоткрытые бонусные кейсы за депозит от 200 ⭐. */
   freeCases: number
-  /** Бонусный кейс за депозит уже открыт — карточку показывать нельзя. */
-  depositBonusClaimed: boolean
 }
 
 /** Вкладка «Игры»: кейсы, апгрейдер и PvP под общим переключателем. */
@@ -60,8 +57,8 @@ export default function GamesPage({
   bonus,
   onOpenFreeCase,
   onClaimDepositBonus,
-  onGoDeposit,
   onPromoOpened,
+  me,
 }: GamesPageProps) {
   const [game, setGame] = useState<GamesTab>('cases')
 
@@ -114,8 +111,8 @@ export default function GamesPage({
             bonus={bonus}
             onOpenFreeCase={onOpenFreeCase}
             onClaimDepositBonus={onClaimDepositBonus}
-            onGoDeposit={onGoDeposit}
             onPromoOpened={onPromoOpened}
+            me={me}
           />
         )}
 

@@ -39,7 +39,7 @@ export interface MeResponse {
   /** Неоткрытые бонусные кейсы за депозиты от 200 ⭐. */
   freeCases?: number
   /** Бонусный кейс за депозит уже открыт — карточка скрыта. */
-  hasClaimedDepositBonus?: boolean
+  hasClaimedDepositBonus: boolean
   /** Итог привязки по реф-ссылке при первом заходе; null — кода не было. */
   referral?: { ok: boolean; reason?: string } | null
   createdAt: string

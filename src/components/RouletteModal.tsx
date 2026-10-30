@@ -75,6 +75,7 @@ export default function RouletteModal({
 
   const cellSize = CELL_SIZES[count]
   const cellGap = CELL_GAPS[count]
+  const availableCounts: OpenCount[] = caseItem.id === 'case-deposit-bonus' ? [1] : OPEN_COUNTS
   const totalPrice = caseItem.price * count
   const notEnough = balance < totalPrice
   const spinning = phase === 'spinning'
@@ -345,7 +346,7 @@ export default function RouletteModal({
           {(phase === 'idle' || phase === 'result') && (
             <div className="flex flex-col gap-2.5">
               <div className="flex gap-1.5" role="group" aria-label="Сколько кейсов открыть">
-                {OPEN_COUNTS.map((value) => {
+                {availableCounts.map((value) => {
                   const active = value === count
                   return (
                     <button

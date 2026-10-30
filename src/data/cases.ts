@@ -30,8 +30,18 @@ export const FREE_CASE = {
   emoji: '🎁',
 } as const
 
-export const DEPOSIT_BONUS_CASE = {
-  id: 'deposit-bonus',
-  name: 'Бонусный кейс за депозит',
+export const DEPOSIT_BONUS_CASE: CaseItem = {
+  id: 'case-deposit-bonus',
+  name: 'Бонусный кейс',
+  price: 0,
+  currency: 'STARS',
   emoji: '💎',
-} as const
+  prizes: [
+    { id: 'db-10', name: '+10', emoji: '⭐', type: 'BALANCE', price: 10, chance: 55 },
+    { id: 'db-20', name: '+20', emoji: '⭐', type: 'BALANCE', price: 20, chance: 20 },
+    { id: 'db-50', name: '+50', emoji: '⭐', type: 'BALANCE', price: 50, chance: 24.8 },
+    { id: 'ice-cream', name: 'Ice Cream', emoji: '🍦', type: 'NFT', price: 364, chance: 0.1 },
+    { id: 'clover-pin', name: 'Clover Pin', emoji: '🍀', type: 'NFT', price: 480, chance: 0.1 },
+    { id: 'sakura-flower', name: 'Sakura Flower', emoji: '🌸', type: 'NFT', price: 1040, chance: 0 },
+  ],
+}

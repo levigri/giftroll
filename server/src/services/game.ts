@@ -403,7 +403,7 @@ export async function claimFreeCase(userId: bigint): Promise<{
         throw new GameError('USER_NOT_FOUND', 'Пользователь не найден', 404)
       }
       if (userRow.freeCases <= 0) {
-        throw new GameError('NO_FREE_CASE', 'Бонусный кейс за депозит уже получен', 400)
+        throw new GameError('NO_FREE_CASE', 'Кейс доступен после пополнения от 200 ⭐', 400)
       }
 
       const nextBalance = userRow.balance + starsWon
