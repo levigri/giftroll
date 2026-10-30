@@ -333,9 +333,6 @@ export default function RouletteModal({
                       {prize.price} ⭐
                     </span>
                   )}
-                  <span className="rounded-full border border-white/10 bg-black/35 px-1.5 py-0.5 text-[9px] font-bold tabular-nums text-gray-300">
-                    {(prize.chance ?? 0).toFixed(1)}%
-                  </span>
                 </div>
               ))}
             </div>

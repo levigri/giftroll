@@ -82,7 +82,7 @@ export default function CasesPage({
 
   const hottestPrice = cases.reduce((max, item) => Math.max(max, item.price), 0)
   const countdown = useCountdown(bonus.dailyAvailableAt, !bonus.dailyAvailable)
-  const isDepositBonusLocked = me?.hasClaimedDepositBonus !== false
+  const isBonusAvailable = me?.hasClaimedDepositBonus === false
 
   console.log('Флаг депозитного бонуса:', me?.hasClaimedDepositBonus)
 
@@ -200,34 +200,34 @@ export default function CasesPage({
 
             <article
               role="button"
-              tabIndex={isDepositBonusLocked ? -1 : 0}
-              aria-disabled={isDepositBonusLocked}
+              tabIndex={isBonusAvailable ? 0 : -1}
+              aria-disabled={!isBonusAvailable}
               onClick={() => {
-                if (isDepositBonusLocked) return
+                if (!isBonusAvailable) return
                 tapFeedback('light')
                 onClaimDepositBonus()
               }}
               onKeyDown={(event) => {
-                if (isDepositBonusLocked || (event.key !== 'Enter' && event.key !== ' ')) return
+                if (!isBonusAvailable || (event.key !== 'Enter' && event.key !== ' ')) return
                 event.preventDefault()
                 tapFeedback('light')
                 onClaimDepositBonus()
               }}
               className={`glass-card group relative flex flex-col items-center gap-2 overflow-hidden p-3.5 text-center transition ${
-                isDepositBonusLocked
+                !isBonusAvailable
                   ? 'cursor-not-allowed opacity-55 grayscale'
                   : 'cursor-pointer border-emerald-400/50 shadow-[0_0_24px_rgba(52,211,153,0.18)] hover:scale-[1.02] active:scale-[0.98]'
               }`}
             >
               <span className="absolute right-2 top-2 rounded-full border border-emerald-400/40 bg-emerald-400/15 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-300">
-                {isDepositBonusLocked ? 'Открыт' : 'Билет доступен'}
+                {isBonusAvailable ? 'Билет доступен' : 'Недоступен'}
               </span>
 
               <div className="relative mt-1 flex h-24 w-24 items-center justify-center rounded-2xl border border-emerald-400/40 bg-gradient-to-br from-emerald-400/20 to-emerald-600/10">
                 <span className="text-[42px] leading-none transition-transform duration-300 group-hover:scale-110" aria-hidden="true">
                   {DEPOSIT_BONUS_CASE.emoji}
                 </span>
-                {isDepositBonusLocked && (
+                {!isBonusAvailable && (
                   <span className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/45">
                     <Lock size={24} className="text-gray-300" />
                   </span>
@@ -236,10 +236,10 @@ export default function CasesPage({
 
               <h3 className="m-0 text-[15px] font-extrabold text-white">Бонусный кейс</h3>
               <div className="flex items-center gap-1 text-sm font-extrabold text-emerald-300">
-                {isDepositBonusLocked ? 'Уже открыт' : 'Бесплатно'}
+                {isBonusAvailable ? 'Бесплатно' : 'Пополните от 200 ⭐'}
               </div>
               <div className="mt-1 flex w-full items-center justify-center rounded-xl border border-emerald-400/50 bg-emerald-400/10 py-1.5 text-xs font-bold text-emerald-200">
-                {isDepositBonusLocked ? 'Недоступен' : 'Открыть кейс'}
+                {isBonusAvailable ? 'Открыть кейс' : 'Пополнить баланс'}
               </div>
             </article>
 

@@ -66,11 +66,6 @@ function buildStrip(pool: PoolEntry[], winningPrize: DailyBonusPrize): DailyBonu
   })
 }
 
-/** Формат шанса: целые — без хвоста, дробные — с точностью до сотых. */
-function formatChance(chance: number): string {
-  return `${chance % 1 === 0 ? chance.toFixed(0) : chance.toFixed(2)}%`
-}
-
 export default function DailyBonusModal({
   winningPrize,
   onClose,
@@ -177,7 +172,7 @@ export default function DailyBonusModal({
           </span>
         </div>
 
-        {/* Что может выпасть: суммы звёзд и шансы призов. */}
+        {/* Что может выпасть: список призов без раскрытия шансов. */}
         <div className="min-h-0">
           <h3 className="mb-2 flex items-center gap-1.5 text-sm font-extrabold text-white">
             <Star size={14} className="text-[#FFD700]" fill="currentColor" />
@@ -205,9 +200,6 @@ export default function DailyBonusModal({
                     {prize.label}
                   </span>
                 )}
-                <span className="rounded-full border border-white/10 bg-black/35 px-1.5 py-0.5 text-[9px] font-bold tabular-nums text-gray-300">
-                  {formatChance(prize.chance)}
-                </span>
               </div>
             ))}
           </div>
