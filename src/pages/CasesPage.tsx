@@ -151,80 +151,82 @@ export default function CasesPage({
               </div>
             </article>
 
-            {/* Бонусный кейс за депозит от 200 ⭐ — виден всегда: без награды это "зацепка" (бесплатно, но только за депозит от 200 ⭐), с наградой — кнопка «Забрать». */}
-            <article
-              role="button"
-              tabIndex={0}
-              onClick={() => {
-                tapFeedback('light')
-                if (bonus.freeCases > 0) {
-                  onClaimDepositBonus()
-                } else {
-                  onGoDeposit()
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
+            {/* Бонусный кейс за депозит от 200 ⭐ — виден, пока игрок не открыл его ни разу: до награды "зацепка" (бесплатно, но только за депозит от 200 ⭐), после — кнопка «Забрать». */}
+            {!bonus.depositBonusClaimed && (
+              <article
+                role="button"
+                tabIndex={0}
+                onClick={() => {
                   tapFeedback('light')
                   if (bonus.freeCases > 0) {
                     onClaimDepositBonus()
                   } else {
                     onGoDeposit()
                   }
-                }
-              }}
-              className={`glass-card group relative flex cursor-pointer flex-col items-center gap-2 overflow-hidden p-3.5 text-center transition hover:scale-[1.02] active:scale-[0.98] ${
-                bonus.freeCases > 0
-                  ? 'border-emerald-400/50 shadow-[0_0_24px_rgba(52,211,153,0.18)]'
-                  : 'border-dashed border-[#FFD700]/35 shadow-[0_0_20px_rgba(255,215,0,0.10)]'
-              }`}
-            >
-              <span
-                className={`absolute right-2 top-2 rounded-full border px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider ${
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    tapFeedback('light')
+                    if (bonus.freeCases > 0) {
+                      onClaimDepositBonus()
+                    } else {
+                      onGoDeposit()
+                    }
+                  }
+                }}
+                className={`glass-card group relative flex cursor-pointer flex-col items-center gap-2 overflow-hidden p-3.5 text-center transition hover:scale-[1.02] active:scale-[0.98] ${
                   bonus.freeCases > 0
-                    ? 'border-emerald-400/40 bg-emerald-400/15 text-emerald-300'
-                    : 'border-[#FFD700]/40 bg-[#FFD700]/15 text-[#FFD700]'
+                    ? 'border-emerald-400/50 shadow-[0_0_24px_rgba(52,211,153,0.18)]'
+                    : 'border-dashed border-[#FFD700]/35 shadow-[0_0_20px_rgba(255,215,0,0.10)]'
                 }`}
               >
-                {bonus.freeCases > 0 ? `×${bonus.freeCases}` : '200 ⭐'}
-              </span>
-
-              <div
-                className={`relative mt-1 flex h-24 w-24 items-center justify-center rounded-2xl border bg-gradient-to-br ${
-                  bonus.freeCases > 0
-                    ? 'border-emerald-400/40 from-emerald-400/20 to-emerald-600/10'
-                    : 'border-[#FFD700]/35 from-[#FFD700]/15 to-[#FFA500]/5'
-                }`}
-              >
-                <Gift
-                  size={42}
-                  className={`transition-transform duration-300 group-hover:scale-110 ${
-                    bonus.freeCases > 0 ? 'text-emerald-300' : 'text-[#FFD700]/75'
+                <span
+                  className={`absolute right-2 top-2 rounded-full border px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider ${
+                    bonus.freeCases > 0
+                      ? 'border-emerald-400/40 bg-emerald-400/15 text-emerald-300'
+                      : 'border-[#FFD700]/40 bg-[#FFD700]/15 text-[#FFD700]'
                   }`}
-                />
-              </div>
+                >
+                  {bonus.freeCases > 0 ? `×${bonus.freeCases}` : '200 ⭐'}
+                </span>
 
-              <h3 className="m-0 text-[15px] font-extrabold text-white">Бонусный кейс</h3>
+                <div
+                  className={`relative mt-1 flex h-24 w-24 items-center justify-center rounded-2xl border bg-gradient-to-br ${
+                    bonus.freeCases > 0
+                      ? 'border-emerald-400/40 from-emerald-400/20 to-emerald-600/10'
+                      : 'border-[#FFD700]/35 from-[#FFD700]/15 to-[#FFA500]/5'
+                  }`}
+                >
+                  <Gift
+                    size={42}
+                    className={`transition-transform duration-300 group-hover:scale-110 ${
+                      bonus.freeCases > 0 ? 'text-emerald-300' : 'text-[#FFD700]/75'
+                    }`}
+                  />
+                </div>
 
-              <div
-                className={`flex items-center gap-1 text-sm font-extrabold ${
-                  bonus.freeCases > 0 ? 'text-emerald-300' : 'text-[#FFD700]'
-                }`}
-              >
-                {bonus.freeCases > 0 ? 'За депозит' : 'Бесплатно'}
-              </div>
+                <h3 className="m-0 text-[15px] font-extrabold text-white">Бонусный кейс</h3>
 
-              <div
-                className={`mt-1 flex w-full items-center justify-center rounded-xl border py-1.5 text-xs font-bold transition group-hover:text-white ${
-                  bonus.freeCases > 0
-                    ? 'border-emerald-400/50 bg-emerald-400/10 text-emerald-200'
-                    : 'border-[#FFD700]/40 bg-[#FFD700]/10 text-[#FFE9A3]'
-                }`}
-              >
-                {bonus.freeCases > 0 ? 'Забрать' : 'за депозит от 200 ⭐'}
-              </div>
-            </article>
+                <div
+                  className={`flex items-center gap-1 text-sm font-extrabold ${
+                    bonus.freeCases > 0 ? 'text-emerald-300' : 'text-[#FFD700]'
+                  }`}
+                >
+                  {bonus.freeCases > 0 ? 'За депозит' : 'Бесплатно'}
+                </div>
+
+                <div
+                  className={`mt-1 flex w-full items-center justify-center rounded-xl border py-1.5 text-xs font-bold transition group-hover:text-white ${
+                    bonus.freeCases > 0
+                      ? 'border-emerald-400/50 bg-emerald-400/10 text-emerald-200'
+                      : 'border-[#FFD700]/40 bg-[#FFD700]/10 text-[#FFE9A3]'
+                  }`}
+                >
+                  {bonus.freeCases > 0 ? 'Забрать' : 'за депозит от 200 ⭐'}
+                </div>
+              </article>
+            )}
 
             {cases.map((caseItem) => {
               const isHot = caseItem.price === hottestPrice && hottestPrice > 0

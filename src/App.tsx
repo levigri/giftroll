@@ -27,6 +27,7 @@ import RouletteModal from './components/RouletteModal'
 import InventoryModal from './components/InventoryModal'
 import DailyBonusModal from './components/DailyBonusModal'
 import FreeCaseModal from './components/FreeCaseModal'
+import DailyBonusPromo from './components/DailyBonusPromo'
 import LiveFeed from './components/LiveFeed'
 import GamesPage from './pages/GamesPage'
 import type { OpenCount } from './pages/CasesPage'
@@ -151,15 +152,18 @@ function App() {
   const [showFreeCase, setShowFreeCase] = useState(false)
   /** Баннер «бесплатный кейс за 24 часа готов» при входе. */
   const [dailyNotice, setDailyNotice] = useState(false)
+  /** Промо-модалка с 3D-картинкой о готовом бесплатном кейсе при входе. */
+  const [showPromo, setShowPromo] = useState(false)
 
   // Статичный прелоадер из index.html убираем после первого рендера React.
   useEffect(() => {
     document.getElementById('boot-preloader')?.remove()
   }, [])
 
-  // Вход: ежедневный кейс готов — показываем баннер один раз за сессию.
+  // Вход: ежедневный кейс готов — показываем промо-модалку (и баннер) один раз за сессию.
   useEffect(() => {
     if (me?.dailyBonusAvailable) {
+      setShowPromo(true)
       setDailyNotice(true)
     }
   }, [me?.dailyBonusAvailable])
@@ -347,7 +351,19 @@ function App() {
     tapFeedback('medium')
     try {
       const res = await claimFreeCase()
-      setMe((prev) => (prev ? { ...prev, balance: res.newBalance, freeCases: res.freeCasesLeft } : null))
+      setMe((prev) =>
+        prev
+          ? {
+              ...prev,
+              balance: res.newBalance,
+              freeCases: res.freeCasesLeft,
+              // Кейс за депозит одноразовый: сразу скрываем карточку в сетке.
+              hasClaimedDepositBonus: true,
+            }
+          : null,
+      )
+      // Подстраховка: перечитываем профиль, чтобы карточка исчезла и у других экранов.
+      void refreshMe()
       setDailyBonusPrize(res.prize)
       setShowDailyBonus(true)
       successFeedback()
@@ -547,6 +563,7 @@ function App() {
               dailyAvailable: me?.dailyBonusAvailable ?? false,
               dailyAvailableAt: me?.dailyBonusAvailableAt ?? null,
               freeCases: me?.freeCases ?? 0,
+              depositBonusClaimed: me?.hasClaimedDepositBonus ?? false,
             }}
             onOpenFreeCase={() => {
               tapFeedback('light')
@@ -769,6 +786,19 @@ function App() {
           onCountChange={(newCount) =>
             setMe((prev) => (prev ? { ...prev, inventoryCount: newCount } : null))
           }
+        />
+      )}
+
+      {showPromo && (
+        <DailyBonusPromo
+          onClose={() => setShowPromo(false)}
+          onStart={() => {
+            setTab('games')
+            if (readRoute() !== null) {
+              writeRoute(null)
+            }
+            setShowFreeCase(true)
+          }}
         />
       )}
 

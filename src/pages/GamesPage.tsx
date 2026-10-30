@@ -40,6 +40,8 @@ export interface BonusState {
   dailyAvailableAt: string | null
   /** Неоткрытые бонусные кейсы за депозит от 200 ⭐. */
   freeCases: number
+  /** Бонусный кейс за депозит уже открыт — карточку показывать нельзя. */
+  depositBonusClaimed: boolean
 }
 
 /** Вкладка «Игры»: кейсы, апгрейдер и PvP под общим переключателем. */

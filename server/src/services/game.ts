@@ -409,7 +409,12 @@ export async function claimFreeCase(userId: bigint): Promise<{
 
       await tx.user.update({
         where: { id: userId },
-        data: { balance: nextBalance, freeCases: { decrement: 1 } },
+        data: {
+          balance: nextBalance,
+          freeCases: { decrement: 1 },
+          // Кейс за депозит одноразовый: карточка в сетке больше не показывается.
+          hasClaimedDepositBonus: true,
+        },
       })
 
       // История операций: бонусный кейс за депозит.
