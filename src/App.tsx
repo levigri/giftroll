@@ -149,11 +149,29 @@ function App() {
   const [showDailyBonus, setShowDailyBonus] = useState(false)
   /** Модалка условий бесплатного кейса (подписка + шеринг). */
   const [showFreeCase, setShowFreeCase] = useState(false)
+  /** Баннер «бесплатный кейс за 24 часа готов» при входе. */
+  const [dailyNotice, setDailyNotice] = useState(false)
 
   // Статичный прелоадер из index.html убираем после первого рендера React.
   useEffect(() => {
     document.getElementById('boot-preloader')?.remove()
   }, [])
+
+  // Вход: ежедневный кейс готов — показываем баннер один раз за сессию.
+  useEffect(() => {
+    if (me?.dailyBonusAvailable) {
+      setDailyNotice(true)
+    }
+  }, [me?.dailyBonusAvailable])
+
+  // Баннер сам уезжает, чтобы не висеть на экране вечно.
+  useEffect(() => {
+    if (!dailyNotice) {
+      return
+    }
+    const id = window.setTimeout(() => setDailyNotice(false), 8000)
+    return () => window.clearTimeout(id)
+  }, [dailyNotice])
   const [tab, setTab] = useState<TabId>(() => readRoute() ?? 'games')
   /** Куда вернуть с DepositPage, если открыли его из вкладки. */
   const [depositReturnTab, setDepositReturnTab] = useState<TabId>('games')
@@ -484,6 +502,29 @@ function App() {
           </>
         )}
       </header>
+
+      {dailyNotice && (
+        <div
+          className="mx-3 mt-2 flex items-start gap-2 rounded-2xl border border-[#FFD700]/40 bg-gradient-to-r from-[#FFD700]/15 to-[#FFA500]/10 px-3 py-2.5 shadow-[0_0_24px_rgba(255,215,0,0.12)]"
+          role="status"
+        >
+          <span aria-hidden="true">🎁</span>
+          <p className="m-0 flex-1 text-[13px] font-bold leading-snug text-[#FFE9A3]">
+            Твой бесплатный кейс за 24 часа готов! Забери его в разделе «Игры».
+          </p>
+          <button
+            type="button"
+            aria-label="Закрыть уведомление"
+            className="shrink-0 rounded-lg px-1.5 text-base leading-none text-[#FFD700]/70 transition hover:text-white"
+            onClick={() => {
+              tapFeedback('light')
+              setDailyNotice(false)
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       <LiveFeed />
 

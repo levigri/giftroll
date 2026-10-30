@@ -856,7 +856,7 @@ select {
 .app-preloader {
   position: fixed;
   inset: 0;
-  z-index: 1300;
+  z-index: 9999;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -864,7 +864,7 @@ select {
   gap: 16px;
   background: #0b0c10;
   opacity: 1;
-  transition: opacity 0.4s ease;
+  transition: opacity 0.5s ease;
 }
 
 .app-preloader--hidden {
@@ -883,6 +883,8 @@ select {
   background: linear-gradient(145deg, rgba(255, 215, 0, 0.16), rgba(255, 165, 0, 0.06));
   border: 1px solid rgba(255, 215, 0, 0.35);
   box-shadow: 0 0 32px rgba(255, 215, 0, 0.25);
+  /* Пульсация логотипа, пока идёт загрузка. */
+  animation: app-preloader-pulse 1.6s ease-in-out infinite;
 }
 
 .app-preloader__spinner {
@@ -906,6 +908,18 @@ select {
 @keyframes app-preloader-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes app-preloader-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.06);
   }
 }
 

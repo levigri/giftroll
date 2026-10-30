@@ -35,6 +35,8 @@ model User {
   upgraderWinStreak Int   @default(0)
   // Сколько бесплатных кейсов заработано депозитами от 200 ⭐ и ещё не открыто.
   freeCases Int      @default(0)
+  // Выдан ли уже единоразовый бонусный кейс за депозит от 200 ⭐ (лимит 1 раз за аккаунт).
+  depositBonusGranted Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

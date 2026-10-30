@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto'
+import type { Prisma } from '@prisma/client'
 import { Address, Cell, beginCell, loadMessage } from '@ton/core'
 import { env } from '../config/env.js'
 import { prisma } from '../db/prisma.js'
@@ -14,9 +15,26 @@ export const DEPOSIT_LOCK_MS = 21 * 24 * 60 * 60 * 1000
 /** Депозит от этой суммы (в ⭐) даёт один бесплатный бонусный кейс. */
 export const FREE_CASE_DEPOSIT_STARS = 200
 
-/** Часть `data` для user.update: выдаёт бонусный кейс, если депозит от 200 ⭐. */
-export function freeCaseGrant(starsAmount: number): { freeCases: { increment: number } } | object {
-  return starsAmount >= FREE_CASE_DEPOSIT_STARS ? { freeCases: { increment: 1 } } : {}
+/**
+ * Выдаёт бесплатный бонусный кейс за депозит от 200 ⭐ — но не чаще одного раза
+ * за всю историю аккаунта. `updateMany` с условием атомарно «забирает» флаг
+ * `depositBonusGranted`, поэтому параллельные вебхуки не выдадут кейс дважды.
+ * Вызывать внутри той же транзакции, что и зачисление депозита.
+ */
+export async function grantFreeCaseOnce(
+  client: Prisma.TransactionClient | typeof prisma,
+  userId: bigint,
+  starsAmount: number,
+): Promise<boolean> {
+  if (starsAmount < FREE_CASE_DEPOSIT_STARS) {
+    return false
+  }
+
+  const res = await client.user.updateMany({
+    where: { id: userId, depositBonusGranted: false },
+    data: { depositBonusGranted: true, freeCases: { increment: 1 } },
+  })
+  return res.count === 1
 }
 
 /** Реферер получает 10% от отыгранной части депозита приглашённого. */
@@ -480,10 +498,11 @@ async function confirmGramsDepositInner(
           data: {
             balance: { increment: deposit.amount },
             depositUnspent: { increment: deposit.amount },
-            // Депозит от 200 ⭐ — бесплатный бонусный кейс.
-            ...freeCaseGrant(deposit.amount),
           },
         })
+
+        // Депозит от 200 ⭐ — бесплатный бонусный кейс (один раз за аккаунт).
+        await grantFreeCaseOnce(tx, deposit.userId, deposit.amount)
 
         // История операций: зачисление пополнения через Gram.
         await logTransaction(
@@ -594,10 +613,11 @@ export async function handleWebhook(update: TelegramUpdate): Promise<void> {
         data: {
           balance: { increment: deposit.amount },
           depositUnspent: { increment: deposit.amount },
-          // Депозит от 200 ⭐ — бесплатный бонусный кейс.
-          ...freeCaseGrant(deposit.amount),
         },
       })
+
+      // Депозит от 200 ⭐ — бесплатный бонусный кейс (один раз за аккаунт).
+      await grantFreeCaseOnce(tx, deposit.userId, deposit.amount)
 
       // История операций: зачисление пополнения через Telegram Stars.
       await logTransaction(
@@ -714,9 +734,11 @@ export async function devCredit(
     data: {
       balance: { increment: amount },
       depositUnspent: { increment: amount },
-      ...freeCaseGrant(amount),
     },
   })
+
+  // Депозит от 200 ⭐ — бесплатный бонусный кейс (один раз за аккаунт).
+  await grantFreeCaseOnce(prisma, userId, amount)
 
   return { ok: true, amount }
 }

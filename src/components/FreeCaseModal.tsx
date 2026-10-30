@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Check, Gift, Send, Share2 } from 'lucide-react'
+import { CheckCircle, Circle, Gift, Send, Share2 } from 'lucide-react'
 import type { ClaimDailyResponse } from '../api/types'
 import { checkSubscription, claimDaily } from '../api/client'
 import { errorFeedback, successFeedback, tapFeedback } from '../telegram'
@@ -135,43 +135,67 @@ export default function FreeCaseModal({ onClose, onClaimed }: FreeCaseModalProps
           Бесплатный кейс
         </h2>
 
-        <div className="flex flex-col gap-2.5">
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-3">
-            <div className="min-w-0">
-              <p className="m-0 text-sm font-extrabold text-white">Подпишись на канал</p>
-              <p className="m-0 text-xs text-gray-400">@NewsGiftRoll</p>
+        <div className="mb-1 flex flex-col gap-2">
+          <div
+            className={`flex items-center gap-2.5 rounded-xl border px-3 py-3 transition ${
+              subscribed
+                ? 'border-emerald-400/40 bg-emerald-400/10'
+                : 'border-white/10 bg-white/5'
+            }`}
+          >
+            {subscribed ? (
+              <CheckCircle size={20} className="shrink-0 text-green-500" />
+            ) : (
+              <Circle size={20} className="shrink-0 text-gray-500" />
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="m-0 text-sm font-extrabold text-white">Подписка на @NewsGiftRoll</p>
+              <p className="m-0 text-xs text-gray-400">
+                {subscribed === null
+                  ? 'Проверяем подписку…'
+                  : subscribed
+                    ? 'Выполнено'
+                    : 'Подпишись на канал'}
+              </p>
             </div>
-            <button
-              type="button"
-              className={`flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-extrabold transition ${
-                subscribed
-                  ? 'border border-emerald-400/40 bg-emerald-400/15 text-emerald-300'
-                  : 'border border-[#48A9FF]/40 bg-[#48A9FF]/15 text-[#A9D8FF] hover:brightness-110'
-              }`}
-              onClick={handleSubscribe}
-            >
-              {subscribed ? <Check size={14} /> : <Send size={14} />}
-              {subscribed ? 'Подписан' : 'Подписаться'}
-            </button>
+            {!subscribed && (
+              <button
+                type="button"
+                className="flex shrink-0 items-center gap-1.5 rounded-xl border border-[#48A9FF]/40 bg-[#48A9FF]/15 px-3 py-2 text-xs font-extrabold text-[#A9D8FF] transition hover:brightness-110"
+                onClick={handleSubscribe}
+              >
+                <Send size={14} />
+                Подписаться
+              </button>
+            )}
           </div>
 
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-3">
-            <div className="min-w-0">
+          <div
+            className={`flex items-center gap-2.5 rounded-xl border px-3 py-3 transition ${
+              shared ? 'border-emerald-400/40 bg-emerald-400/10' : 'border-white/10 bg-white/5'
+            }`}
+          >
+            {shared ? (
+              <CheckCircle size={20} className="shrink-0 text-green-500" />
+            ) : (
+              <Circle size={20} className="shrink-0 text-gray-500" />
+            )}
+            <div className="min-w-0 flex-1">
               <p className="m-0 text-sm font-extrabold text-white">Поделись с другом</p>
-              <p className="m-0 text-xs text-gray-400">Отправь пост в Telegram</p>
+              <p className="m-0 text-xs text-gray-400">
+                {shared ? 'Выполнено' : 'Отправь пост в Telegram'}
+              </p>
             </div>
-            <button
-              type="button"
-              className={`flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-extrabold transition ${
-                shared
-                  ? 'border border-emerald-400/40 bg-emerald-400/15 text-emerald-300'
-                  : 'border border-[#8A2BE2]/40 bg-[#8A2BE2]/20 text-violet-200 hover:brightness-110'
-              }`}
-              onClick={handleShare}
-            >
-              {shared ? <Check size={14} /> : <Share2 size={14} />}
-              {shared ? 'Поделился' : 'Поделиться'}
-            </button>
+            {!shared && (
+              <button
+                type="button"
+                className="flex shrink-0 items-center gap-1.5 rounded-xl border border-[#8A2BE2]/40 bg-[#8A2BE2]/20 px-3 py-2 text-xs font-extrabold text-violet-200 transition hover:brightness-110"
+                onClick={handleShare}
+              >
+                <Share2 size={14} />
+                Поделиться
+              </button>
+            )}
           </div>
         </div>
 
