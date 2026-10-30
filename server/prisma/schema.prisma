@@ -33,12 +33,12 @@ model User {
   refEarnings    Int      @default(0)
   // Серия побед в апгрейдере: уменьшает реальный шанс победы (тихий нерф).
   upgraderWinStreak Int   @default(0)
-  // Сколько бесплатных кейсов заработано депозитами от 200 ⭐ и ещё не открыто.
+  // Legacy counter; bonus-case eligibility now uses hasClaimedDepositBonus.
   freeCases Int      @default(0)
-  // Выдан ли уже единоразовый бонусный кейс за депозит от 200 ⭐ (лимит 1 раз за аккаунт).
+  // Legacy marker from the previous one-time bonus implementation.
   depositBonusGranted Boolean @default(false)
-  // Открыл ли игрок бонусный кейс за депозит — карточка в сетке больше не показывается.
-  hasClaimedDepositBonus Boolean @default(false)
+  // true — no ticket / already opened; false — eligible for the bonus case.
+  hasClaimedDepositBonus Boolean @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

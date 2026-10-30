@@ -3,7 +3,7 @@ import { prisma } from '../db/prisma.js'
 import {
   DEPOSIT_LOCK_MS,
   DepositError,
-  grantFreeCaseOnce,
+  grantDepositBonusTicket,
   MAX_DEPOSIT_STARS,
   MIN_DEPOSIT_STARS,
 } from './deposit.js'
@@ -158,15 +158,16 @@ export async function handleCryptoWebhook(update: unknown): Promise<{ ok: boolea
   }
 
   const completedAt = new Date()
-  await prisma.$transaction(async (tx) => {
-    await tx.deposit.update({
-      where: { id: deposit.id },
+  const claimed = await prisma.$transaction(async (tx) => {
+    const depositClaim = await tx.deposit.updateMany({
+      where: { id: deposit.id, status: 'pending' },
       data: {
         status: 'completed',
         completedAt,
         lockUntil: new Date(completedAt.getTime() + DEPOSIT_LOCK_MS),
       },
     })
+    if (depositClaim.count === 0) return false
 
     await tx.user.update({
       where: { id: deposit.userId },
@@ -176,8 +177,7 @@ export async function handleCryptoWebhook(update: unknown): Promise<{ ok: boolea
       },
     })
 
-    // Депозит от 200 ⭐ — бесплатный бонусный кейс (один раз за аккаунт).
-    await grantFreeCaseOnce(tx, deposit.userId, deposit.amount)
+    await grantDepositBonusTicket(tx, deposit.userId, deposit.amount)
 
     // История операций: зачисление пополнения через CryptoBot (ровно звёзды).
     await tx.transaction.create({
@@ -188,7 +188,10 @@ export async function handleCryptoWebhook(update: unknown): Promise<{ ok: boolea
         details: 'Пополнение (CryptoBot)',
       },
     })
+    return true
   })
+
+  if (!claimed) return { ok: true }
 
   // Уведомление в бота: крипто-депозит зачислен.
   void notifyUser(deposit.userId, `✅ Баланс успешно пополнен на ${deposit.amount} ⭐!`)

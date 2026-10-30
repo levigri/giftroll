@@ -38,8 +38,6 @@ export interface BonusState {
   dailyAvailable: boolean
   /** Когда откроется следующий ежедневный кейс; null — если уже доступен. */
   dailyAvailableAt: string | null
-  /** Неоткрытые бонусные кейсы за депозит от 200 ⭐. */
-  freeCases: number
 }
 
 /** Вкладка «Игры»: кейсы, апгрейдер и PvP под общим переключателем. */

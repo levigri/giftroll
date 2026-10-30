@@ -220,7 +220,7 @@ export default function CasesPage({
               }`}
             >
               <span className="absolute right-2 top-2 rounded-full border border-emerald-400/40 bg-emerald-400/15 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-300">
-                {isDepositBonusLocked ? 'Открыт' : bonus.freeCases > 0 ? `×${bonus.freeCases}` : 'Бонус'}
+                {isDepositBonusLocked ? 'Открыт' : 'Билет доступен'}
               </span>
 
               <div className="relative mt-1 flex h-24 w-24 items-center justify-center rounded-2xl border border-emerald-400/40 bg-gradient-to-br from-emerald-400/20 to-emerald-600/10">

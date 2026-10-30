@@ -1,5 +1,6 @@
 import type {
   CasesResponse,
+  ClaimDepositBonusResponse,
   ClaimDailyResponse,
   ClaimNftResponse,
   DropEvent,
@@ -158,8 +159,8 @@ export async function checkSubscription(): Promise<{ subscribed: boolean }> {
 }
 
 /** Бонусный кейс за депозит от 200 ⭐: выдаёт приз и списывает одну единицу. */
-export async function claimFreeCase(): Promise<ClaimDailyResponse & { freeCasesLeft: number }> {
-  return request<ClaimDailyResponse & { freeCasesLeft: number }>(
+export async function claimFreeCase(): Promise<ClaimDepositBonusResponse> {
+  return request<ClaimDepositBonusResponse>(
     '/api/daily-bonus/claim-deposit',
     {
       method: 'POST',

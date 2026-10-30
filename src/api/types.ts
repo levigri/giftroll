@@ -111,6 +111,11 @@ export interface ClaimDailyResponse {
   streak: number
 }
 
+export interface ClaimDepositBonusResponse {
+  prize: DailyBonusPrize
+  newBalance: number
+}
+
 export interface PromoCheckResponse {
   valid: boolean
   error?: string

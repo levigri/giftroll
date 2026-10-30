@@ -376,14 +376,10 @@ export async function claimDaily(userId: bigint): Promise<{
   }
 }
 
-/**
- * Бонусный кейс за депозит от 200 ⭐: атомарно списывает одну единицу freeCases
- * и выигрывает приз из пула `depositBonusCase` (10/20/50 ⭐ и редкие NFT 0.1%).
- */
+/** Бонусный кейс проверяет билет-флаг и сжигает его атомарно при выдаче приза. */
 export async function claimFreeCase(userId: bigint): Promise<{
   prize: { id: string; label: string; emoji: string; amount: number; type: 'BALANCE' | 'NFT' }
   newBalance: number
-  freeCasesLeft: number
 }> {
   const won = pickPrize(depositBonusCase.prizes)
   const starsWon = won.type === 'BALANCE' ? won.price : 0
@@ -393,17 +389,21 @@ export async function claimFreeCase(userId: bigint): Promise<{
       const rows = await tx.$queryRaw<{
         id: bigint
         balance: number
-        freeCases: number
+        hasClaimedDepositBonus: boolean
       }[]>`
-        SELECT id, balance, "freeCases" FROM users WHERE id = ${userId} FOR UPDATE
+        SELECT id, balance, "hasClaimedDepositBonus" FROM users WHERE id = ${userId} FOR UPDATE
       `
 
       const userRow = rows[0]
       if (!userRow) {
         throw new GameError('USER_NOT_FOUND', 'Пользователь не найден', 404)
       }
-      if (userRow.freeCases <= 0) {
-        throw new GameError('NO_FREE_CASE', 'Кейс доступен после пополнения от 200 ⭐', 400)
+      if (userRow.hasClaimedDepositBonus) {
+        throw new GameError(
+          'ALREADY_CLAIMED',
+          'Вы уже забирали бонус или у вас нет права на него',
+          400,
+        )
       }
 
       const nextBalance = userRow.balance + starsWon
@@ -412,8 +412,7 @@ export async function claimFreeCase(userId: bigint): Promise<{
         where: { id: userId },
         data: {
           balance: nextBalance,
-          freeCases: { decrement: 1 },
-          // Кейс за депозит одноразовый: карточка в сетке больше не показывается.
+          // false — билет доступен, true — билет сожжён.
           hasClaimedDepositBonus: true,
         },
       })
@@ -444,7 +443,7 @@ export async function claimFreeCase(userId: bigint): Promise<{
         )
       }
 
-      return { newBalance: nextBalance, freeCasesLeft: userRow.freeCases - 1 }
+      return { newBalance: nextBalance }
     },
     { timeout: 10000 },
   )
@@ -453,7 +452,7 @@ export async function claimFreeCase(userId: bigint): Promise<{
   logCaseDrops(userId, [won], depositBonusCase)
 
   console.log(
-    `[FREE_CASE] user=${userId} prize=${won.id} type=${won.type} stars=${starsWon} left=${result.freeCasesLeft}`,
+    `[FREE_CASE] user=${userId} prize=${won.id} type=${won.type} stars=${starsWon}`,
   )
 
   return {
@@ -465,7 +464,6 @@ export async function claimFreeCase(userId: bigint): Promise<{
       type: won.type,
     },
     newBalance: result.newBalance,
-    freeCasesLeft: result.freeCasesLeft,
   }
 }
 

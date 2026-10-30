@@ -12,16 +12,14 @@ export const MIN_DEPOSIT_STARS = 10
 export const MAX_DEPOSIT_STARS = 100_000
 export const DEPOSIT_LOCK_MS = 21 * 24 * 60 * 60 * 1000
 
-/** Депозит от этой суммы (в ⭐) даёт один бесплатный бонусный кейс. */
+/** Депозит от этой суммы (в ⭐) выдаёт право на бонусный кейс. */
 export const FREE_CASE_DEPOSIT_STARS = 200
 
 /**
- * Выдаёт бесплатный бонусный кейс за депозит от 200 ⭐ — но не чаще одного раза
- * за всю историю аккаунта. `updateMany` с условием атомарно «забирает» флаг
- * `depositBonusGranted`, поэтому параллельные вебхуки не выдадут кейс дважды.
- * Вызывать внутри той же транзакции, что и зачисление депозита.
+ * Выдаёт билет на бонусный кейс после успешного депозита от 200 ⭐.
+ * Вызывать только внутри транзакции подтверждения реального пополнения.
  */
-export async function grantFreeCaseOnce(
+export async function grantDepositBonusTicket(
   client: Prisma.TransactionClient | typeof prisma,
   userId: bigint,
   starsAmount: number,
@@ -30,11 +28,11 @@ export async function grantFreeCaseOnce(
     return false
   }
 
-  const res = await client.user.updateMany({
-    where: { id: userId, depositBonusGranted: false },
-    data: { depositBonusGranted: true, freeCases: { increment: 1 } },
+  await client.user.update({
+    where: { id: userId },
+    data: { hasClaimedDepositBonus: false },
   })
-  return res.count === 1
+  return true
 }
 
 /** Реферер получает 10% от отыгранной части депозита приглашённого. */
@@ -501,8 +499,8 @@ async function confirmGramsDepositInner(
           },
         })
 
-        // Депозит от 200 ⭐ — бесплатный бонусный кейс (один раз за аккаунт).
-        await grantFreeCaseOnce(tx, deposit.userId, deposit.amount)
+        // Успешное пополнение от 200 ⭐ выдаёт билет на бонусный кейс.
+        await grantDepositBonusTicket(tx, deposit.userId, deposit.amount)
 
         // История операций: зачисление пополнения через Gram.
         await logTransaction(
@@ -616,8 +614,8 @@ export async function handleWebhook(update: TelegramUpdate): Promise<void> {
         },
       })
 
-      // Депозит от 200 ⭐ — бесплатный бонусный кейс (один раз за аккаунт).
-      await grantFreeCaseOnce(tx, deposit.userId, deposit.amount)
+      // Успешное пополнение от 200 ⭐ выдаёт билет на бонусный кейс.
+      await grantDepositBonusTicket(tx, deposit.userId, deposit.amount)
 
       // История операций: зачисление пополнения через Telegram Stars.
       await logTransaction(
@@ -736,9 +734,6 @@ export async function devCredit(
       depositUnspent: { increment: amount },
     },
   })
-
-  // Депозит от 200 ⭐ — бесплатный бонусный кейс (один раз за аккаунт).
-  await grantFreeCaseOnce(prisma, userId, amount)
 
   return { ok: true, amount }
 }

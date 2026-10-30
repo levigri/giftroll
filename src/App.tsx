@@ -367,7 +367,6 @@ function App() {
             ? {
                 ...prev,
                 balance: res.newBalance,
-                freeCases: res.freeCasesLeft,
                 hasClaimedDepositBonus: true,
                 inventoryCount:
                   res.prize.type === 'NFT' ? prev.inventoryCount + 1 : prev.inventoryCount,
@@ -569,7 +568,6 @@ function App() {
             bonus={{
               dailyAvailable: me?.dailyBonusAvailable ?? false,
               dailyAvailableAt: me?.dailyBonusAvailableAt ?? null,
-              freeCases: me?.freeCases ?? 0,
             }}
             onOpenFreeCase={() => {
               tapFeedback('light')
