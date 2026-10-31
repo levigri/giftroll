@@ -2,6 +2,7 @@ import { convertFromGramjsSession } from '@mtcute/convert'
 import { MemoryStorage, TelegramClient, type Message, type SavedStarGift } from '@mtcute/node'
 import { env } from '../config/env.js'
 import { prisma } from '../db/prisma.js'
+import { nftCatalog } from '../data/nftCatalog.js'
 import { findNftCatalogEntry } from './nftPricing.js'
 
 let userbot: TelegramClient | null = null
@@ -104,13 +105,40 @@ async function getMarketPrices(): Promise<Map<string, number> | null> {
     try {
       const gifts = await client.getStarGiftOptions()
       const prices = new Map<string, number>()
-      for (const gift of gifts) {
-        const title = gift.title
-        const floorPrice = gift.resaleFloorPrice
-        if (!title || !floorPrice) continue
-        const price = Number(floorPrice.toString())
-        if (Number.isSafeInteger(price) && price > 0) prices.set(normalizeGiftName(title), price)
-      }
+      const catalogNames = new Set(nftCatalog.map((gift) => normalizeGiftName(gift.name)))
+      const marketCollections = gifts.filter(
+        (gift) => gift.title && catalogNames.has(normalizeGiftName(gift.title)),
+      )
+      let nextIndex = 0
+
+      // Query actual active resale listings, rather than the collection-level
+      // resale_min_stars summary returned by getStarGifts.
+      const workers = Array.from({ length: Math.min(4, marketCollections.length) }, async () => {
+        while (nextIndex < marketCollections.length) {
+          const gift = marketCollections[nextIndex++]
+          if (!gift?.title) continue
+
+          try {
+            const listings = await client.getStarGiftResaleOptions({
+              giftId: gift.id,
+              sort: 'price',
+              limit: 100,
+            })
+            const starPrices = listings
+              .map((listing) => Number(listing.resellPriceStars?.toString() ?? 0))
+              .filter((price) => Number.isSafeInteger(price) && price > 0)
+
+            if (starPrices.length > 0) {
+              prices.set(normalizeGiftName(gift.title), Math.min(...starPrices))
+            }
+          } catch (error) {
+            console.warn(`[Userbot] Не удалось получить объявления для «${gift.title}»:`, error)
+          }
+        }
+      })
+
+      await Promise.all(workers)
+      console.info(`[Userbot] Актуальные цены Telegram Marketplace обновлены: ${prices.size} коллекций`)
       marketPriceCache = { prices, expiresAt: Date.now() + 60_000 }
       return prices
     } catch (error) {
