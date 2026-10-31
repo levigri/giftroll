@@ -936,7 +936,7 @@ export default function UpgraderPage({
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-gray-400">
-                          от {nft.price}
+                          {nft.price}
                           <Star size={9} fill="currentColor" />
                         </span>
                       )}
