@@ -55,7 +55,12 @@ export async function notifyUser(userId: bigint, text: string): Promise<void> {
     }
     await bot.api.sendMessage(userId.toString(), text)
   } catch (err) {
-    console.error(`[Bot] notify failed for user ${userId}:`, err)
+    const errorMessage = err instanceof Error ? err.message : String(err)
+    if (errorMessage.toLowerCase().includes('chat not found')) {
+      console.warn(`[Bot] user ${userId} hasn't started the bot yet (chat not found)`)
+    } else {
+      console.error(`[Bot] notify failed for user ${userId}:`, err)
+    }
   }
 }
 
@@ -74,7 +79,12 @@ export async function notifyDailyBonusReady(userId: bigint): Promise<boolean> {
     })
     return true
   } catch (err) {
-    console.error(`[Bot] daily bonus reminder failed for user ${userId}:`, err)
+    const errorMessage = err instanceof Error ? err.message : String(err)
+    if (errorMessage.toLowerCase().includes('chat not found')) {
+      console.warn(`[Bot] user ${userId} hasn't started the bot yet (chat not found)`)
+    } else {
+      console.error(`[Bot] daily bonus reminder failed for user ${userId}:`, err)
+    }
     return false
   }
 }

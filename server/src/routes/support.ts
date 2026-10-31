@@ -201,16 +201,6 @@ export async function setupSupportWebhook(publicBaseUrl: string): Promise<boolea
   const base = publicBaseUrl.replace(/\/+$/, '')
   const secret = env.SUPPORT_WEBHOOK_SECRET ?? env.WEBHOOK_SECRET
   try {
-    const botInfo = await supportBot.api.getMe()
-    const actualUsername = botInfo.username?.toLowerCase()
-    if (actualUsername !== 'giftrollsuport') {
-      console.error(
-        `[Support] SUPPORT_BOT_TOKEN belongs to @${botInfo.username ?? 'unknown'}; expected @Giftrollsuport`,
-      )
-      return false
-    }
-
-    console.info('[Support] token verified for @Giftrollsuport')
     await supportBot.api.setWebhook(`${base}/api/support/webhook`, {
       ...(secret ? { secret_token: secret } : {}),
       allowed_updates: ['message'],
