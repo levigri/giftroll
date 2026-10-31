@@ -145,6 +145,9 @@ export interface TaskItem {
   emoji: string
   completed: boolean
   claimed: boolean
+  progressCurrent?: number
+  progressTarget?: number
+  completedByCount?: number
 }
 
 export interface TasksResponse {

@@ -22,14 +22,23 @@ import { devRoutes } from './routes/dev.js'
 import { tasksRoutes } from './routes/tasks.js'
 import { initUserbot, stopUserbot } from './services/userbot.js'
 import { notifyDailyBonusReady } from './services/bot.js'
+import { checkNicknameTask } from './services/nickname.js'
 
 const DAILY_REMINDER_INTERVAL_MS = 30 * 60 * 1000
 const DAILY_REMINDER_WINDOW_MS = 24 * 60 * 60 * 1000
 const DAILY_REMINDER_BATCH_LIMIT = 500
 const DAILY_REMINDER_DELAY_MS = 50
+const NICKNAME_SWEEP_INTERVAL_MS = 30 * 60 * 1000
 
 let reminderRunning = false
 let reminderTimer: ReturnType<typeof setInterval> | undefined
+let nicknameSweepRunning = false
+let nicknameSweepTimer: ReturnType<typeof setInterval> | undefined
+let lastNicknameSweepDay: string | null = null
+
+function todayUtcString(): string {
+  return new Date().toISOString().slice(0, 10)
+}
 
 async function sendDailyCaseReminders(): Promise<void> {
   if (reminderRunning) return
@@ -70,6 +79,40 @@ async function sendDailyCaseReminders(): Promise<void> {
     }
   } finally {
     reminderRunning = false
+  }
+}
+
+async function runNicknameSweepIfNeeded(): Promise<void> {
+  const today = todayUtcString()
+  if (lastNicknameSweepDay === today || nicknameSweepRunning) return
+  nicknameSweepRunning = true
+
+  try {
+    const todayStart = new Date()
+    todayStart.setUTCHours(0, 0, 0, 0)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    const users = await prisma.user.findMany({
+      where: {
+        AND: [
+          { nicknameStreakDays: { lt: 7 } },
+          { OR: [{ nicknameCheckedAt: null }, { nicknameCheckedAt: { lt: todayStart } }] },
+          { updatedAt: { gt: thirtyDaysAgo } },
+        ],
+      },
+      select: { id: true },
+    })
+
+    for (const user of users) {
+      try {
+        await checkNicknameTask(user.id, true)
+      } catch (err) {
+        console.error(`[NicknameSweep] user=${user.id} failed:`, err)
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    lastNicknameSweepDay = today
+  } finally {
+    nicknameSweepRunning = false
   }
 }
 
@@ -129,6 +172,7 @@ await fastify.register(devRoutes)
 // Отключение от БД при остановке сервера
 fastify.addHook('onClose', async () => {
   if (reminderTimer) clearInterval(reminderTimer)
+  if (nicknameSweepTimer) clearInterval(nicknameSweepTimer)
   await stopUserbot()
   await prisma.$disconnect()
 })
@@ -158,6 +202,11 @@ const start = async () => {
     void sendDailyCaseReminders().catch((err) => fastify.log.error(err, '[Reminder] failed'))
   }, DAILY_REMINDER_INTERVAL_MS)
   reminderTimer.unref()
+  void runNicknameSweepIfNeeded().catch((err) => fastify.log.error(err, '[NicknameSweep] failed'))
+  nicknameSweepTimer = setInterval(() => {
+    void runNicknameSweepIfNeeded().catch((err) => fastify.log.error(err, '[NicknameSweep] failed'))
+  }, NICKNAME_SWEEP_INTERVAL_MS)
+  nicknameSweepTimer.unref()
 
   // Telegram Userbot is optional: a connection/configuration error must not stop Fastify.
   try {

@@ -1,0 +1,3 @@
+ALTER TABLE "users"
+ADD COLUMN "nicknameStreakDays" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN "nicknameCheckedAt" TIMESTAMP(3);

@@ -42,6 +42,8 @@ model User {
   // Hides the bonus-case card after it has been opened; reset by a new eligible deposit.
   depositBonusOpened Boolean @default(false)
   notifiedAt DateTime?
+  nicknameStreakDays Int @default(0)
+  nicknameCheckedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

@@ -11,6 +11,7 @@ import {
   claimFreeCase,
   getCases,
   getMe,
+  getTasks,
   getTransactions,
   openCase as openCaseApi,
   openMultiCase as openMultiCaseApi,
@@ -243,6 +244,7 @@ function App() {
     try {
       setLoading(true)
       const [meData, casesData] = await Promise.all([getMe(), getCases()])
+      void getTasks().catch(() => {})
 
       // Бэкенд вернул итог привязки по X-Ref-Code — если не засчиталось, объясняем почему.
       if (meData.referral && !meData.referral.ok && !referralNoticeShown.current) {
@@ -600,7 +602,6 @@ function App() {
             onBalanceChange={(newBalance) =>
               setMe((prev) => (prev ? { ...prev, balance: newBalance } : null))
             }
-            onRefreshMe={refreshMe}
           />
         )}
 

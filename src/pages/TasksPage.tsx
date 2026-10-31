@@ -7,11 +7,13 @@ import { errorFeedback, successFeedback, tapFeedback } from '../telegram'
 interface TasksPageProps {
   balance: number
   onBalanceChange: (newBalance: number) => void
-  onRefreshMe?: () => Promise<void> | void
 }
 
 function openChannel(): void {
-  const url = 'https://t.me/NewsGiftRoll'
+  openTelegramLink('https://t.me/NewsGiftRoll')
+}
+
+function openTelegramLink(url: string): void {
   const webApp = (
     window as unknown as {
       Telegram?: { WebApp?: { openTelegramLink?: (link: string) => void } }
@@ -25,7 +27,7 @@ function openChannel(): void {
   }
 }
 
-export default function TasksPage({ balance, onBalanceChange, onRefreshMe }: TasksPageProps) {
+export default function TasksPage({ balance, onBalanceChange }: TasksPageProps) {
   const [tasks, setTasks] = useState<TaskItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -68,21 +70,32 @@ export default function TasksPage({ balance, onBalanceChange, onRefreshMe }: Tas
     setNotice(null)
     try {
       const result = await claimTask(task.id)
-      setTasks((current) => current.map((item) => item.id === task.id ? { ...item, completed: true, claimed: true } : item))
       onBalanceChange(result.newBalance)
-      await onRefreshMe?.()
       successFeedback()
       setNotice(`+${result.reward} ⭐ зачислено`)
+      await loadTasks()
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : 'Не удалось забрать награду'
-      setError(message)
-      errorFeedback()
       if (err instanceof ApiError && err.code === 'ALREADY_CLAIMED') {
         await loadTasks()
       }
+      const message =
+        err instanceof ApiError && err.code === 'TASK_NOT_COMPLETED' && task.id === 'task-nickname'
+          ? 'Не вижу GiftRoll в имени. Сохранил изменения?'
+          : err instanceof ApiError
+            ? err.message
+            : 'Не удалось забрать награду'
+      setError(message)
+      errorFeedback()
     } finally {
       setBusyId(null)
     }
+  }
+
+  const handleCheck = async (taskId: string) => {
+    tapFeedback('light')
+    setBusyId(taskId)
+    await loadTasks()
+    setBusyId(null)
   }
 
   return (
@@ -123,36 +136,58 @@ export default function TasksPage({ balance, onBalanceChange, onRefreshMe }: Tas
             const busy = busyId === task.id
             return (
               <article key={task.id} className="glass-card flex items-center gap-3 p-3.5">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-[27px]">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-black/30 text-2xl">
                   {task.emoji}
                 </div>
                 <div className="min-w-0 flex-1">
                   <h2 className="m-0 truncate text-[15px] font-extrabold text-white">{task.title}</h2>
                   <p className="mb-2 mt-1 text-xs leading-snug text-gray-400">{task.description}</p>
                   <div className="mb-2 flex items-center gap-1 text-xs font-extrabold text-[#FFD700]">
-                    <Star size={13} fill="currentColor" /> +{task.reward} ⭐
+                    <Star size={12} fill="currentColor" /> +{task.reward} ⭐
                   </div>
 
+                  {task.progressTarget !== undefined && !task.completed && (
+                    <div className="mb-2">
+                      <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-[#FFD700] to-[#FFA500] transition-[width] duration-300"
+                          style={{ width: `${Math.min(100, ((task.progressCurrent ?? 0) / task.progressTarget) * 100)}%` }}
+                        />
+                      </div>
+                      <p className="mb-0 mt-1 text-[10px] text-gray-500">
+                        День {task.progressCurrent ?? 0}/{task.progressTarget}
+                      </p>
+                    </div>
+                  )}
+
+                  {!!task.completedByCount && (
+                    <p className="mb-2 mt-0 text-[10px] text-gray-500">Уже выполнили: {task.completedByCount}</p>
+                  )}
+
                   {task.claimed ? (
-                    <span className="inline-flex items-center gap-1 rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs font-bold text-emerald-300">
+                    <button type="button" disabled className="inline-flex cursor-not-allowed items-center gap-1 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs font-bold text-emerald-300">
                       <Check size={14} /> Получено
-                    </span>
+                    </button>
                   ) : task.completed ? (
                     <button type="button" className="gold-btn px-3 py-2 text-xs" disabled={busy} onClick={() => void handleClaim(task)}>
                       {busy ? 'Зачисляем…' : `Забрать +${task.reward} ⭐`}
                     </button>
-                  ) : task.id === 'task-channel' ? (
-                    <button
-                      type="button"
-                      className="ghost-btn px-3 py-2 text-xs"
-                      onClick={() => { tapFeedback('light'); openChannel() }}
-                    >
-                      Подписаться
-                    </button>
                   ) : (
-                    <span className="inline-flex rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-gray-500">
-                      {task.id === 'task-first-case' ? 'Открой любой кейс' : 'Добавь GiftRoll в имя'}
-                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" className="ghost-btn px-3 py-2 text-xs" disabled={busy} onClick={() => void handleCheck(task.id)}>
+                        {busy ? 'Проверяем…' : 'Проверить'}
+                      </button>
+                      {task.id === 'task-channel' && (
+                        <button type="button" className="ghost-btn px-3 py-2 text-xs" onClick={() => { tapFeedback('light'); openChannel() }}>
+                          Подписаться
+                        </button>
+                      )}
+                      {task.id === 'task-nickname' && (
+                        <button type="button" className="ghost-btn px-3 py-2 text-xs" onClick={() => { tapFeedback('light'); openTelegramLink('https://t.me/settings/edit') }}>
+                          Открыть настройки
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               </article>
