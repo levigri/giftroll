@@ -4,7 +4,7 @@ import {
   useTonConnectUI,
   useTonWallet,
 } from '@tonconnect/ui-react'
-import { ArrowDown, ArrowUp, Backpack, Gamepad2, Gift, Plus, Star, Target, User, Users } from 'lucide-react'
+import { ArrowDown, ArrowUp, Backpack, Gamepad2, Gift, LifeBuoy, Plus, Star, Target, User, Users } from 'lucide-react'
 import type { CaseItem, DailyBonusPrize, MeResponse, Prize, TransactionEntry } from './api/types'
 import {
   ApiError,
@@ -679,6 +679,23 @@ function App() {
                   onClick={connected ? handleDisconnect : handleConnect}
                 >
                   {connected ? 'Отключить кошелёк' : 'Подключить кошелёк'}
+                </button>
+
+                <button
+                  type="button"
+                  className="ghost-btn flex items-center justify-center gap-2 py-3.5 text-sm"
+                  onClick={() => {
+                    const url = 'https://t.me/GiftRollSuportbot'
+                    const webApp = (window as any).Telegram?.WebApp
+                    if (webApp?.openTelegramLink) {
+                      webApp.openTelegramLink(url)
+                    } else {
+                      window.open(url, '_blank', 'noopener')
+                    }
+                  }}
+                >
+                  <LifeBuoy size={16} className="text-[#8A2BE2]" />
+                  Поддержка
                 </button>
 
                 <section className="glass-card flex flex-col gap-2.5 p-3.5">

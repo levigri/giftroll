@@ -1,7 +1,6 @@
 import { env } from '../config/env.js'
 import { prisma } from '../db/prisma.js'
 import {
-  DEPOSIT_LOCK_MS,
   DepositError,
   grantDepositBonusTicket,
   MAX_DEPOSIT_STARS,
@@ -164,7 +163,6 @@ export async function handleCryptoWebhook(update: unknown): Promise<{ ok: boolea
       data: {
         status: 'completed',
         completedAt,
-        lockUntil: new Date(completedAt.getTime() + DEPOSIT_LOCK_MS),
       },
     })
     if (depositClaim.count === 0) return false

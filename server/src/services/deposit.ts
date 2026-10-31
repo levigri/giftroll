@@ -489,7 +489,6 @@ async function confirmGramsDepositInner(
             status: 'completed',
             txHash: transactionHash,
             completedAt,
-            lockUntil: new Date(completedAt.getTime() + DEPOSIT_LOCK_MS),
           },
         })
 
