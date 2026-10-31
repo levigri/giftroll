@@ -76,7 +76,6 @@ async function handleUserMessage(ctx: Context): Promise<void> {
 
   try {
     const userId = BigInt(from.id)
-    const isFirst = (await prisma.supportMessage.count({ where: { userId } })) === 0
     await ctx.api.sendMessage(env.ADMIN_ID.toString(), userHeader(from))
     const copied = await ctx.api.copyMessage(
       env.ADMIN_ID.toString(),
@@ -94,13 +93,9 @@ async function handleUserMessage(ctx: Context): Promise<void> {
       },
     })
 
-    if (isFirst) {
-      await ctx
-        .reply('✅ Сообщение передано в поддержку. Обычно отвечаем в течение дня.')
-        .catch(() => {})
-    } else {
-      await ctx.react('👀').catch(() => {})
-    }
+    await ctx
+      .reply('✅ Сообщение передано в поддержку. Обычно отвечаем в течение дня.')
+      .catch(() => {})
   } catch (err) {
     const errorName = err instanceof Error ? err.name : 'unknown error'
     console.error(`[Support] forward to admin failed (${errorName})`)
@@ -161,7 +156,11 @@ if (supportBot) {
   })
 
   supportBot.on('message', async (ctx, next) => {
-    if (env.ADMIN_ID === undefined) return next()
+    if (env.ADMIN_ID === undefined) {
+      console.warn('[Support] message received but ADMIN_ID is not configured')
+      await ctx.reply('Поддержка временно недоступна. Попробуй написать позже.').catch(() => {})
+      return next()
+    }
     if (isAdmin(ctx.from?.id)) {
       await handleAdminReply(ctx)
       return
@@ -202,6 +201,16 @@ export async function setupSupportWebhook(publicBaseUrl: string): Promise<boolea
   const base = publicBaseUrl.replace(/\/+$/, '')
   const secret = env.SUPPORT_WEBHOOK_SECRET ?? env.WEBHOOK_SECRET
   try {
+    const botInfo = await supportBot.api.getMe()
+    const actualUsername = botInfo.username?.toLowerCase()
+    if (actualUsername !== 'giftrollsuport') {
+      console.error(
+        `[Support] SUPPORT_BOT_TOKEN belongs to @${botInfo.username ?? 'unknown'}; expected @Giftrollsuport`,
+      )
+      return false
+    }
+
+    console.info('[Support] token verified for @Giftrollsuport')
     await supportBot.api.setWebhook(`${base}/api/support/webhook`, {
       ...(secret ? { secret_token: secret } : {}),
       allowed_updates: ['message'],
