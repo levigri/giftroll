@@ -192,6 +192,7 @@ export default function UpgraderPage({
    */
   const nftPool = useMemo<UpgraderTargetNft[]>(() => {
     const targets = new Map<string, UpgraderTargetNft>()
+    const catalogNames = new Set(catalog.map((prize) => prize.name.trim().toLowerCase()))
 
     const add = (prize: Prize): void => {
       if (prize.type !== 'NFT') {
@@ -214,6 +215,8 @@ export default function UpgraderPage({
 
     for (const caseItem of cases) {
       for (const prize of caseItem.prizes) {
+        // Live market catalog is authoritative; case data only fills missing legacy entries.
+        if (prize.type === 'NFT' && catalogNames.has(prize.name.trim().toLowerCase())) continue
         add(prize)
       }
     }
@@ -221,14 +224,18 @@ export default function UpgraderPage({
       add(prize)
     }
 
-    return [...targets.values()].sort((a, b) => a.price - b.price)
+    return [...targets.values()].sort((a, b) => {
+      if (a.price <= 0) return b.price <= 0 ? a.name.localeCompare(b.name) : 1
+      if (b.price <= 0) return -1
+      return a.price - b.price
+    })
   }, [cases, catalog])
 
   /** Пул отсортирован по цене по возрастанию — последний подходящий будет самым дорогим. */
   const findBestAffordableTarget = (availablePayout: number): UpgraderTargetNft | null => {
     for (let index = nftPool.length - 1; index >= 0; index -= 1) {
       const target = nftPool[index]
-      if (target && target.price <= availablePayout) {
+      if (target && target.price > 0 && target.price <= availablePayout) {
         return target
       }
     }
@@ -242,8 +249,8 @@ export default function UpgraderPage({
 
   const nftValue = selectedItems.reduce((sum, item) => sum + item.prizePrice, 0)
   const totalBet = starsBet + nftValue
-  const cheapestTarget = nftPool[0] ?? null
-  const cheapestPrice = cheapestTarget?.price ?? 350
+  const cheapestTarget = nftPool.find((target) => target.price > 0) ?? null
+  const cheapestPrice = cheapestTarget?.price ?? Number.POSITIVE_INFINITY
   const maxChanceForCheapest = Math.floor((totalBet * PAYOUT_PERCENT) / cheapestPrice)
   const dynamicMaxChance = Math.min(
     MAX_CHANCE,
@@ -878,7 +885,9 @@ export default function UpgraderPage({
                   /** Выплата покрывает цену карточки — если нет, рамка краснеет (выбор остаётся). */
                   const covered = payout >= nft.price
                   const lockReason =
-                    requiredChance > MAX_CHANCE
+                    nft.price <= 0
+                      ? 'Нет цены на маркете'
+                      : requiredChance > MAX_CHANCE
                       ? 'Слишком высокий шанс'
                       : requiredChance < MIN_CHANCE
                         ? 'Слишком низкий шанс'
@@ -927,7 +936,7 @@ export default function UpgraderPage({
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-gray-400">
-                          {nft.price}
+                          от {nft.price}
                           <Star size={9} fill="currentColor" />
                         </span>
                       )}

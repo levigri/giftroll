@@ -80,6 +80,10 @@ export async function performUpgrade(
   if (!targetNft) {
     throw new GameError('TARGET_NOT_FOUND', 'Целевой предмет не найден', 404)
   }
+  const targetMarketPrice = await getTelegramMarketPrice(targetNft.name)
+  if (!targetMarketPrice || targetMarketPrice <= 0) {
+    throw new GameError('NFT_PRICE_UNAVAILABLE', `Для «${targetNft.name}» нет актуальной цены на Telegram Marketplace`, 409)
+  }
 
   if (!Number.isInteger(starsBet) || starsBet < 0) {
     throw new GameError('INVALID_BET', 'Ставка в ⭐ должна быть целым неотрицательным числом', 400)
@@ -162,7 +166,7 @@ export async function performUpgrade(
       }
 
       const winAmount = win ? Math.floor(totalBet * multiplier) : 0
-      if (win && winAmount < targetNft.price) {
+      if (win && winAmount < targetMarketPrice) {
         throw new GameError(
           'INVALID_BET',
           'Выплата меньше стоимости NFT. Увеличьте ставку или уменьшите шанс.',
@@ -171,7 +175,7 @@ export async function performUpgrade(
       }
 
       const grantNft = win
-      const remainingStars = win ? winAmount - targetNft.price : 0
+      const remainingStars = win ? winAmount - targetMarketPrice : 0
       const newBalance = userRow.balance - starsBet + remainingStars
 
       // NFT сгорают в любом случае — и при победе, и при проигрыше.
@@ -192,7 +196,7 @@ export async function performUpgrade(
             prizeId: targetNft.id,
             prizeName: targetNft.name,
             prizeEmoji: targetNft.emoji,
-            prizePrice: targetNft.price,
+            prizePrice: targetMarketPrice,
             isExternal: false,
             lockUntil: inheritedLock,
             status: 'PENDING',
@@ -219,7 +223,7 @@ export async function performUpgrade(
             id: targetNft.id,
             name: targetNft.name,
             emoji: targetNft.emoji,
-            price: targetNft.price,
+            price: targetMarketPrice,
           }
         : null
 
