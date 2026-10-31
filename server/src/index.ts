@@ -19,7 +19,59 @@ import { depositRoutes } from './routes/deposit.js'
 import { telegramRoutes } from './routes/telegram.js'
 import { referralRoutes } from './routes/referral.js'
 import { devRoutes } from './routes/dev.js'
+import { tasksRoutes } from './routes/tasks.js'
 import { initUserbot, stopUserbot } from './services/userbot.js'
+import { notifyDailyBonusReady } from './services/bot.js'
+
+const DAILY_REMINDER_INTERVAL_MS = 30 * 60 * 1000
+const DAILY_REMINDER_WINDOW_MS = 24 * 60 * 60 * 1000
+const DAILY_REMINDER_BATCH_LIMIT = 500
+const DAILY_REMINDER_DELAY_MS = 50
+
+let reminderRunning = false
+let reminderTimer: ReturnType<typeof setInterval> | undefined
+
+async function sendDailyCaseReminders(): Promise<void> {
+  if (reminderRunning) return
+  reminderRunning = true
+
+  try {
+    const cutoff = new Date(Date.now() - DAILY_REMINDER_WINDOW_MS)
+    const users = await prisma.user.findMany({
+      where: {
+        AND: [
+          { OR: [{ notifiedAt: null }, { notifiedAt: { lt: cutoff } }] },
+          {
+            OR: [
+              { dailyBonus: { is: null } },
+              { dailyBonus: { is: { lastClaimedAt: { lt: cutoff } } } },
+            ],
+          },
+        ],
+      },
+      select: { id: true },
+      take: DAILY_REMINDER_BATCH_LIMIT,
+    })
+
+    for (let index = 0; index < users.length; index += 1) {
+      const user = users[index]
+      try {
+        const sent = await notifyDailyBonusReady(user.id)
+        if (sent) {
+          await prisma.user.update({ where: { id: user.id }, data: { notifiedAt: new Date() } })
+        }
+      } catch (err) {
+        fastify.log.error(err, `[Reminder] failed for user ${user.id}`)
+      }
+
+      if (index < users.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, DAILY_REMINDER_DELAY_MS))
+      }
+    }
+  } finally {
+    reminderRunning = false
+  }
+}
 
 const fastify = Fastify({
   logger: {
@@ -71,10 +123,12 @@ await fastify.register(dropsRoutes)
 await fastify.register(depositRoutes)
 await fastify.register(telegramRoutes)
 await fastify.register(referralRoutes)
+await fastify.register(tasksRoutes)
 await fastify.register(devRoutes)
 
 // Отключение от БД при остановке сервера
 fastify.addHook('onClose', async () => {
+  if (reminderTimer) clearInterval(reminderTimer)
   await stopUserbot()
   await prisma.$disconnect()
 })
@@ -98,6 +152,12 @@ const start = async () => {
     fastify.log.error(error)
     process.exit(1)
   }
+
+  void sendDailyCaseReminders().catch((err) => fastify.log.error(err, '[Reminder] failed'))
+  reminderTimer = setInterval(() => {
+    void sendDailyCaseReminders().catch((err) => fastify.log.error(err, '[Reminder] failed'))
+  }, DAILY_REMINDER_INTERVAL_MS)
+  reminderTimer.unref()
 
   // Telegram Userbot is optional: a connection/configuration error must not stop Fastify.
   try {

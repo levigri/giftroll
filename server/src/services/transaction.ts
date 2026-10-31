@@ -14,6 +14,7 @@ export type TransactionType =
   | 'SELL_NFT'
   | 'DAILY_BONUS'
   | 'REFERRAL'
+  | 'TASK_REWARD'
 
 /**
  * Пишет запись в историю операций пользователя.

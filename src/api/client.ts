@@ -17,6 +17,8 @@ import type {
   ReferralStats,
   SellNftResponse,
   TransactionEntry,
+  TasksResponse,
+  ClaimTaskResponse,
   UpgraderResult,
 } from './types'
 import { getInitData, getStoredRefCode } from '../telegram'
@@ -333,4 +335,14 @@ export async function getReferralStats(): Promise<ReferralStats> {
 /** История операций по балансу: новые сверху, пачками по `limit`. */
 export async function getTransactions(limit = 30): Promise<TransactionEntry[]> {
   return request<TransactionEntry[]>(`/api/transactions?limit=${limit}`)
+}
+
+export async function getTasks(): Promise<TasksResponse> {
+  return request<TasksResponse>('/api/tasks')
+}
+
+export async function claimTask(taskId: string): Promise<ClaimTaskResponse> {
+  return request<ClaimTaskResponse>(`/api/tasks/${encodeURIComponent(taskId)}/claim`, {
+    method: 'POST',
+  })
 }

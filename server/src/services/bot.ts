@@ -1,5 +1,6 @@
 import { Bot } from 'grammy'
 import { env } from '../config/env.js'
+import { prisma } from '../db/prisma.js'
 
 /**
  * Служебные уведомления бота (пополнения, ошибки проверки транзакций).
@@ -55,5 +56,52 @@ export async function notifyUser(userId: bigint, text: string): Promise<void> {
     await bot.api.sendMessage(userId.toString(), text)
   } catch (err) {
     console.error(`[Bot] notify failed for user ${userId}:`, err)
+  }
+}
+
+/** Уведомляет пользователя, что ему снова доступен бесплатный кейс. */
+export async function notifyDailyBonusReady(userId: bigint): Promise<boolean> {
+  try {
+    const bot = getNotifyBot()
+    if (!bot) return false
+
+    await bot.api.sendMessage(String(userId), '🎁 Твой бесплатный кейс готов!', {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: 'Открыть GiftRoll', web_app: { url: 'https://giftroll-six.vercel.app/?v=2' } }],
+        ],
+      },
+    })
+    return true
+  } catch (err) {
+    console.error(`[Bot] daily bonus reminder failed for user ${userId}:`, err)
+    return false
+  }
+}
+
+/** Проверяет имя профиля в Telegram, затем использует данные из нашей БД как fallback. */
+export async function checkNicknameContainsGiftRoll(userId: bigint): Promise<boolean> {
+  try {
+    const bot = getNotifyBot()
+    if (bot) {
+      const chat = await bot.api.getChat(String(userId))
+      if (chat.type === 'private') {
+        const fullName = `${chat.first_name ?? ''} ${chat.last_name ?? ''}`.toLowerCase()
+        if (fullName.includes('giftroll')) return true
+      }
+    }
+  } catch {
+    // getChat доступен не для всех пользователей; ниже проверяем сохранённое имя.
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { firstName: true, lastName: true },
+    })
+    return `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.toLowerCase().includes('giftroll')
+  } catch (err) {
+    console.error(`[Bot] nickname check failed for user ${userId}:`, err)
+    return false
   }
 }

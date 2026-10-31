@@ -137,6 +137,26 @@ export interface ClaimNftResponse {
   status: string
 }
 
+export interface TaskItem {
+  id: string
+  title: string
+  description: string
+  reward: number
+  emoji: string
+  completed: boolean
+  claimed: boolean
+}
+
+export interface TasksResponse {
+  tasks: TaskItem[]
+}
+
+export interface ClaimTaskResponse {
+  ok: boolean
+  reward: number
+  newBalance: number
+}
+
 /* ---------- Пополнение и рефералка ---------- */
 
 export interface DepositInvoiceResponse {
@@ -261,7 +281,7 @@ export interface PvpHistoryEntry {
 /** Строка истории операций: amount > 0 — доход, < 0 — расход. */
 export interface TransactionEntry {
   id: string
-  type: 'DEPOSIT' | 'CASE_OPEN' | 'UPGRADE' | 'PVP_BET' | 'PVP_WIN' | 'SELL_NFT' | 'DAILY_BONUS' | 'REFERRAL'
+  type: 'DEPOSIT' | 'CASE_OPEN' | 'UPGRADE' | 'PVP_BET' | 'PVP_WIN' | 'SELL_NFT' | 'DAILY_BONUS' | 'REFERRAL' | 'TASK_REWARD'
   amount: number
   details: string | null
   createdAt: string

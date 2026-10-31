@@ -4,7 +4,7 @@ import {
   useTonConnectUI,
   useTonWallet,
 } from '@tonconnect/ui-react'
-import { ArrowDown, ArrowUp, Backpack, Gamepad2, Gift, Plus, Star, User, Users } from 'lucide-react'
+import { ArrowDown, ArrowUp, Backpack, Gamepad2, Gift, Plus, Star, Target, User, Users } from 'lucide-react'
 import type { CaseItem, DailyBonusPrize, MeResponse, Prize, TransactionEntry } from './api/types'
 import {
   ApiError,
@@ -33,16 +33,18 @@ import GamesPage from './pages/GamesPage'
 import type { OpenCount } from './pages/CasesPage'
 import ReferralPage from './pages/ReferralPage'
 import DepositPage from './pages/DepositPage'
+import TasksPage from './pages/TasksPage'
 import './App.css'
 
 /**
  * Вкладки нижней навигации.
  * 'deposit' — отдельная страница без вкладки: открывается кнопкой «Пополнить».
  */
-type TabId = 'games' | 'referral' | 'inventory' | 'profile' | 'deposit'
+type TabId = 'games' | 'tasks' | 'referral' | 'inventory' | 'profile' | 'deposit'
 
 const TABS: { id: TabId; icon: typeof Gamepad2; label: string }[] = [
   { id: 'games', icon: Gamepad2, label: 'Игры' },
+  { id: 'tasks', icon: Target, label: 'Задания' },
   { id: 'referral', icon: Users, label: 'Друзья' },
   { id: 'inventory', icon: Backpack, label: 'Инвентарь' },
   { id: 'profile', icon: User, label: 'Профиль' },
@@ -589,6 +591,16 @@ function App() {
               )
               void refreshMe()
             }}
+          />
+        )}
+
+        {tab === 'tasks' && (
+          <TasksPage
+            balance={me?.balance ?? 0}
+            onBalanceChange={(newBalance) =>
+              setMe((prev) => (prev ? { ...prev, balance: newBalance } : null))
+            }
+            onRefreshMe={refreshMe}
           />
         )}
 

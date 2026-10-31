@@ -41,6 +41,7 @@ model User {
   hasClaimedDepositBonus Boolean @default(true)
   // Hides the bonus-case card after it has been opened; reset by a new eligible deposit.
   depositBonusOpened Boolean @default(false)
+  notifiedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -48,9 +49,21 @@ model User {
   inventory  InventoryItem[]
   dailyBonus DailyBonus?
   transactions Transaction[]
+  tasks        UserTask[]
 
   @@index([referredBy])
   @@map("users")
+}
+
+model UserTask {
+  id        String   @id @default(cuid())
+  userId    BigInt
+  taskId    String
+  claimedAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, taskId])
+  @@index([userId])
 }
 
 model CaseOpen {
