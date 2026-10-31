@@ -3,6 +3,7 @@ import { findNftPrize } from '../data/cases.js'
 import { GameError } from './game.js'
 import { processWagering } from './deposit.js'
 import { findActiveDepositLock } from './depositLock.js'
+import { getTelegramMarketPrice } from './userbot.js'
 import { getUsername, logDrop } from './drops.js'
 import { logTransaction } from './transaction.js'
 
@@ -64,8 +65,7 @@ function assertChance(chance: number): void {
  *
  * При победе игрок получает целевой NFT, а сдача сверх цены NFT зачисляется ⭐.
  *
- * Цена NFT в ставке берётся из InventoryItem.prizePrice — это серверный снимок
- * цены из cases.ts на момент выпадения, поэтому клиент не может завысить стоимость.
+ * Цены NFT в ставке запрашиваются с Telegram Marketplace на сервере.
  */
 export async function performUpgrade(
   userId: bigint,
@@ -91,6 +91,18 @@ export async function performUpgrade(
   }
   if (uniqueIds.length !== nftIds.length) {
     throw new GameError('INVALID_NFT', 'Список NFT содержит повторы или пустые id', 400)
+  }
+
+  const quotedItems = uniqueIds.length
+    ? await prisma.inventoryItem.findMany({
+        where: { userId, id: { in: uniqueIds } },
+        select: { id: true, prizeName: true },
+      })
+    : []
+  const itemPrices = new Map<string, number>()
+  for (const item of quotedItems) {
+    const price = await getTelegramMarketPrice(item.prizeName)
+    if (price && price > 0) itemPrices.set(item.id, price)
   }
 
   const result = await prisma.$transaction(
@@ -129,12 +141,16 @@ export async function performUpgrade(
         throw new GameError('NFT_NOT_FOUND', 'Один из выбранных NFT не найден в инвентаре', 400)
       }
 
-      const claimed = items.find((item) => item.status === 'CLAIMED')
-      if (claimed) {
-        throw new GameError('NFT_CLAIMED', `«${claimed.prizeName}» уже выведен и не участвует`, 400)
+      const unavailable = items.find((item) => item.status !== 'PENDING')
+      if (unavailable) {
+        throw new GameError('NFT_UNAVAILABLE', `«${unavailable.prizeName}» уже закреплён за выводом или недоступен`, 409)
       }
 
-      const nftValue = items.reduce((sum, item) => sum + item.prizePrice, 0)
+      const unpriced = items.find((item) => (itemPrices.get(item.id) ?? 0) <= 0)
+      if (unpriced) {
+        throw new GameError('NFT_PRICE_UNAVAILABLE', `Для «${unpriced.prizeName}» пока не задана цена ставки`, 409)
+      }
+      const nftValue = items.reduce((sum, item) => sum + (itemPrices.get(item.id) ?? 0), 0)
       const totalBet = starsBet + nftValue
 
       if (totalBet < MIN_TOTAL_BET || totalBet > MAX_TOTAL_BET) {
@@ -160,9 +176,12 @@ export async function performUpgrade(
 
       // NFT сгорают в любом случае — и при победе, и при проигрыше.
       if (uniqueIds.length > 0) {
-        await tx.inventoryItem.deleteMany({
-          where: { userId, id: { in: uniqueIds } },
+        const consumed = await tx.inventoryItem.deleteMany({
+          where: { userId, id: { in: uniqueIds }, status: 'PENDING' },
         })
+        if (consumed.count !== uniqueIds.length) {
+          throw new GameError('NFT_UNAVAILABLE', 'Один из NFT уже используется другой операцией', 409)
+        }
       }
 
       if (grantNft) {

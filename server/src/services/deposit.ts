@@ -740,13 +740,13 @@ async function handleNftWithdrawalPayment(
 
   await notifyUser(
     item.userId,
-    `📩 Заявка на вывод «${item.prizeName}» принята. Этого подарка сейчас нет в наличии. Мы закупим его и отправим в течение 12 часов.`,
+    `📩 Заявка на вывод «${item.prizeName}» принята. Не удалось отправить подарок автоматически. Поддержка обработает заявку в течение 12 часов.`,
   )
+  const username = item.user.username ? `@${item.user.username}` : `ID ${item.userId.toString()}`
   if (env.ADMIN_ID) {
-    const username = item.user.username ? `@${item.user.username}` : `ID ${item.userId.toString()}`
     await notifyUser(
       env.ADMIN_ID,
-      `📤 Запрос на вывод (НЕТ В НАЛИЧИИ): ${item.prizeName} от ${username}`,
+      `📤 Нужна ручная отправка NFT «${item.prizeName}» для ${username}. ID заявки: ${item.id}.`,
     )
   }
 }

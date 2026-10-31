@@ -1,87 +1,73 @@
-import { Api, TelegramClient } from 'telegram'
-import { StringSession } from 'telegram/sessions/index.js'
-import { NewMessage, type NewMessageEvent } from 'telegram/events/index.js'
+import { convertFromGramjsSession } from '@mtcute/convert'
+import { MemoryStorage, TelegramClient, type Message, type SavedStarGift } from '@mtcute/node'
 import { env } from '../config/env.js'
 import { prisma } from '../db/prisma.js'
+import { findNftCatalogEntry } from './nftPricing.js'
 
 let userbot: TelegramClient | null = null
 let isUserbotStarted = false
+let marketPriceCache: { expiresAt: number; prices: Map<string, number> } | null = null
+let marketPriceRequest: Promise<Map<string, number> | null> | null = null
 
-function isUniqueConstraintError(error: unknown): boolean {
+function normalizeGiftName(name: string): string {
+  return name.trim().replace(/[’‘]/g, "'").replace(/\s+/g, ' ').toLocaleLowerCase('en-US')
+}
+
+type UniqueGiftLike = { id: { toString(): string }; title: string; isUnique: true }
+
+function isUniqueGift(value: unknown): value is UniqueGiftLike {
   return Boolean(
-    error && typeof error === 'object' && 'code' in error && error.code === 'P2002',
+    value && typeof value === 'object' && 'isUnique' in value && value.isUnique === true &&
+    'id' in value && 'title' in value && typeof value.title === 'string',
   )
 }
 
-function stringifyTelegramObject(value: unknown): string {
-  const seen = new WeakSet<object>()
-  try {
-    return JSON.stringify(
-      value,
-      (key, current: unknown) => {
-        if (key === 'client' || key === '_client') return undefined
-        if (typeof current === 'bigint') return current.toString()
-        if (current && typeof current === 'object') {
-          if (seen.has(current)) return '[Circular]'
-          seen.add(current)
-        }
-        return current
-      },
-    )
-  } catch (error) {
-    return `[unserializable: ${error instanceof Error ? error.message : String(error)}]`
-  }
-}
+async function handleIncomingMessage(message: Message): Promise<void> {
+  if (message.isOutgoing || !message.isService || message.chat.type !== 'user') return
 
-async function handleIncomingMessage(event: NewMessageEvent): Promise<void> {
-  const message = event.message
   const action = message.action
-
-  // Telegram represents a regular gift and a collectible NFT as different
-  // service actions. Only the unique collectible action is eligible here.
-  if (action instanceof Api.MessageActionStarGift) {
+  if (action?.type === 'star_gift_sent') {
     console.info(`[Userbot] Получен обычный гифт в сообщении ${message.id}. Игнорируем.`)
     return
   }
-  if (!(action instanceof Api.MessageActionStarGiftUnique)) {
-    return
-  }
-  if (action.refunded) {
+  if (!action || !('gift' in action) || !isUniqueGift(action.gift)) return
+  if ('refunded' in action && action.refunded) {
     console.info(`[Userbot] NFT-подарок в сообщении ${message.id} возвращён. Игнорируем.`)
     return
   }
 
-  console.info(`[Userbot] Пойман NFT-подарок! RAW NFT: ${stringifyTelegramObject(action).substring(0, 2000)}`)
+  const senderId = message.sender.id
+  const peerId = message.chat.id
+  const senderUserId = BigInt(senderId)
+  const giftId = action.gift.id.toString()
+  const rawPrizeName = action.gift.title || `Telegram NFT #${giftId}`
+  const catalogEntry = findNftCatalogEntry(rawPrizeName)
+  const prizeName = catalogEntry?.name ?? rawPrizeName
 
-  const peer = message.peerId
-  const senderPeer = action.fromId
-  if (!(peer instanceof Api.PeerUser) || !(senderPeer instanceof Api.PeerUser)) {
-    console.warn(`[Userbot] Подарок в сообщении ${message.id} без адресуемого отправителя`)
-    return
-  }
+  console.info(`[Userbot] Пойман NFT-подарок! ${JSON.stringify({
+    id: message.id,
+    peerId,
+    senderId,
+    giftId,
+    title: rawPrizeName,
+    action: action.type,
+  }).slice(0, 2000)}`)
 
-  const peerId = peer.userId.toString()
-  const senderUserId = BigInt(senderPeer.userId.toString())
   const user = await prisma.user.findUnique({ where: { id: senderUserId } })
   if (!user) {
-    console.info(`[Userbot] Подарок в сообщении ${message.id}: Telegram-пользователь не найден в GiftRoll`)
+    console.info(`[Userbot] NFT в сообщении ${message.id}: Telegram-пользователь не найден в GiftRoll`)
     return
   }
 
-  const giftId = action.gift.id.toString()
-  const prizeName =
-    'title' in action.gift && typeof action.gift.title === 'string'
-      ? action.gift.title
-      : `Telegram NFT #${giftId}`
   try {
     await prisma.$transaction(async (tx) => {
       const inventoryItem = await tx.inventoryItem.create({
         data: {
           userId: user.id,
-          prizeId: `telegram-gift:${peerId}:${message.id}`,
+          prizeId: catalogEntry?.id ?? `telegram-gift:${peerId}:${message.id}`,
           prizeName,
-          prizeEmoji: '🎁',
-          prizePrice: 0,
+          prizeEmoji: catalogEntry?.emoji ?? '🎁',
+          prizePrice: catalogEntry?.price ?? 0,
           giftId,
           isExternal: true,
           lockUntil: null,
@@ -90,7 +76,7 @@ async function handleIncomingMessage(event: NewMessageEvent): Promise<void> {
 
       await tx.telegramGiftReceipt.create({
         data: {
-          peerId,
+          peerId: String(peerId),
           messageId: message.id,
           senderUserId,
           inventoryItemId: inventoryItem.id,
@@ -98,73 +84,147 @@ async function handleIncomingMessage(event: NewMessageEvent): Promise<void> {
       })
     })
 
-    console.info(`[Userbot] Telegram Gift #${giftId} зачислен в инвентарь GiftRoll`)
+    console.info(`[Userbot] Telegram NFT #${giftId} зачислен в инвентарь GiftRoll`)
   } catch (error) {
-    if (isUniqueConstraintError(error)) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
       console.info(`[Userbot] Повторное событие подарка пропущено (message ${message.id})`)
       return
     }
-    console.error('[Userbot] Не удалось зачислить Telegram Gift:', error)
+    console.error('[Userbot] Не удалось зачислить Telegram NFT:', error)
   }
 }
 
-/** Отправляет именно сохранённый NFT, связанный с входящим gift receipt. */
+async function getMarketPrices(): Promise<Map<string, number> | null> {
+  if (marketPriceCache && marketPriceCache.expiresAt > Date.now()) return marketPriceCache.prices
+  if (marketPriceRequest) return marketPriceRequest
+  const client = userbot
+  if (!client || !isUserbotStarted) return null
+
+  marketPriceRequest = (async () => {
+    try {
+      const gifts = await client.getStarGiftOptions()
+      const prices = new Map<string, number>()
+      for (const gift of gifts) {
+        const title = gift.title
+        const floorPrice = gift.resaleFloorPrice
+        if (!title || !floorPrice) continue
+        const price = Number(floorPrice.toString())
+        if (Number.isSafeInteger(price) && price > 0) prices.set(normalizeGiftName(title), price)
+      }
+      marketPriceCache = { prices, expiresAt: Date.now() + 60_000 }
+      return prices
+    } catch (error) {
+      console.warn('[Userbot] Не удалось получить цены Telegram Marketplace:', error)
+      return null
+    } finally {
+      marketPriceRequest = null
+    }
+  })()
+  return marketPriceRequest
+}
+
+/** Current minimum Stars listing for the gift collection from Telegram Marketplace. */
+export async function getTelegramMarketPrice(prizeName: string): Promise<number | null> {
+  const prices = await getMarketPrices()
+  return prices?.get(normalizeGiftName(prizeName)) ?? null
+}
+
+async function listRelayerGifts(client: TelegramClient): Promise<SavedStarGift[]> {
+  const gifts: SavedStarGift[] = []
+  let offset: string | undefined
+  for (let page = 0; page < 100; page += 1) {
+    const result = await client.getSavedStarGifts({ owner: 'me', offset, limit: 100 })
+    gifts.push(...result)
+    if (!result.next) break
+    offset = result.next
+  }
+  return gifts
+}
+
+async function findAvailableRelayerGift(itemId: string, userId: bigint): Promise<SavedStarGift | null> {
+  const client = userbot
+  if (!client || !isUserbotStarted) return null
+  const item = await prisma.inventoryItem.findFirst({ where: { id: itemId, userId } })
+  if (!item) return null
+
+  if (item.isExternal && item.giftId) {
+    const receipt = await prisma.telegramGiftReceipt.findFirst({ where: { inventoryItemId: item.id } })
+    if (!receipt) return null
+  }
+
+  const savedGifts = await listRelayerGifts(client)
+  const matching = savedGifts.filter((entry): entry is SavedStarGift & { gift: UniqueGiftLike } => {
+    if (!isUniqueGift(entry.gift)) return false
+    return item.giftId
+      ? entry.gift.id.toString() === item.giftId
+      : normalizeGiftName(entry.gift.title) === normalizeGiftName(item.prizeName)
+  })
+  if (matching.length === 0) return null
+
+  // Do not treat gifts currently assigned to another player's inventory as free.
+  const giftIds = matching.map((entry) => entry.gift.id.toString())
+  const assigned = await prisma.inventoryItem.findMany({
+    where: {
+      giftId: { in: giftIds },
+      id: { not: item.id },
+      status: { in: ['PENDING', 'WITHDRAWAL_REQUESTED'] },
+    },
+    select: { giftId: true },
+  })
+  const assignedIds = new Set(assigned.flatMap((row) => row.giftId ? [row.giftId] : []))
+  const available = matching.find((entry) => !assignedIds.has(entry.gift.id.toString()))
+  if (!available) return null
+
+  // Pin a real Telegram gift to this player's inventory row before issuing an
+  // invoice. The unique giftId index prevents concurrent claims from reserving it twice.
+  if (!item.giftId) {
+    const assignedGift = await prisma.inventoryItem.updateMany({
+      where: { id: item.id, userId, status: 'PENDING', giftId: null },
+      data: { giftId: available.gift.id.toString() },
+    })
+    if (assignedGift.count !== 1) return null
+  }
+  return available
+}
+
+export async function hasAvailableRelayerGift(
+  itemId: string,
+  userId: bigint,
+): Promise<{ available: boolean; code?: string; message?: string }> {
+  if (!userbot || !isUserbotStarted) {
+    return { available: false, code: 'RELAYER_UNAVAILABLE', message: 'Аккаунт релаера временно недоступен. Попробуйте позже.' }
+  }
+  try {
+    const gift = await findAvailableRelayerGift(itemId, userId)
+    return gift
+      ? { available: true }
+      : { available: false, code: 'GIFT_NOT_AVAILABLE', message: 'На аккаунте релаера сейчас нет такого подарка. Попробуйте позже или обратитесь в поддержку.' }
+  } catch (error) {
+    console.error('[Userbot] Не удалось проверить наличие подарка у релаера:', error)
+    return { available: false, code: 'RELAYER_CHECK_FAILED', message: 'Не удалось проверить подарки релаера. Попробуйте позже.' }
+  }
+}
+
+/** Transfers the exact external NFT or an unassigned matching gift from Relayer's Telegram inventory. */
 export async function sendSavedGiftToUser(itemId: string, userId: bigint): Promise<boolean> {
   const client = userbot
   if (!client || !isUserbotStarted) return false
 
   try {
-    const [item, receipt] = await Promise.all([
-      prisma.inventoryItem.findFirst({
-        where: { id: itemId, userId, isExternal: true },
-      }),
-      prisma.telegramGiftReceipt.findFirst({
-        where: { inventoryItemId: itemId },
-      }),
-    ])
-    if (!item?.giftId || !receipt) return false
-
-    let offset = ''
-    let gift: Api.SavedStarGift | undefined
-    // Telegram paginates this list. Include both pinned and unpinned gifts and
-    // continue until the exact collectible id from the receipt is found.
-    for (let page = 0; page < 100 && !gift; page += 1) {
-      const saved = await client.invoke(
-        new Api.payments.GetSavedStarGifts({
-          peer: new Api.InputPeerSelf(),
-          offset,
-          limit: 100,
-          excludeSaved: false,
-          excludeUnique: false,
-          excludeLimited: false,
-          excludeUnlimited: false,
-          sortByValue: false,
-        }),
-      )
-      if (!(saved instanceof Api.payments.SavedStarGifts)) return false
-
-      gift = saved.gifts.find(
-        (entry) =>
-          entry instanceof Api.SavedStarGift &&
-          entry.gift instanceof Api.StarGiftUnique &&
-          entry.gift.id.toString() === item.giftId,
-      ) as Api.SavedStarGift | undefined
-      if (!saved.nextOffset) break
-      offset = saved.nextOffset
-    }
-    if (!gift || gift.msgId === undefined) return false
-
-    // Telegram's direct transfer method works only for gifts whose transfer is
-    // free. Paid transfers need a separate MTProto Stars payment flow.
+    const gift = await findAvailableRelayerGift(itemId, userId)
+    if (!gift || !isUniqueGift(gift.gift)) return false
     if (gift.transferStars && BigInt(gift.transferStars.toString()) > 0n) return false
+    const giftInput = gift.savedId
+      ? { owner: 'me' as const, savedId: gift.savedId }
+      : gift.messageId
+        ? { message: gift.messageId }
+        : null
+    if (!giftInput) return false
 
-    const recipient = await client.getInputEntity(userId.toString())
-    await client.invoke(
-      new Api.payments.TransferStarGift({
-        stargift: new Api.InputSavedStarGiftUser({ msgId: gift.msgId }),
-        toId: recipient,
-      }),
-    )
+    await client.transferStarGift({
+      gift: giftInput,
+      recipient: Number(userId),
+    })
     console.info(`[Userbot] NFT for inventory item ${itemId} transferred to Telegram user ${userId}`)
     return true
   } catch (error) {
@@ -183,30 +243,22 @@ export async function initUserbot(): Promise<void> {
   }
   if (isUserbotStarted) return
 
-  const client = new TelegramClient(new StringSession(session), apiId, apiHash, {
-    connectionRetries: 5,
+  const client = new TelegramClient({
+    apiId: Number(apiId),
+    apiHash,
+    storage: new MemoryStorage(),
   })
   userbot = client
 
   try {
-    await client.connect()
-    if (!(await client.checkAuthorization())) {
-      console.warn('[Userbot] Сессия не авторизована. Проверьте TELEGRAM_SESSION.')
-      await client.disconnect()
-      userbot = null
-      return
-    }
-
-    client.addEventHandler(
-      (event) => {
-        void handleIncomingMessage(event).catch((error: unknown) => {
-          console.error('[Userbot] Ошибка обработки Telegram update:', error)
-        })
-      },
-      new NewMessage({ incoming: true }),
-    )
+    client.onNewMessage.add((message) => {
+      void handleIncomingMessage(message).catch((error: unknown) => {
+        console.error('[Userbot] Ошибка обработки Telegram update:', error)
+      })
+    })
+    await client.start({ session: convertFromGramjsSession(session) })
     isUserbotStarted = true
-    console.info('[Userbot] Успешно подключен к Telegram')
+    console.info('[Userbot] Успешно подключен к Telegram через актуальный MTProto слой')
   } catch (error) {
     console.error('[Userbot] Не удалось подключиться к Telegram:', error)
     await client.disconnect().catch(() => undefined)
@@ -218,6 +270,8 @@ export async function stopUserbot(): Promise<void> {
   const client = userbot
   userbot = null
   isUserbotStarted = false
+  marketPriceCache = null
+  marketPriceRequest = null
   if (!client) return
   await client.disconnect()
   console.info('[Userbot] Отключен от Telegram')

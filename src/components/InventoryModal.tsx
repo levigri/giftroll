@@ -51,6 +51,11 @@ export default function InventoryModal({
 
   const handleSellClick = (item: InventoryItem) => {
     tapFeedback('light')
+    if (item.prizePrice <= 0) {
+      errorFeedback()
+      showError('Для этого подарка пока не определена цена продажи. Его можно вывести за комиссию.')
+      return
+    }
     const lockTime = item.lockUntil ? new Date(item.lockUntil).getTime() : Number.NaN
     if (!item.isExternal && Number.isFinite(lockTime) && lockTime > Date.now()) {
       const daysLeft = Math.ceil((lockTime - Date.now()) / (1000 * 60 * 60 * 24))
@@ -79,9 +84,9 @@ export default function InventoryModal({
     setWithdrawItem(item)
   }
 
-  const loadItems = async () => {
+  const loadItems = async (showLoader = true) => {
     try {
-      setLoading(true)
+      if (showLoader) setLoading(true)
       const res = await getInventory()
       setItems(res.items)
       onCountChange(res.items.length)
@@ -89,13 +94,19 @@ export default function InventoryModal({
       const message = err instanceof Error ? err.message : 'Не удалось загрузить инвентарь'
       showError(message)
     } finally {
-      setLoading(false)
+      if (showLoader) setLoading(false)
     }
   }
 
   useEffect(() => {
     void loadItems()
   }, [])
+
+  useEffect(() => {
+    if (!items.some((item) => item.status === 'WITHDRAWAL_REQUESTED')) return
+    const timer = window.setInterval(() => void loadItems(false), 15_000)
+    return () => window.clearInterval(timer)
+  }, [items])
 
   const handleSell = async (item: InventoryItem) => {
     tapFeedback('medium')
@@ -214,12 +225,22 @@ export default function InventoryModal({
                   glow="rgba(138,43,226,0.5)"
                 />
                 <div className="w-full truncate text-[11px] font-bold text-white">{item.prizeName}</div>
-                <div className="text-[11px] font-bold text-[#FFD700]">{item.prizePrice}</div>
-                {item.status === 'WITHDRAWAL_REQUESTED' ? (
+                <div className={`text-[11px] font-bold ${item.prizePrice > 0 ? 'text-[#FFD700]' : 'text-gray-500'}`}>
+                  {item.prizePrice > 0 ? `Маркет: ${item.prizePrice} ⭐` : 'Цена на маркете недоступна'}
+                </div>
+                {item.status === 'CLAIMED' ? (
+                  <span className="inline-flex w-full items-center justify-center gap-1 rounded-lg border border-emerald-300/25 bg-emerald-400/10 px-1 py-1.5 text-[10px] font-bold text-emerald-300">
+                    <Send size={11} /> Отправлен
+                  </span>
+                ) : item.status === 'SENT' ? (
+                  <span className="inline-flex w-full items-center justify-center gap-1 rounded-lg border border-blue-300/25 bg-blue-400/10 px-1 py-1.5 text-[10px] font-bold text-blue-300">
+                    <Send size={11} /> Отправляется
+                  </span>
+                ) : item.status === 'WITHDRAWAL_REQUESTED' ? (
                   <span className="inline-flex w-full items-center justify-center gap-1 rounded-lg border border-amber-300/25 bg-amber-400/10 px-1 py-1.5 text-[10px] font-bold text-amber-300">
                     <Lock size={11} /> На выводе (до 12 ч.)
                   </span>
-                ) : item.status !== 'CLAIMED' && (
+                ) : (
                   <>
                     {isLocked && (
                       <span className="inline-flex w-full items-center justify-center gap-1 rounded-lg border border-red-400/25 bg-red-500/10 px-1 py-1.5 text-[10px] font-bold text-red-400">
@@ -229,11 +250,11 @@ export default function InventoryModal({
                     <div className="grid w-full grid-cols-2 gap-1">
                       <button
                         type="button"
-                        className="gold-btn w-full py-1.5 text-[10px]"
-                        disabled={isBusy}
+                        className="gold-btn w-full py-1.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-40"
+                        disabled={isBusy || item.prizePrice <= 0}
                         onClick={() => handleSellClick(item)}
                       >
-                        {isBusy ? '...' : 'Продать'}
+                        {isBusy ? '...' : item.prizePrice > 0 ? 'Продать' : 'Без цены'}
                       </button>
                       <button
                         type="button"
@@ -338,7 +359,9 @@ export default function InventoryModal({
               {withdrawItem.prizeName}
             </div>
             <p className="mb-0 mt-4 rounded-xl border border-amber-300/20 bg-amber-400/[0.07] px-3 py-3 text-xs leading-relaxed text-amber-100/90">
-              ⚠️ Вывод подарка занимает до 12 часов. Подарок придет вам в Telegram от аккаунта @Giftrollgamebot.
+              ⚠️ Перед выводом отправьте хотя бы одно сообщение аккаунту релаера, чтобы он мог написать вам и отправить подарок.
+              {' '}<a className="font-bold text-violet-300 underline" href="https://t.me/RelayerGiftRoll" target="_blank" rel="noreferrer">Открыть @RelayerGiftRoll</a>
+              <br /><br />Вывод подарка занимает до 12 часов. Подарок придет вам в Telegram от аккаунта @Giftrollgamebot.
               <br /><br />Комиссия сети Telegram за пересылку NFT составит 25 ⭐. Она будет списана перед отправкой.
             </p>
             <div className="mt-4 flex gap-2">

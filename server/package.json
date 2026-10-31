@@ -18,6 +18,8 @@
     "@fastify/formbody": "^7.4.0",
     "@fastify/websocket": "^10.0.1",
     "@grammyjs/validator": "^1.0.3",
+    "@mtcute/convert": "^0.32.7",
+    "@mtcute/node": "^0.32.7",
     "@prisma/client": "^5.21.1",
     "@tma.js/init-data-node": "^2.0.8",
     "@ton/core": "^0.61.0",

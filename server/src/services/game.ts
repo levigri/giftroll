@@ -6,6 +6,7 @@ import { dailyBonusPrizes, type DailyBonusPrize } from '../data/dailyBonus.js'
 import { getUsername, logDrop, type DropItemType } from './drops.js'
 import { processWagering } from './deposit.js'
 import { findActiveDepositLock } from './depositLock.js'
+import { getTelegramMarketPrice } from './userbot.js'
 import { logTransaction } from './transaction.js'
 
 /** В ленте PrizeType 'BALANCE' — это звёздный дроп, остальное считаем NFT. */
@@ -479,12 +480,21 @@ export async function getInventory(userId: bigint): Promise<InventoryItem[]> {
 }
 
 /**
- * Продажа NFT за 95% от номинальной стоимости звёзд.
+ * Продажа NFT за 95% от текущей минимальной цены коллекции на Telegram Marketplace.
  */
 export async function sellNft(
   userId: bigint,
   itemId: string,
 ): Promise<{ newBalance: number; soldFor: number }> {
+  const itemForQuote = await prisma.inventoryItem.findFirst({ where: { id: itemId, userId } })
+  if (!itemForQuote) {
+    throw new GameError('ITEM_NOT_FOUND', 'Предмет не найден', 404)
+  }
+  const marketPrice = await getTelegramMarketPrice(itemForQuote.prizeName)
+  if (!marketPrice || marketPrice <= 0) {
+    throw new GameError('NFT_PRICE_UNAVAILABLE', 'Не удалось получить актуальную цену подарка с маркета Telegram. Продажа временно недоступна.', 409)
+  }
+
   return prisma.$transaction(
     async (tx) => {
       const item = await tx.inventoryItem.findFirst({
@@ -495,8 +505,8 @@ export async function sellNft(
         throw new GameError('ITEM_NOT_FOUND', 'Предмет не найден', 404)
       }
 
-      if (item.status === 'CLAIMED') {
-        throw new GameError('ALREADY_CLAIMED', 'Предмет уже выведен', 400)
+      if (item.status !== 'PENDING') {
+        throw new GameError('ITEM_UNAVAILABLE', 'Предмет уже закреплён за выводом или недоступен', 409)
       }
 
       if (!item.isExternal && item.lockUntil && item.lockUntil > new Date()) {
@@ -504,19 +514,13 @@ export async function sellNft(
         throw new GameError('NFT_LOCKED', `Продажа заблокирована. Осталось дней: ${daysLeft}`)
       }
 
-      const soldFor = Math.floor(item.prizePrice * 0.95)
+      const soldFor = Math.floor(marketPrice * 0.95)
 
-      // Удаляем предмет внутри транзакции
-      try {
-        await tx.inventoryItem.delete({
-          where: { id: itemId },
-        })
-      } catch (err: unknown) {
-        const prismaErr = err as { code?: string }
-        if (prismaErr?.code === 'P2025') {
-          throw new GameError('ITEM_NOT_FOUND', 'Предмет не найден', 404)
-        }
-        throw err
+      const deleted = await tx.inventoryItem.deleteMany({
+        where: { id: itemId, userId, status: 'PENDING' },
+      })
+      if (deleted.count !== 1) {
+        throw new GameError('ITEM_UNAVAILABLE', 'Предмет уже используется другой операцией', 409)
       }
 
       // Блокируем строку пользователя и зачисляем звёзды

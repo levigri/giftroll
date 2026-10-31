@@ -1,8 +1,11 @@
 import type { FastifyPluginAsync } from 'fastify'
+import { env } from '../config/env.js'
 import { prisma } from '../db/prisma.js'
 import { authenticateTelegram } from '../middleware/auth.js'
 import { getInventory, sellNft, requestNftClaim, GameError } from '../services/game.js'
 import { callTelegramApi, DepositError } from '../services/deposit.js'
+import { getTelegramMarketPrice, hasAvailableRelayerGift } from '../services/userbot.js'
+import { notifyUser } from '../services/bot.js'
 
 export const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /api/inventory - список предметов инвентаря
@@ -18,19 +21,19 @@ export const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
       const items = await getInventory(user.id)
 
       return {
-        items: items.map((item) => ({
+        items: await Promise.all(items.map(async (item) => ({
           id: item.id,
           userId: item.userId.toString(),
           prizeId: item.prizeId,
           prizeName: item.prizeName,
           prizeEmoji: item.prizeEmoji,
-          prizePrice: item.prizePrice,
+          prizePrice: await getTelegramMarketPrice(item.prizeName) ?? 0,
           giftId: item.giftId,
           isExternal: item.isExternal,
           lockUntil: item.lockUntil?.toISOString() ?? null,
           status: item.status,
           createdAt: item.createdAt.toISOString(),
-        })),
+        }))),
       }
     },
   )
@@ -102,6 +105,15 @@ export const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
           throw new GameError('NFT_LOCKED', `Вывод заблокирован. Осталось дней: ${daysLeft}`)
         }
 
+        const availability = await hasAvailableRelayerGift(item.id, user.id)
+        if (!availability.available) {
+          throw new GameError(
+            availability.code ?? 'GIFT_NOT_AVAILABLE',
+            availability.message ?? `На аккаунте релаера сейчас нет подарка «${item.prizeName}».`,
+            409,
+          )
+        }
+
         const payload = `withdraw_${item.id}`
         const invoiceLink = await callTelegramApi<string>('createInvoiceLink', {
           title: 'Вывод NFT',
@@ -121,6 +133,44 @@ export const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
         }
         throw err
       }
+    },
+  )
+
+  // Admin confirms a paid manual fulfillment after sending the gift in Telegram.
+  fastify.post<{ Params: { id: string } }>(
+    '/api/admin/nft/:id/complete-withdrawal',
+    { preHandler: authenticateTelegram },
+    async (request, reply) => {
+      const user = request.telegramUser
+      if (!user) {
+        return reply.code(401).send({ error: 'Unauthorized', code: 'AUTH_REQUIRED' })
+      }
+      if (env.ADMIN_ID === undefined || user.id !== env.ADMIN_ID) {
+        return reply.code(403).send({ error: 'Forbidden', code: 'ADMIN_ONLY' })
+      }
+
+      const item = await prisma.inventoryItem.findUnique({ where: { id: request.params.id } })
+      if (!item) {
+        return reply.code(404).send({ error: 'Предмет не найден', code: 'ITEM_NOT_FOUND' })
+      }
+      if (item.status !== 'WITHDRAWAL_REQUESTED' || !item.withdrawalChargeId) {
+        return reply.code(409).send({ error: 'Нет оплаченной заявки на вывод', code: 'WITHDRAWAL_NOT_PENDING' })
+      }
+
+      const completed = await prisma.inventoryItem.updateMany({
+          where: {
+            id: item.id,
+            status: 'WITHDRAWAL_REQUESTED',
+            withdrawalChargeId: item.withdrawalChargeId,
+          },
+          data: { status: 'CLAIMED' },
+        })
+      if (completed.count !== 1) {
+        return reply.code(409).send({ error: 'Заявка уже изменена', code: 'WITHDRAWAL_NOT_PENDING' })
+      }
+
+      await notifyUser(item.userId, `✅ Подарок «${item.prizeName}» отправлен вам в Telegram.`)
+      return { ok: true }
     },
   )
 
