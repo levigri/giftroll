@@ -71,7 +71,7 @@ export const tasks: TaskDefinition[] = [
   {
     id: 'task-active-referral',
     title: 'Активный реферал',
-    description: 'Твой друг откроет хотя бы один кейс',
+    description: 'Пусть друг откроет любой кейс или заберёт бесплатный ежедневный кейс',
     reward: 15,
     emoji: '👥',
     type: 'active_referral',

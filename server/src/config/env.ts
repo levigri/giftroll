@@ -9,6 +9,8 @@ const envSchema = z.object({
   LOG_LEVEL: z.string().default('info'),
   WELCOME_BONUS: z.coerce.number().default(1000),
   WEBHOOK_URL: z.string().optional(),
+  SUPPORT_BOT_TOKEN: z.string().optional(),
+  SUPPORT_WEBHOOK_SECRET: z.string().optional(),
   /** Секрет Telegram webhook: сверяется с X-Telegram-Bot-Api-Secret-Token. */
   WEBHOOK_SECRET: z.string().optional(),
   /** Адрес кошелька-получателя для пополнений в Gram (TON mainnet). */

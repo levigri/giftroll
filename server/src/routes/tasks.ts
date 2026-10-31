@@ -58,7 +58,10 @@ async function checkTaskCompletion(
     }
     case 'active_referral': {
       const count = await prisma.user.count({
-        where: { referredBy: userId, caseOpens: { some: {} } },
+        where: {
+          referredBy: userId,
+          OR: [{ caseOpens: { some: {} } }, { dailyBonus: { isNot: null } }],
+        },
       })
       return { completed: count > 0 }
     }

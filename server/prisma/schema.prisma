@@ -68,6 +68,18 @@ model UserTask {
   @@index([userId])
 }
 
+model SupportMessage {
+  id             String   @id @default(cuid())
+  userId         BigInt
+  direction      String
+  adminMessageId Int?     @unique
+  text           String?
+  mediaType      String?
+  createdAt      DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
 model CaseOpen {
   id         String    @id @default(cuid())
   userId     BigInt

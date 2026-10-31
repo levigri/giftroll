@@ -20,6 +20,7 @@ import { telegramRoutes } from './routes/telegram.js'
 import { referralRoutes } from './routes/referral.js'
 import { devRoutes } from './routes/dev.js'
 import { tasksRoutes } from './routes/tasks.js'
+import { setupSupportWebhook, supportBot, supportRoutes } from './routes/support.js'
 import { initUserbot, stopUserbot } from './services/userbot.js'
 import { notifyDailyBonusReady } from './services/bot.js'
 import { checkNicknameTask } from './services/nickname.js'
@@ -165,6 +166,7 @@ await fastify.register(upgraderRoutes)
 await fastify.register(dropsRoutes)
 await fastify.register(depositRoutes)
 await fastify.register(telegramRoutes)
+await fastify.register(supportRoutes)
 await fastify.register(referralRoutes)
 await fastify.register(tasksRoutes)
 await fastify.register(devRoutes)
@@ -213,6 +215,15 @@ const start = async () => {
     await initUserbot()
   } catch (error) {
     fastify.log.error(error, '[Userbot] Ошибка инициализации. Сервер продолжает работу.')
+  }
+
+  if (supportBot && env.WEBHOOK_URL) {
+    const ok = await setupSupportWebhook(env.WEBHOOK_URL)
+    if (ok) {
+      fastify.log.info(`[Support] webhook установлен: ${env.WEBHOOK_URL.replace(/\/+$/, '')}/api/support/webhook`)
+    } else {
+      fastify.log.error('[Support] не удалось установить webhook — проверь SUPPORT_BOT_TOKEN и WEBHOOK_URL')
+    }
   }
 }
 
