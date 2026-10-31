@@ -6,6 +6,7 @@ import { prisma } from '../db/prisma.js'
 import { getGramRate, getStarsBasePriceUsd } from '../utils/rates.js'
 import { logTransaction } from './transaction.js'
 import { notifyUser } from './bot.js'
+import { sendSavedGiftToUser } from './userbot.js'
 
 /** Границы одного пополнения в ⭐. */
 export const MIN_DEPOSIT_STARS = 10
@@ -130,6 +131,9 @@ interface TelegramApiResponse<T> {
 interface TelegramPreCheckoutQuery {
   id: string
   invoice_payload: string
+  from: { id: number }
+  currency: string
+  total_amount: number
 }
 
 interface TelegramSuccessfulPayment {
@@ -137,17 +141,19 @@ interface TelegramSuccessfulPayment {
   telegram_payment_charge_id: string
   total_amount: number
   currency: string
+  from?: { id: number }
 }
 
 /** Подмножество update, которое приходит на webhook. */
 export interface TelegramUpdate {
   pre_checkout_query?: TelegramPreCheckoutQuery
   message?: {
+    from?: { id: number }
     successful_payment?: TelegramSuccessfulPayment
   }
 }
 
-async function callTelegramApi<T>(
+export async function callTelegramApi<T>(
   method: string,
   body: Record<string, unknown>,
 ): Promise<T> {
@@ -544,10 +550,36 @@ async function confirmGramsDepositInner(
 export async function handleWebhook(update: TelegramUpdate): Promise<void> {
   const query = update.pre_checkout_query
   if (query) {
+    if (query.invoice_payload.startsWith('withdraw_')) {
+      const itemId = query.invoice_payload.slice('withdraw_'.length)
+      const item = await prisma.inventoryItem.findUnique({ where: { id: itemId } })
+      const isLocked = Boolean(item?.lockUntil && item.lockUntil > new Date() && !item.isExternal)
+      const ok = Boolean(
+        item &&
+          item.userId === BigInt(query.from.id) &&
+          item.status === 'PENDING' &&
+          !isLocked &&
+          query.currency === 'XTR' &&
+          query.total_amount === 25,
+      )
+
+      await callTelegramApi<boolean>('answerPreCheckoutQuery', {
+        pre_checkout_query_id: query.id,
+        ok,
+        ...(ok ? {} : { error_message: 'NFT недоступен для вывода или параметры оплаты неверны' }),
+      })
+      return
+    }
+
     const deposit = await prisma.deposit.findUnique({
       where: { payload: query.invoice_payload },
     })
-    const ok = deposit !== null && deposit.status === 'pending'
+    const ok =
+      deposit !== null &&
+      deposit.status === 'pending' &&
+      query.currency === 'XTR' &&
+      query.total_amount === deposit.amount &&
+      query.from.id.toString() === deposit.userId.toString()
 
     if (!ok) {
       console.warn(`[DEPOSIT] pre_checkout rejected payload=${query.invoice_payload}`)
@@ -565,6 +597,11 @@ export async function handleWebhook(update: TelegramUpdate): Promise<void> {
 
   const payment = update.message?.successful_payment
   if (!payment) {
+    return
+  }
+
+  if (payment.invoice_payload.startsWith('withdraw_')) {
+    await handleNftWithdrawalPayment(payment, update.message?.from?.id)
     return
   }
 
@@ -634,6 +671,99 @@ export async function handleWebhook(update: TelegramUpdate): Promise<void> {
 
   // Уведомление в бота: звёзды зачислены.
   void notifyUser(deposit.userId, `✅ Баланс успешно пополнен на ${deposit.amount} ⭐!`)
+}
+
+async function handleNftWithdrawalPayment(
+  payment: TelegramSuccessfulPayment,
+  payerId: number | undefined,
+): Promise<void> {
+  const itemId = payment.invoice_payload.slice('withdraw_'.length)
+  const item = await prisma.inventoryItem.findUnique({
+    where: { id: itemId },
+    include: { user: true },
+  })
+
+  const validPayment =
+    payment.currency === 'XTR' &&
+    payment.total_amount === 25 &&
+    payerId !== undefined &&
+    item !== null &&
+    item.userId === BigInt(payerId)
+
+  if (!validPayment || !item) {
+    await refundWithdrawalPayment(payment, payerId)
+    console.warn(`[NFT_WITHDRAW] Invalid payment or owner for item ${itemId}; refund requested`)
+    return
+  }
+
+  if (item.status !== 'PENDING') {
+    // Telegram may redeliver the same update. Don't refund an already accepted charge.
+    if (item.withdrawalChargeId === payment.telegram_payment_charge_id) return
+    await refundWithdrawalPayment(payment, payerId)
+    return
+  }
+
+  if (!item.isExternal && item.lockUntil && item.lockUntil > new Date()) {
+    await refundWithdrawalPayment(payment, payerId)
+    await notifyUser(item.userId, `❌ Вывод «${item.prizeName}» заблокирован до окончания срока удержания. Оплата возвращена.`)
+    return
+  }
+
+  // Claim the item before calling MTProto: concurrent/retried updates cannot send it twice.
+  const claimed = await prisma.inventoryItem.updateMany({
+    where: { id: item.id, status: 'PENDING', withdrawalChargeId: null },
+    data: {
+      status: 'WITHDRAWAL_REQUESTED',
+      withdrawalChargeId: payment.telegram_payment_charge_id,
+    },
+  })
+  if (claimed.count === 0) {
+    const current = await prisma.inventoryItem.findUnique({ where: { id: item.id } })
+    if (current?.withdrawalChargeId === payment.telegram_payment_charge_id) return
+    await refundWithdrawalPayment(payment, payerId)
+    return
+  }
+
+  const sent = await sendSavedGiftToUser(item.id, item.userId)
+  if (sent) {
+    await prisma.inventoryItem.updateMany({
+      where: {
+        id: item.id,
+        status: 'WITHDRAWAL_REQUESTED',
+        withdrawalChargeId: payment.telegram_payment_charge_id,
+      },
+      data: { status: 'CLAIMED' },
+    })
+    await notifyUser(item.userId, `✅ Подарок «${item.prizeName}» успешно отправлен вам в Telegram!`)
+    return
+  }
+
+  await notifyUser(
+    item.userId,
+    `📩 Заявка на вывод «${item.prizeName}» принята. Этого подарка сейчас нет в наличии. Мы закупим его и отправим в течение 12 часов.`,
+  )
+  if (env.ADMIN_ID) {
+    const username = item.user.username ? `@${item.user.username}` : `ID ${item.userId.toString()}`
+    await notifyUser(
+      env.ADMIN_ID,
+      `📤 Запрос на вывод (НЕТ В НАЛИЧИИ): ${item.prizeName} от ${username}`,
+    )
+  }
+}
+
+async function refundWithdrawalPayment(
+  payment: TelegramSuccessfulPayment,
+  userId: number | undefined,
+): Promise<void> {
+  if (userId === undefined || !payment.telegram_payment_charge_id) return
+  try {
+    await callTelegramApi<boolean>('refundStarPayment', {
+      user_id: userId,
+      telegram_payment_charge_id: payment.telegram_payment_charge_id,
+    })
+  } catch (error) {
+    console.error('[NFT_WITHDRAW] Telegram Stars refund failed:', error)
+  }
 }
 
 /* ------------------------------- Wagering/рефы ------------------------------- */

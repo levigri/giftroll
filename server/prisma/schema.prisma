@@ -103,6 +103,7 @@ model InventoryItem {
   prizeEmoji String
   prizePrice Int
   giftId     String? // Telegram gift_id для отправки NFT
+  withdrawalChargeId String? @unique // Идемпотентность оплаты вывода через Telegram Stars
   isExternal Boolean         @default(false)
   lockUntil  DateTime?        // Дата, до которой нельзя продавать
   status     InventoryStatus @default(PENDING)

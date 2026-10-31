@@ -132,14 +132,26 @@ export default function InventoryModal({
 
     try {
       const result = await withdrawNft(item.id)
-      setItems((current) => current.map((currentItem) =>
-        currentItem.id === item.id
-          ? { ...currentItem, status: 'WITHDRAWAL_REQUESTED' }
-          : currentItem,
-      ))
-      successFeedback()
-      showNotice(result.message || 'Заявка создана, ожидайте до 12 часов')
-      await loadItems()
+      if (!result.invoiceLink) throw new Error('Telegram не вернул ссылку на оплату')
+
+      const webApp = (window as any).Telegram?.WebApp
+      if (webApp?.openInvoice) {
+        webApp.openInvoice(result.invoiceLink, (status: string) => {
+          if (status === 'paid') {
+            setWithdrawItem(null)
+            successFeedback()
+            showNotice('Оплата прошла. Заявка на вывод оформляется до 12 часов.')
+            void loadItems()
+          } else if (status === 'failed') {
+            errorFeedback()
+            showError('Не удалось оплатить вывод NFT. Попробуй ещё раз.')
+          }
+        })
+      } else if (webApp?.openLink) {
+        webApp.openLink(result.invoiceLink)
+      } else {
+        window.open(result.invoiceLink, '_blank', 'noopener')
+      }
     } catch (err: unknown) {
       errorFeedback()
       const message = err instanceof Error ? err.message : 'Не удалось создать заявку на вывод'
@@ -327,6 +339,7 @@ export default function InventoryModal({
             </div>
             <p className="mb-0 mt-4 rounded-xl border border-amber-300/20 bg-amber-400/[0.07] px-3 py-3 text-xs leading-relaxed text-amber-100/90">
               ⚠️ Вывод подарка занимает до 12 часов. Подарок придет вам в Telegram от аккаунта @Giftrollgamebot.
+              <br /><br />Комиссия сети Telegram за пересылку NFT составит 25 ⭐. Она будет списана перед отправкой.
             </p>
             <div className="mt-4 flex gap-2">
               <button
@@ -342,7 +355,7 @@ export default function InventoryModal({
                 disabled={busyId === withdrawItem.id}
                 onClick={() => void handleWithdraw(withdrawItem)}
               >
-                {busyId === withdrawItem.id ? 'Создаём…' : 'Подтвердить вывод'}
+                {busyId === withdrawItem.id ? 'Создаём…' : 'Оплатить 25 ⭐'}
               </button>
             </div>
           </div>

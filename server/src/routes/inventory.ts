@@ -1,9 +1,8 @@
 import type { FastifyPluginAsync } from 'fastify'
-import { env } from '../config/env.js'
 import { prisma } from '../db/prisma.js'
 import { authenticateTelegram } from '../middleware/auth.js'
 import { getInventory, sellNft, requestNftClaim, GameError } from '../services/game.js'
-import { notifyUser } from '../services/bot.js'
+import { callTelegramApi, DepositError } from '../services/deposit.js'
 
 export const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /api/inventory - список предметов инвентаря
@@ -69,7 +68,7 @@ export const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
     },
   )
 
-  // POST /api/nft/:id/withdraw — создать заявку на ручной вывод подарка.
+  // POST /api/nft/:id/withdraw — создать Telegram Stars-инвойс для вывода.
   fastify.post<{ Params: { id: string } }>(
     '/api/nft/:id/withdraw',
     { preHandler: authenticateTelegram },
@@ -85,45 +84,39 @@ export const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        const result = await prisma.$transaction(async (tx) => {
-          const item = await tx.inventoryItem.findFirst({ where: { id: itemId, userId: user.id } })
-          if (!item) throw new GameError('ITEM_NOT_FOUND', 'Предмет не найден', 404)
-          if (item.status === 'CLAIMED') {
-            throw new GameError('ALREADY_CLAIMED', 'Предмет уже выведен', 400)
-          }
-          if (item.status === 'WITHDRAWAL_REQUESTED') {
-            return { created: false, item }
-          }
-          if (item.status !== 'PENDING') {
-            throw new GameError('INVALID_ITEM_STATUS', 'Этот предмет нельзя отправить на вывод', 400)
-          }
-          if (!item.isExternal && item.lockUntil && item.lockUntil > new Date()) {
-            const daysLeft = Math.ceil((item.lockUntil.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-            throw new GameError('NFT_LOCKED', `Вывод заблокирован. Осталось дней: ${daysLeft}`)
-          }
-
-          const updatedItem = await tx.inventoryItem.update({
-            where: { id: item.id },
-            data: { status: 'WITHDRAWAL_REQUESTED' },
-          })
-          return { created: true, item: updatedItem }
+        const item = await prisma.inventoryItem.findFirst({
+          where: { id: itemId, userId: user.id },
         })
-
-        if (result.created) {
-          if (env.ADMIN_ID) {
-            const username = user.username ? `@${user.username}` : `ID ${user.id.toString()}`
-            await notifyUser(
-              env.ADMIN_ID,
-              `📤 Запрос на вывод NFT: ${result.item.prizeName} от ${username} (ID ${user.id.toString()})`,
-            )
-          } else {
-            request.log.warn('[NFT_WITHDRAW] ADMIN_ID не задан, уведомление администратору пропущено')
-          }
+        if (!item) throw new GameError('ITEM_NOT_FOUND', 'Предмет не найден', 404)
+        if (item.status === 'CLAIMED') {
+          throw new GameError('ALREADY_CLAIMED', 'Предмет уже выведен', 400)
+        }
+        if (item.status === 'WITHDRAWAL_REQUESTED') {
+          throw new GameError('WITHDRAWAL_PENDING', 'Заявка на вывод уже создана', 400)
+        }
+        if (item.status !== 'PENDING') {
+          throw new GameError('INVALID_ITEM_STATUS', 'Этот предмет нельзя отправить на вывод', 400)
+        }
+        if (!item.isExternal && item.lockUntil && item.lockUntil > new Date()) {
+          const daysLeft = Math.ceil((item.lockUntil.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+          throw new GameError('NFT_LOCKED', `Вывод заблокирован. Осталось дней: ${daysLeft}`)
         }
 
-        return reply.send({ ok: true, message: 'Заявка на вывод создана' })
+        const payload = `withdraw_${item.id}`
+        const invoiceLink = await callTelegramApi<string>('createInvoiceLink', {
+          title: 'Вывод NFT',
+          description: `Комиссия сети Telegram за пересылку «${item.prizeName}»`,
+          payload,
+          currency: 'XTR',
+          prices: [{ label: 'Комиссия за вывод', amount: 25 }],
+        })
+
+        return reply.send({ invoiceLink })
       } catch (err) {
         if (err instanceof GameError) {
+          return reply.code(err.statusCode).send({ error: err.message, code: err.code })
+        }
+        if (err instanceof DepositError) {
           return reply.code(err.statusCode).send({ error: err.message, code: err.code })
         }
         throw err

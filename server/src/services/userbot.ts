@@ -82,6 +82,7 @@ async function handleIncomingMessage(event: NewMessageEvent): Promise<void> {
           prizeName,
           prizeEmoji: '🎁',
           prizePrice: 0,
+          giftId,
           isExternal: true,
           lockUntil: null,
         },
@@ -104,6 +105,71 @@ async function handleIncomingMessage(event: NewMessageEvent): Promise<void> {
       return
     }
     console.error('[Userbot] Не удалось зачислить Telegram Gift:', error)
+  }
+}
+
+/** Отправляет именно сохранённый NFT, связанный с входящим gift receipt. */
+export async function sendSavedGiftToUser(itemId: string, userId: bigint): Promise<boolean> {
+  const client = userbot
+  if (!client || !isUserbotStarted) return false
+
+  try {
+    const [item, receipt] = await Promise.all([
+      prisma.inventoryItem.findFirst({
+        where: { id: itemId, userId, isExternal: true },
+      }),
+      prisma.telegramGiftReceipt.findFirst({
+        where: { inventoryItemId: itemId },
+      }),
+    ])
+    if (!item?.giftId || !receipt) return false
+
+    let offset = ''
+    let gift: Api.SavedStarGift | undefined
+    // Telegram paginates this list. Include both pinned and unpinned gifts and
+    // continue until the exact collectible id from the receipt is found.
+    for (let page = 0; page < 100 && !gift; page += 1) {
+      const saved = await client.invoke(
+        new Api.payments.GetSavedStarGifts({
+          peer: new Api.InputPeerSelf(),
+          offset,
+          limit: 100,
+          excludeSaved: false,
+          excludeUnique: false,
+          excludeLimited: false,
+          excludeUnlimited: false,
+          sortByValue: false,
+        }),
+      )
+      if (!(saved instanceof Api.payments.SavedStarGifts)) return false
+
+      gift = saved.gifts.find(
+        (entry) =>
+          entry instanceof Api.SavedStarGift &&
+          entry.gift instanceof Api.StarGiftUnique &&
+          entry.gift.id.toString() === item.giftId,
+      ) as Api.SavedStarGift | undefined
+      if (!saved.nextOffset) break
+      offset = saved.nextOffset
+    }
+    if (!gift || gift.msgId === undefined) return false
+
+    // Telegram's direct transfer method works only for gifts whose transfer is
+    // free. Paid transfers need a separate MTProto Stars payment flow.
+    if (gift.transferStars && BigInt(gift.transferStars.toString()) > 0n) return false
+
+    const recipient = await client.getInputEntity(userId.toString())
+    await client.invoke(
+      new Api.payments.TransferStarGift({
+        stargift: new Api.InputSavedStarGiftUser({ msgId: gift.msgId }),
+        toId: recipient,
+      }),
+    )
+    console.info(`[Userbot] NFT for inventory item ${itemId} transferred to Telegram user ${userId}`)
+    return true
+  } catch (error) {
+    console.error(`[Userbot] Failed to transfer saved NFT for inventory item ${itemId}:`, error)
+    return false
   }
 }
 
