@@ -5,6 +5,7 @@ import { authenticateTelegram } from '../middleware/auth.js'
 import { getInventory, sellNft, requestNftClaim, GameError } from '../services/game.js'
 import { callTelegramApi, DepositError } from '../services/deposit.js'
 import { getCurrentNftPriceInStars } from '../services/giftAssetPricing.js'
+import { findNftCatalogEntry } from '../services/nftPricing.js'
 import { hasAvailableRelayerGift } from '../services/userbot.js'
 import { notifyUser } from '../services/bot.js'
 
@@ -28,7 +29,10 @@ export const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
           prizeId: item.prizeId,
           prizeName: item.prizeName,
           prizeEmoji: item.prizeEmoji,
-          prizePrice: await getCurrentNftPriceInStars(item.prizeName) ?? 0,
+          prizePrice:
+            (await getCurrentNftPriceInStars(item.prizeName)) ??
+            findNftCatalogEntry(item.prizeName)?.price ??
+            item.prizePrice,
           giftId: item.giftId,
           isExternal: item.isExternal,
           lockUntil: item.lockUntil?.toISOString() ?? null,

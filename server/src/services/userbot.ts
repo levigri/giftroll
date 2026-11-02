@@ -9,6 +9,34 @@ let userbot: TelegramClient | null = null
 let isUserbotStarted = false
 let marketPriceCache: { expiresAt: number; prices: Map<string, number> } | null = null
 let marketPriceRequest: Promise<Map<string, number> | null> | null = null
+let marketPricePauseUntil = 0
+
+function getErrorText(error: unknown): string {
+  if (error instanceof Error) return `${error.name} ${error.message}`
+  return String(error)
+}
+
+function getMarketPriceRetryDelay(error: unknown): number {
+  const errorText = getErrorText(error)
+  const floodWait = errorText.match(/FLOOD_WAIT[_\s:]*(\d+)/i)
+  if (floodWait?.[1]) return Number(floodWait[1]) * 1000
+  if (/timeout|timed out|ETIMEDOUT/i.test(errorText)) return 2_000
+  return 0
+}
+
+function registerMarketPriceBackoff(error: unknown): void {
+  const delay = getMarketPriceRetryDelay(error)
+  if (delay <= 0) return
+  marketPricePauseUntil = Math.max(marketPricePauseUntil, Date.now() + delay)
+  console.warn(`[Userbot] Пауза запросов цен на ${Math.ceil(delay / 1000)} сек. из-за лимита/таймаута Telegram`)
+}
+
+async function waitForMarketPriceBackoff(): Promise<void> {
+  while (marketPricePauseUntil > Date.now()) {
+    const delay = marketPricePauseUntil - Date.now()
+    await new Promise<void>((resolve) => setTimeout(resolve, delay))
+  }
+}
 
 function normalizeGiftName(name: string): string {
   return name.trim().replace(/[’‘]/g, "'").replace(/\s+/g, ' ').toLocaleLowerCase('en-US')
@@ -103,6 +131,7 @@ async function getMarketPrices(): Promise<Map<string, number> | null> {
 
   marketPriceRequest = (async () => {
     try {
+      await waitForMarketPriceBackoff()
       const gifts = await client.getStarGiftOptions()
       const prices = new Map<string, number>()
       const catalogNames = new Set(nftCatalog.map((gift) => normalizeGiftName(gift.name)))
@@ -119,6 +148,7 @@ async function getMarketPrices(): Promise<Map<string, number> | null> {
           if (!gift?.title) continue
 
           try {
+            await waitForMarketPriceBackoff()
             const listings = await client.getStarGiftResaleOptions({
               giftId: gift.id,
               sort: 'price',
@@ -132,6 +162,7 @@ async function getMarketPrices(): Promise<Map<string, number> | null> {
               prices.set(normalizeGiftName(gift.title), Math.min(...starPrices))
             }
           } catch (error) {
+            registerMarketPriceBackoff(error)
             console.warn(`[Userbot] Не удалось получить объявления для «${gift.title}»:`, error)
           }
         }
@@ -139,9 +170,10 @@ async function getMarketPrices(): Promise<Map<string, number> | null> {
 
       await Promise.all(workers)
       console.info(`[Userbot] Актуальные цены Telegram Marketplace обновлены: ${prices.size} коллекций`)
-      marketPriceCache = { prices, expiresAt: Date.now() + 30_000 }
+      marketPriceCache = { prices, expiresAt: Date.now() + 120_000 }
       return prices
     } catch (error) {
+      registerMarketPriceBackoff(error)
       console.warn('[Userbot] Не удалось получить цены Telegram Marketplace:', error)
       return null
     } finally {
@@ -300,6 +332,7 @@ export async function stopUserbot(): Promise<void> {
   isUserbotStarted = false
   marketPriceCache = null
   marketPriceRequest = null
+  marketPricePauseUntil = 0
   if (!client) return
   await client.disconnect()
   console.info('[Userbot] Отключен от Telegram')

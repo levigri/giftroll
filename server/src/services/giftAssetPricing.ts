@@ -111,7 +111,18 @@ export async function getGiftAssetFloorInStars(giftName: string): Promise<number
 export async function getCurrentNftPriceInStars(giftName: string): Promise<number | null> {
   const giftAssetPrice = await getGiftAssetFloorInStars(giftName)
   if (giftAssetPrice !== null) return giftAssetPrice
-  return getTelegramMarketPrice(giftName)
+
+  let timeout: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      getTelegramMarketPrice(giftName),
+      new Promise<null>((resolve) => {
+        timeout = setTimeout(() => resolve(null), 5_000)
+      }),
+    ])
+  } finally {
+    if (timeout) clearTimeout(timeout)
+  }
 }
 
 /** Updates the matching in-memory catalog item after a verified live quote. */

@@ -891,7 +891,7 @@ export default function UpgraderPage({
                   const covered = payout >= nft.price
                   const lockReason =
                     nft.price <= 0
-                      ? 'Нет цены на маркете'
+                      ? 'Нет актуальной цены; базовая цена каталога тоже недоступна'
                       : requiredChance > MAX_CHANCE
                       ? 'Слишком высокий шанс'
                       : requiredChance < MIN_CHANCE

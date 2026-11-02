@@ -112,9 +112,7 @@ export function marketPriceFor(
   currentPrices: Record<string, number>,
 ): number {
   const currentPrice = currentPrices[giftName]
-  if (Object.prototype.hasOwnProperty.call(currentPrices, giftName) && typeof currentPrice === 'number') {
-    return Math.max(0, currentPrice)
-  }
+  if (typeof currentPrice === 'number' && currentPrice > 0) return currentPrice
   return fallbackPrice
 }
 

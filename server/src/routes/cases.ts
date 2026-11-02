@@ -12,8 +12,8 @@ export const casesRoutes: FastifyPluginAsync = async (fastify) => {
       const liveCatalog = await Promise.all(
         nftCatalog.map(async (prize) => ({
           ...prize,
-          // 0 means neither GiftAsset nor Telegram has a usable live quote.
-          price: await getCurrentNftPriceInStars(prize.name) ?? 0,
+          // Keep the catalog price available when both live sources are offline.
+          price: await getCurrentNftPriceInStars(prize.name) ?? prize.price,
         })),
       )
       return { cases: allCases, nftCatalog: liveCatalog }
