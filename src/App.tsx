@@ -6,6 +6,7 @@ import {
 } from '@tonconnect/ui-react'
 import { ArrowDown, ArrowUp, Backpack, Gamepad2, Gift, LifeBuoy, Plus, Star, Target, User, Users } from 'lucide-react'
 import type { CaseItem, DailyBonusPrize, MeResponse, Prize, TransactionEntry } from './api/types'
+import { connectMarketPriceStream } from './api/marketPrices'
 import {
   ApiError,
   claimFreeCase,
@@ -115,6 +116,8 @@ function formatErrorMessage(err: unknown): string {
 
 function App() {
   const [tonConnectUI] = useTonConnectUI()
+
+  useEffect(() => connectMarketPriceStream(), [])
 
   useEffect(() => {
     const unsubscribe = tonConnectUI.onStatusChange(

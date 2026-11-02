@@ -8,6 +8,7 @@ import type {
   UpgraderTargetNft,
 } from '../api/types'
 import { ApiError, getCases, getInventory, upgraderUpgrade } from '../api/client'
+import { marketPriceFor, useMarketPrices } from '../api/marketPrices'
 import { errorFeedback, successFeedback, tapFeedback } from '../telegram'
 import { prizeImage } from '../utils/assets'
 import AssetImage from '../components/AssetImage'
@@ -120,6 +121,7 @@ export default function UpgraderPage({
   onRefreshMe,
   onBalanceChange,
 }: UpgraderPageProps) {
+  const marketPrices = useMarketPrices()
   const [starsBet, setStarsBet] = useState(DEFAULT_STARS_BET)
   const [starsDraft, setStarsDraft] = useState(String(DEFAULT_STARS_BET))
   const [chance, setChance] = useState(DEFAULT_CHANCE)
@@ -209,7 +211,7 @@ export default function UpgraderPage({
         id: prize.id,
         name: prize.name,
         emoji: prize.emoji,
-        price: prize.price,
+        price: marketPriceFor(prize.name, prize.price, marketPrices),
       })
     }
 
@@ -229,7 +231,7 @@ export default function UpgraderPage({
       if (b.price <= 0) return -1
       return a.price - b.price
     })
-  }, [cases, catalog])
+  }, [cases, catalog, marketPrices])
 
   /** Пул отсортирован по цене по возрастанию — последний подходящий будет самым дорогим. */
   const findBestAffordableTarget = (availablePayout: number): UpgraderTargetNft | null => {
@@ -247,7 +249,10 @@ export default function UpgraderPage({
     [inventory, nftIds],
   )
 
-  const nftValue = selectedItems.reduce((sum, item) => sum + item.prizePrice, 0)
+  const nftValue = selectedItems.reduce(
+    (sum, item) => sum + marketPriceFor(item.prizeName, item.prizePrice, marketPrices),
+    0,
+  )
   const totalBet = starsBet + nftValue
   const cheapestTarget = nftPool.find((target) => target.price > 0) ?? null
   const cheapestPrice = cheapestTarget?.price ?? Number.POSITIVE_INFINITY
@@ -614,7 +619,7 @@ export default function UpgraderPage({
                   />
                   <span className="upgrader__nft-name">{item.prizeName}</span>
                   <span className="upgrader__nft-price inline-flex items-center gap-0.5">
-                    {item.prizePrice}
+                    {marketPriceFor(item.prizeName, item.prizePrice, marketPrices)}
                     <Star size={9} fill="currentColor" />
                   </span>
                   <span className="upgrader__nft-remove" aria-hidden="true">
@@ -1048,7 +1053,7 @@ export default function UpgraderPage({
               />
               <span className="upgrader__prize-name">{result.receivedNft.name}</span>
               <span className="upgrader__prize-price inline-flex items-center gap-0.5">
-                {result.receivedNft.price}
+                {marketPriceFor(result.receivedNft.name, result.receivedNft.price, marketPrices)}
                 <Star size={11} fill="currentColor" />
               </span>
               <span className="upgrader__prize-change inline-flex items-center gap-0.5">
@@ -1122,7 +1127,7 @@ export default function UpgraderPage({
                       />
                       <span className="upgrader-picker__name">{item.prizeName}</span>
                       <span className="upgrader-picker__price inline-flex items-center gap-0.5">
-                        {item.prizePrice}
+                        {marketPriceFor(item.prizeName, item.prizePrice, marketPrices)}
                         <Star size={11} fill="currentColor" />
                       </span>
                     </label>

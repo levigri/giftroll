@@ -3,7 +3,7 @@ import { findNftPrize } from '../data/cases.js'
 import { GameError } from './game.js'
 import { processWagering } from './deposit.js'
 import { findActiveDepositLock } from './depositLock.js'
-import { getTelegramMarketPrice } from './userbot.js'
+import { getCurrentNftPriceInStars } from './giftAssetPricing.js'
 import { getUsername, logDrop } from './drops.js'
 import { logTransaction } from './transaction.js'
 
@@ -80,7 +80,7 @@ export async function performUpgrade(
   if (!targetNft) {
     throw new GameError('TARGET_NOT_FOUND', 'Целевой предмет не найден', 404)
   }
-  const targetMarketPrice = await getTelegramMarketPrice(targetNft.name)
+  const targetMarketPrice = await getCurrentNftPriceInStars(targetNft.name)
   if (!targetMarketPrice || targetMarketPrice <= 0) {
     throw new GameError('NFT_PRICE_UNAVAILABLE', `Для «${targetNft.name}» нет актуальной цены на Telegram Marketplace`, 409)
   }
@@ -103,11 +103,15 @@ export async function performUpgrade(
         select: { id: true, prizeName: true },
       })
     : []
-  const itemPrices = new Map<string, number>()
-  for (const item of quotedItems) {
-    const price = await getTelegramMarketPrice(item.prizeName)
-    if (price && price > 0) itemPrices.set(item.id, price)
-  }
+  const itemPriceEntries = await Promise.all(
+    quotedItems.map(async (item) => ({
+      id: item.id,
+      price: await getCurrentNftPriceInStars(item.prizeName),
+    })),
+  )
+  const itemPrices = new Map(
+    itemPriceEntries.flatMap(({ id, price }) => (price && price > 0 ? [[id, price] as const] : [])),
+  )
 
   const result = await prisma.$transaction(
     async (tx) => {

@@ -6,7 +6,7 @@ import { dailyBonusPrizes, type DailyBonusPrize } from '../data/dailyBonus.js'
 import { getUsername, logDrop, type DropItemType } from './drops.js'
 import { processWagering } from './deposit.js'
 import { findActiveDepositLock } from './depositLock.js'
-import { getTelegramMarketPrice } from './userbot.js'
+import { getCurrentNftPriceInStars } from './giftAssetPricing.js'
 import { logTransaction } from './transaction.js'
 
 /** В ленте PrizeType 'BALANCE' — это звёздный дроп, остальное считаем NFT. */
@@ -490,7 +490,7 @@ export async function sellNft(
   if (!itemForQuote) {
     throw new GameError('ITEM_NOT_FOUND', 'Предмет не найден', 404)
   }
-  const marketPrice = await getTelegramMarketPrice(itemForQuote.prizeName)
+  const marketPrice = await getCurrentNftPriceInStars(itemForQuote.prizeName)
   if (!marketPrice || marketPrice <= 0) {
     throw new GameError('NFT_PRICE_UNAVAILABLE', 'Не удалось получить актуальную цену подарка с маркета Telegram. Продажа временно недоступна.', 409)
   }

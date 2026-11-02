@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Lock, Send, Star, X } from 'lucide-react'
 import type { InventoryItem } from '../api/types'
 import { getInventory, sellNft, withdrawNft } from '../api/client'
+import { marketPriceFor, useMarketPrices } from '../api/marketPrices'
 import { errorFeedback, successFeedback, tapFeedback } from '../telegram'
 import { prizeImage } from '../utils/assets'
 import AssetImage from './AssetImage'
@@ -21,6 +22,7 @@ export default function InventoryModal({
   variant = 'modal',
 }: InventoryModalProps) {
   const isPage = variant === 'page'
+  const marketPrices = useMarketPrices()
   const [items, setItems] = useState<InventoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -33,7 +35,9 @@ export default function InventoryModal({
   const [notice, setNotice] = useState<string | null>(null)
 
   /** Выплата за продажу: 95% от номинала, тот же расчёт, что на сервере. */
-  const sellPriceOf = (item: InventoryItem): number => Math.floor(item.prizePrice * 0.95)
+  const priceOf = (item: InventoryItem): number =>
+    marketPriceFor(item.prizeName, item.prizePrice, marketPrices)
+  const sellPriceOf = (item: InventoryItem): number => Math.floor(priceOf(item) * 0.95)
 
   const showNotice = (msg: string) => {
     setNotice(msg)
@@ -51,7 +55,7 @@ export default function InventoryModal({
 
   const handleSellClick = (item: InventoryItem) => {
     tapFeedback('light')
-    if (item.prizePrice <= 0) {
+    if (priceOf(item) <= 0) {
       errorFeedback()
       showError('Для этого подарка пока не определена цена продажи. Его можно вывести за комиссию.')
       return
@@ -207,6 +211,7 @@ export default function InventoryModal({
       ) : (
         <div className="grid grid-cols-3 gap-2.5">
           {items.map((item) => {
+            const marketPrice = priceOf(item)
             const sellPrice = sellPriceOf(item)
             const isBusy = busyId === item.id
             const lockTime = item.lockUntil ? new Date(item.lockUntil).getTime() : Number.NaN
@@ -225,8 +230,8 @@ export default function InventoryModal({
                   glow="rgba(138,43,226,0.5)"
                 />
                 <div className="w-full truncate text-[11px] font-bold text-white">{item.prizeName}</div>
-                <div className={`text-[11px] font-bold ${item.prizePrice > 0 ? 'text-[#FFD700]' : 'text-gray-500'}`}>
-                  {item.prizePrice > 0 ? `Маркет: ${item.prizePrice} ⭐` : 'Цена на маркете недоступна'}
+                <div className={`text-[11px] font-bold ${marketPrice > 0 ? 'text-[#FFD700]' : 'text-gray-500'}`}>
+                  {marketPrice > 0 ? `Маркет: ${marketPrice} ⭐` : 'Цена на маркете недоступна'}
                 </div>
                 {item.status === 'CLAIMED' ? (
                   <span className="inline-flex w-full items-center justify-center gap-1 rounded-lg border border-emerald-300/25 bg-emerald-400/10 px-1 py-1.5 text-[10px] font-bold text-emerald-300">
@@ -251,10 +256,10 @@ export default function InventoryModal({
                       <button
                         type="button"
                         className="gold-btn w-full py-1.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-40"
-                        disabled={isBusy || item.prizePrice <= 0}
+                        disabled={isBusy || marketPrice <= 0}
                         onClick={() => handleSellClick(item)}
                       >
-                        {isBusy ? '...' : item.prizePrice > 0 ? 'Продать' : 'Без цены'}
+                        {isBusy ? '...' : marketPrice > 0 ? 'Продать' : 'Без цены'}
                       </button>
                       <button
                         type="button"

@@ -2,6 +2,7 @@ import 'dotenv/config'
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import formbody from '@fastify/formbody'
+import websocket from '@fastify/websocket'
 import { env } from './config/env.js'
 import { prisma } from './db/prisma.js'
 import { GameError } from './services/game.js'
@@ -24,6 +25,7 @@ import { setupSupportWebhook, supportBot, supportRoutes } from './routes/support
 import { initUserbot, stopUserbot } from './services/userbot.js'
 import { notifyDailyBonusReady } from './services/bot.js'
 import { checkNicknameTask } from './services/nickname.js'
+import { getPriceSnapshot, startPricePoller, stopPricePoller, subscribePriceUpdates } from './services/pricePoller.js'
 
 const DAILY_REMINDER_INTERVAL_MS = 30 * 60 * 1000
 const DAILY_REMINDER_WINDOW_MS = 24 * 60 * 60 * 1000
@@ -128,6 +130,7 @@ await fastify.register(cors, {
   origin: true,
 })
 await fastify.register(formbody)
+await fastify.register(websocket)
 
 // Единый обработчик ошибок
 fastify.setErrorHandler((error, request, reply) => {
@@ -154,6 +157,15 @@ fastify.setNotFoundHandler((_request, reply) => {
 })
 
 // Регистрация эндпоинтов
+fastify.get('/api/prices/stream', { websocket: true }, (socket) => {
+  socket.send(JSON.stringify(getPriceSnapshot()))
+  const unsubscribe = subscribePriceUpdates((message) => {
+    if (socket.readyState === 1) socket.send(JSON.stringify(message))
+  })
+  socket.on('close', unsubscribe)
+  socket.on('error', unsubscribe)
+})
+
 await fastify.register(healthRoutes)
 await fastify.register(meRoutes)
 await fastify.register(casesRoutes)
@@ -175,6 +187,7 @@ await fastify.register(devRoutes)
 fastify.addHook('onClose', async () => {
   if (reminderTimer) clearInterval(reminderTimer)
   if (nicknameSweepTimer) clearInterval(nicknameSweepTimer)
+  stopPricePoller()
   await stopUserbot()
   await prisma.$disconnect()
 })
@@ -216,6 +229,7 @@ const start = async () => {
   } catch (error) {
     fastify.log.error(error, '[Userbot] Ошибка инициализации. Сервер продолжает работу.')
   }
+  startPricePoller()
 
   if (supportBot && env.WEBHOOK_URL) {
     const ok = await setupSupportWebhook(env.WEBHOOK_URL)

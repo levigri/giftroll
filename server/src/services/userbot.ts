@@ -139,7 +139,7 @@ async function getMarketPrices(): Promise<Map<string, number> | null> {
 
       await Promise.all(workers)
       console.info(`[Userbot] Актуальные цены Telegram Marketplace обновлены: ${prices.size} коллекций`)
-      marketPriceCache = { prices, expiresAt: Date.now() + 60_000 }
+      marketPriceCache = { prices, expiresAt: Date.now() + 30_000 }
       return prices
     } catch (error) {
       console.warn('[Userbot] Не удалось получить цены Telegram Marketplace:', error)
@@ -151,7 +151,7 @@ async function getMarketPrices(): Promise<Map<string, number> | null> {
   return marketPriceRequest
 }
 
-/** Current minimum Stars listing for the gift collection from Telegram Marketplace. */
+/** Fallback: current minimum Stars listing for the Telegram gift collection. */
 export async function getTelegramMarketPrice(prizeName: string): Promise<number | null> {
   const prices = await getMarketPrices()
   return prices?.get(normalizeGiftName(prizeName)) ?? null

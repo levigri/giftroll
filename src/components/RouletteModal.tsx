@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Star, X } from 'lucide-react'
 import type { CaseItem, Prize } from '../api/types'
+import { marketPriceFor, useMarketPrices } from '../api/marketPrices'
 import { OPEN_COUNTS, type OpenCount } from '../pages/CasesPage'
 import { errorFeedback, tapFeedback } from '../telegram'
 import { prizeImage } from '../utils/assets'
@@ -62,6 +63,7 @@ export default function RouletteModal({
   onOpen,
 }: RouletteModalProps) {
   const pool = caseItem.prizes
+  const marketPrices = useMarketPrices()
 
   const [count, setCount] = useState<OpenCount>(1)
   const [phase, setPhase] = useState<Phase>('idle')
@@ -330,7 +332,7 @@ export default function RouletteModal({
                   )}
                   {prize.type === 'NFT' && (
                     <span className="text-[10px] font-extrabold leading-none text-[#FFD700]">
-                      {prize.price} ⭐
+                      {marketPriceFor(prize.name, prize.price, marketPrices)} ⭐
                     </span>
                   )}
                 </div>
