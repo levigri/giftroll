@@ -42,6 +42,39 @@ function normalizeGiftName(name: string): string {
   return name.trim().replace(/[’‘]/g, "'").replace(/\s+/g, ' ').toLocaleLowerCase('en-US')
 }
 
+function positivePrice(value: unknown): number | null {
+  if (typeof value !== 'number' && typeof value !== 'string' && typeof value !== 'bigint') return null
+  const price = Number(value)
+  return Number.isSafeInteger(price) && price > 0 ? price : null
+}
+
+function positiveAveragePrice(value: unknown): number | null {
+  if (typeof value !== 'number' && typeof value !== 'string' && typeof value !== 'bigint') return null
+  const price = Number(value)
+  return Number.isFinite(price) && price > 0 ? Math.round(price) : null
+}
+
+function optionalAveragePrice(gift: object): number | null {
+  const giftRecord = gift as unknown as Record<string, unknown>
+  const raw = giftRecord.raw
+  const rawRecord = typeof raw === 'object' && raw !== null
+    ? raw as Record<string, unknown>
+    : null
+  const possibleValues = [
+    giftRecord.averagePrice,
+    giftRecord.average_price,
+    giftRecord.avgPrice,
+    rawRecord?.averagePrice,
+    rawRecord?.average_price,
+    rawRecord?.avgPrice,
+  ]
+  for (const value of possibleValues) {
+    const price = positiveAveragePrice(value)
+    if (price !== null) return price
+  }
+  return null
+}
+
 type UniqueGiftLike = { id: { toString(): string }; title: string; isUnique: true }
 
 function isUniqueGift(value: unknown): value is UniqueGiftLike {
@@ -123,8 +156,10 @@ async function handleIncomingMessage(message: Message): Promise<void> {
   }
 }
 
-async function getMarketPrices(): Promise<Map<string, number> | null> {
-  if (marketPriceCache && marketPriceCache.expiresAt > Date.now()) return marketPriceCache.prices
+async function getMarketPrices(forceRefresh = false): Promise<Map<string, number> | null> {
+  if (!forceRefresh && marketPriceCache && marketPriceCache.expiresAt > Date.now()) {
+    return marketPriceCache.prices
+  }
   if (marketPriceRequest) return marketPriceRequest
   const client = userbot
   if (!client || !isUserbotStarted) return null
@@ -135,46 +170,20 @@ async function getMarketPrices(): Promise<Map<string, number> | null> {
       const gifts = await client.getStarGiftOptions()
       const prices = new Map<string, number>()
       const catalogNames = new Set(nftCatalog.map((gift) => normalizeGiftName(gift.name)))
-      const marketCollections = gifts.filter(
-        (gift) => gift.title && catalogNames.has(normalizeGiftName(gift.title)),
-      )
-      let nextIndex = 0
+      for (const gift of gifts) {
+        const title = gift.title
+        if (!title || !catalogNames.has(normalizeGiftName(title))) continue
 
-      // Query actual active resale listings, rather than the collection-level
-      // resale_min_stars summary returned by getStarGifts.
-      const workers = Array.from({ length: Math.min(4, marketCollections.length) }, async () => {
-        while (nextIndex < marketCollections.length) {
-          const gift = marketCollections[nextIndex++]
-          if (!gift?.title) continue
+        const floorPrice = positivePrice(gift.resaleFloorPrice?.toString())
+        const price = floorPrice ?? optionalAveragePrice(gift)
+        if (price !== null) prices.set(normalizeGiftName(title), price)
+      }
 
-          try {
-            await waitForMarketPriceBackoff()
-            const listings = await client.getStarGiftResaleOptions({
-              giftId: gift.id,
-              sort: 'price',
-              limit: 100,
-            })
-            const starPrices = listings
-              .map((listing) => Number(listing.resellPriceStars?.toString() ?? 0))
-              .filter((price) => Number.isSafeInteger(price) && price > 0)
-
-            if (starPrices.length > 0) {
-              prices.set(normalizeGiftName(gift.title), Math.min(...starPrices))
-            }
-          } catch (error) {
-            registerMarketPriceBackoff(error)
-            console.warn(`[Userbot] Не удалось получить объявления для «${gift.title}»:`, error)
-          }
-        }
-      })
-
-      await Promise.all(workers)
-      console.info(`[Userbot] Актуальные цены Telegram Marketplace обновлены: ${prices.size} коллекций`)
-      marketPriceCache = { prices, expiresAt: Date.now() + 120_000 }
+      marketPriceCache = { prices, expiresAt: Date.now() + 60_000 }
       return prices
     } catch (error) {
       registerMarketPriceBackoff(error)
-      console.warn('[Userbot] Не удалось получить цены Telegram Marketplace:', error)
+      console.warn('[Userbot] Не удалось получить официальные floor prices Telegram:', error)
       return null
     } finally {
       marketPriceRequest = null
@@ -187,6 +196,11 @@ async function getMarketPrices(): Promise<Map<string, number> | null> {
 export async function getTelegramMarketPrice(prizeName: string): Promise<number | null> {
   const prices = await getMarketPrices()
   return prices?.get(normalizeGiftName(prizeName)) ?? null
+}
+
+/** Forces a single fresh Telegram gift catalog read for the price synchronizer. */
+export async function refreshTelegramMarketPrices(): Promise<Map<string, number> | null> {
+  return getMarketPrices(true)
 }
 
 async function listRelayerGifts(client: TelegramClient): Promise<SavedStarGift[]> {

@@ -3,8 +3,8 @@ import { findNftPrize } from '../data/cases.js'
 import { GameError } from './game.js'
 import { processWagering } from './deposit.js'
 import { findActiveDepositLock } from './depositLock.js'
-import { getCurrentNftPriceInStars } from './giftAssetPricing.js'
 import { findNftCatalogEntry } from './nftPricing.js'
+import { getTelegramMarketPrice } from './userbot.js'
 import { getUsername, logDrop } from './drops.js'
 import { logTransaction } from './transaction.js'
 
@@ -82,7 +82,7 @@ export async function performUpgrade(
     throw new GameError('TARGET_NOT_FOUND', 'Целевой предмет не найден', 404)
   }
   const targetMarketPrice =
-    (await getCurrentNftPriceInStars(targetNft.name)) ??
+    (await getTelegramMarketPrice(targetNft.name)) ??
     findNftCatalogEntry(targetNft.name)?.price ??
     targetNft.price
   if (!targetMarketPrice || targetMarketPrice <= 0) {
@@ -109,7 +109,7 @@ export async function performUpgrade(
     : []
   const itemPriceEntries = await Promise.all(
     quotedItems.map(async (item) => {
-      const marketPrice = await getCurrentNftPriceInStars(item.prizeName)
+      const marketPrice = await getTelegramMarketPrice(item.prizeName)
       return {
         id: item.id,
         price:
