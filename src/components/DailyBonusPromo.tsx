@@ -27,7 +27,7 @@ export default function DailyBonusPromo({ onClose, onStart }: DailyBonusPromoPro
       aria-modal="true"
       aria-label="Бесплатный кейс готов"
     >
-      <div className="w-full max-w-[340px] bg-[#18181b] border border-[#8A2BE2]/40 rounded-[32px] p-6 flex flex-col items-center relative shadow-[0_0_50px_rgba(138,43,226,0.4)] overflow-hidden">
+      <div className="w-full max-w-[340px] bg-[#18181b] border border-[#8A2BE2]/40 rounded-[32px] p-5 flex flex-col items-center relative shadow-[0_0_50px_rgba(138,43,226,0.4)] overflow-hidden">
         <button
           type="button"
           aria-label="Закрыть"
@@ -42,28 +42,28 @@ export default function DailyBonusPromo({ onClose, onStart }: DailyBonusPromoPro
 
         {/* Картинка без подложки: фон в самом файле прозрачный. */}
         {imageFailed ? (
-          <span className="mb-4 flex h-48 w-48 items-center justify-center rounded-2xl bg-white/5">
+          <span className="mb-2 flex h-40 w-40 items-center justify-center rounded-2xl bg-white/5">
             <Gift size={72} className="text-[#FFD700]" />
           </span>
         ) : (
           <img
             src="/promo.png"
             alt="Free Case"
-            className="w-48 h-48 object-contain mb-4"
+            className="mb-2 h-40 w-40 object-contain"
             onError={() => setImageFailed(true)}
           />
         )}
 
-        <h2 className="text-2xl font-black text-white text-center mb-1">
+        <h2 className="mb-1 text-center text-xl font-black leading-tight text-white">
           Твой бесплатный кейс готов!
         </h2>
-        <p className="text-gray-400 text-sm text-center mb-6">
+        <p className="mb-5 text-center text-xs text-gray-400">
           Забери свой бонус, который ждет тебя каждые 24 часа.
         </p>
 
         <button
           type="button"
-          className="w-full py-3.5 bg-gradient-to-r from-[#FFD700] to-[#FFA500] text-black font-extrabold text-lg rounded-xl shadow-[0_0_20px_rgba(255,215,0,0.4)] active:scale-95 transition-transform"
+          className="w-full rounded-xl bg-gradient-to-r from-[#FFD700] to-[#FFA500] py-3.5 text-base font-extrabold text-black transition-transform active:scale-95"
           onClick={() => {
             tapFeedback('medium')
             onClose()
