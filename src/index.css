@@ -853,15 +853,13 @@ select {
 }
 
 /* ---------- Прелоадер при входе в Mini App ---------- */
-.app-preloader {
+.app-preloader-overlay {
   position: fixed;
   inset: 0;
   z-index: 9999;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
   background: #0b0c10;
   opacity: 1;
   transition: opacity 0.5s ease;
@@ -872,22 +870,41 @@ select {
   pointer-events: none;
 }
 
-.app-preloader__video {
-  position: absolute;
-  inset: 0;
+.app-preloader {
+  position: relative;
   width: 100%;
   height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.app-preloader__video {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 100%;
+  min-height: 100%;
+  width: auto;
+  height: auto;
   object-fit: cover;
-  z-index: -1;
+  z-index: 0;
 }
 
 .app-preloader__text {
+  position: relative;
+  z-index: 10;
   margin: 0;
-  font-size: 16px;
+  padding: 8px 16px;
+  border-radius: 12px;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  font-size: 14px;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #9ca3af;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  color: #ffffff;
 }
 

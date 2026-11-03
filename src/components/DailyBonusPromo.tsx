@@ -31,7 +31,7 @@ export default function DailyBonusPromo({ onClose, onStart }: DailyBonusPromoPro
         <button
           type="button"
           aria-label="Закрыть"
-          className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-black/40 text-gray-300 transition hover:bg-white/10 hover:text-white"
+          className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-black/40 text-gray-300 transition hover:bg-white/10 hover:text-white"
           onClick={() => {
             tapFeedback('light')
             onClose()
@@ -42,14 +42,14 @@ export default function DailyBonusPromo({ onClose, onStart }: DailyBonusPromoPro
 
         {/* Картинка без подложки: фон в самом файле прозрачный. */}
         {imageFailed ? (
-          <span className="mb-2 flex h-40 w-40 items-center justify-center rounded-2xl bg-white/5">
+          <span className="mx-auto mb-3 flex h-36 w-36 items-center justify-center rounded-2xl bg-white/5">
             <Gift size={72} className="text-[#FFD700]" />
           </span>
         ) : (
           <img
             src="/promo.png"
             alt="Free Case"
-            className="mb-2 h-40 w-40 object-contain"
+            className="mx-auto mb-3 h-36 w-36 object-contain"
             onError={() => setImageFailed(true)}
           />
         )}
@@ -63,7 +63,7 @@ export default function DailyBonusPromo({ onClose, onStart }: DailyBonusPromoPro
 
         <button
           type="button"
-          className="w-full rounded-xl bg-gradient-to-r from-[#FFD700] to-[#FFA500] py-3.5 text-base font-extrabold text-black transition-transform active:scale-95"
+          className="w-full py-3 bg-gradient-to-r from-[#FFD700] to-[#FFA500] text-black font-extrabold text-base rounded-xl shadow-lg active:scale-95 transition-transform"
           onClick={() => {
             tapFeedback('medium')
             onClose()

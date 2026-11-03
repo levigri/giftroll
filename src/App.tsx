@@ -456,20 +456,22 @@ function App() {
     <div className="min-h-screen bg-[#0B0C10] font-sans text-white">
       {/* Прелоадер: живёт поверх всего, пока грузятся getMe/getCases, и плавно уходит. */}
       <div
-        className={`app-preloader${loading ? '' : ' app-preloader--hidden'}`}
+        className={`app-preloader-overlay${loading ? '' : ' app-preloader--hidden'}`}
         role="status"
         aria-live="polite"
         aria-hidden={!loading}
       >
-        <video
-          className="app-preloader__video"
-          src="/loop.mp4"
-          autoPlay
-          muted
-          playsInline
-          loop
-        />
-        <p className="app-preloader__text">Загрузка...</p>
+        <div className="app-preloader">
+          <video
+            className="app-preloader__video"
+            src="/loop.mp4"
+            autoPlay
+            muted
+            playsInline
+            loop
+          />
+          <p className="app-preloader__text">Загрузка...</p>
+        </div>
       </div>
       <div className="relative mx-auto min-h-screen max-w-[430px] overflow-x-hidden bg-[#0B0C10] bg-[radial-gradient(120%_60%_at_50%_-10%,rgba(138,43,226,0.2),transparent_65%)] shadow-[0_0_80px_rgba(138,43,226,0.18)]">
         <div className="app">
