@@ -280,6 +280,13 @@ export default function UpgraderPage({
   const targetCovered = requestTarget ? payout >= requestTarget.price : false
   const change = requestTarget && targetCovered ? payout - requestTarget.price : 0
 
+  useEffect(() => {
+    if (selectedTargetId && !targetCovered) {
+      setSelectedTargetId(null)
+      setIsTargetAutoAdjusted(false)
+    }
+  }, [selectedTargetId, targetCovered])
+
   // Уменьшение ставки может понизить доступный потолок шанса; сохраняем цель,
   // ограничивая только сам шанс, чтобы минимальная выплата покрывала дешевый NFT.
   useEffect(() => {
@@ -288,9 +295,8 @@ export default function UpgraderPage({
     }
   }, [chance, dynamicMaxChance])
 
-  // Ручной выбор НЕ сбрасываем из-за шанса/выплаты — просто блокируем апгрейд
-  // (targetCovered = false). Выбор обнуляется только если карточки больше нет в пуле
-  // (предмет удалили из игры) — иначе подсветка «прыгала» бы на авто-подбор.
+  // Сбрасываем ручную цель, если она больше не помещается в выплату;
+  // здесь остаётся только очистка выбора, если карточку удалили из пула.
   useEffect(() => {
     if (!selectedTargetId) {
       return
