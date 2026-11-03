@@ -471,6 +471,7 @@ function App() {
             loop
           />
           <p className="app-preloader__text">Загрузка...</p>
+          <span className="app-preloader__spinner" aria-hidden="true" />
         </div>
       </div>
       <div className="relative mx-auto min-h-screen max-w-[430px] overflow-x-hidden bg-[#0B0C10] bg-[radial-gradient(120%_60%_at_50%_-10%,rgba(138,43,226,0.2),transparent_65%)] shadow-[0_0_80px_rgba(138,43,226,0.18)]">

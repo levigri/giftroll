@@ -899,7 +899,8 @@ select {
   margin: 0;
   padding: 8px 16px;
   border-radius: 12px;
-  background-color: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(0, 0, 0, 0.95);
+  background-color: rgba(0, 0, 0, 0.82);
   backdrop-filter: blur(4px);
   font-size: 14px;
   font-weight: 800;
@@ -907,5 +908,25 @@ select {
   text-transform: uppercase;
   color: #ffffff;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.app-preloader__spinner {
+  position: absolute;
+  top: calc(50% + 138px);
+  left: 50%;
+  z-index: 10;
+  width: 30px;
+  height: 30px;
+  transform: translateX(-50%);
+  border: 3px solid rgba(255, 255, 255, 0.22);
+  border-top-color: #ffd700;
+  border-radius: 50%;
+  animation: app-preloader-spin 0.8s linear infinite;
+}
+
+@keyframes app-preloader-spin {
+  to {
+    transform: translateX(-50%) rotate(360deg);
+  }
 }
 
