@@ -147,7 +147,6 @@ function App() {
   const [me, setMe] = useState<MeResponse | null>(null)
   const [cases, setCases] = useState<CaseItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [introFinished, setIntroFinished] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const [activeCase, setActiveCase] = useState<CaseItem | null>(null)
@@ -463,16 +462,12 @@ function App() {
         aria-hidden={!loading}
       >
         <video
-          key={introFinished ? 'loop' : 'intro'}
           className="app-preloader__video"
-          src={introFinished ? '/loop.mp4' : '/intro.mp4'}
+          src="/loop.mp4"
           autoPlay
           muted
           playsInline
-          loop={introFinished}
-          onEnded={() => {
-            if (!introFinished) setIntroFinished(true)
-          }}
+          loop
         />
         <p className="app-preloader__text">Загрузка...</p>
       </div>
