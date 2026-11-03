@@ -3,6 +3,7 @@ import { MemoryStorage, TelegramClient, type Message, type SavedStarGift } from 
 import { env } from '../config/env.js'
 import { prisma } from '../db/prisma.js'
 import { nftCatalog } from '../data/nftCatalog.js'
+import { notifyUser } from './bot.js'
 import { findNftCatalogEntry } from './nftPricing.js'
 
 let userbot: TelegramClient | null = null
@@ -10,10 +11,33 @@ let isUserbotStarted = false
 let marketPriceCache: { expiresAt: number; prices: Map<string, number> } | null = null
 let marketPriceRequest: Promise<Map<string, number> | null> | null = null
 let marketPricePauseUntil = 0
+let pendingWithdrawalRetryRunning = false
+const giftTransfersInProgress = new Set<string>()
+
+export class UserbotTransferError extends Error {
+  constructor(public readonly code: 'STARS_INSUFFICIENT', message: string) {
+    super(message)
+    this.name = 'UserbotTransferError'
+  }
+}
 
 function getErrorText(error: unknown): string {
   if (error instanceof Error) return `${error.name} ${error.message}`
   return String(error)
+}
+
+function isInsufficientRelayerStarsError(error: unknown): boolean {
+  const details = [getErrorText(error)]
+  if (typeof error === 'object' && error !== null) {
+    const record = error as Record<string, unknown>
+    for (const key of ['code', 'text', 'errorMessage']) {
+      const value = record[key]
+      if (typeof value === 'string') details.push(value)
+    }
+  }
+  return /STARS?_INSUFFICIENT|BALANCE_TOO_LOW|NOT_ENOUGH_STARS|INSUFFICIENT_(?:BALANCE|STARS)/i.test(
+    details.join(' '),
+  )
 }
 
 function getMarketPriceRetryDelay(error: unknown): number {
@@ -147,6 +171,9 @@ async function handleIncomingMessage(message: Message): Promise<void> {
     })
 
     console.info(`[Userbot] Telegram NFT #${giftId} зачислен в инвентарь GiftRoll`)
+    void retryPendingWithdrawals().catch((error: unknown) => {
+      console.error('[Userbot] Не удалось обработать очередь выводов после получения NFT:', error)
+    })
   } catch (error) {
     if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
       console.info(`[Userbot] Повторное событие подарка пропущено (message ${message.id})`)
@@ -271,7 +298,12 @@ async function findAvailableRelayerGift(itemId: string, userId: bigint): Promise
   // invoice. The unique giftId index prevents concurrent claims from reserving it twice.
   if (!item.giftId) {
     const assignedGift = await prisma.inventoryItem.updateMany({
-      where: { id: item.id, userId, status: 'PENDING', giftId: null },
+      where: {
+        id: item.id,
+        userId,
+        status: { in: ['PENDING', 'WITHDRAWAL_REQUESTED'] },
+        giftId: null,
+      },
       data: { giftId: available.gift.id.toString() },
     })
     if (assignedGift.count !== 1) return null
@@ -300,12 +332,12 @@ export async function hasAvailableRelayerGift(
 /** Transfers the exact external NFT or an unassigned matching gift from Relayer's Telegram inventory. */
 export async function sendSavedGiftToUser(itemId: string, userId: bigint): Promise<boolean> {
   const client = userbot
-  if (!client || !isUserbotStarted) return false
+  if (!client || !isUserbotStarted || giftTransfersInProgress.has(itemId)) return false
+  giftTransfersInProgress.add(itemId)
 
   try {
     const gift = await findAvailableRelayerGift(itemId, userId)
     if (!gift || !isUniqueGift(gift.gift)) return false
-    if (gift.transferStars && BigInt(gift.transferStars.toString()) > 0n) return false
     const giftInput = gift.savedId
       ? { owner: 'me' as const, savedId: gift.savedId }
       : gift.messageId
@@ -320,8 +352,57 @@ export async function sendSavedGiftToUser(itemId: string, userId: bigint): Promi
     console.info(`[Userbot] NFT for inventory item ${itemId} transferred to Telegram user ${userId}`)
     return true
   } catch (error) {
+    if (isInsufficientRelayerStarsError(error)) {
+      throw new UserbotTransferError(
+        'STARS_INSUFFICIENT',
+        'У релаера недостаточно Telegram Stars для комиссии перевода подарка',
+      )
+    }
     console.error(`[Userbot] Failed to transfer saved NFT for inventory item ${itemId}:`, error)
     return false
+  } finally {
+    giftTransfersInProgress.delete(itemId)
+  }
+}
+
+/** Retries paid withdrawals when a gift arrives or the relayer tops up Stars. */
+export async function retryPendingWithdrawals(): Promise<void> {
+  if (!userbot || !isUserbotStarted || pendingWithdrawalRetryRunning) return
+  pendingWithdrawalRetryRunning = true
+
+  try {
+    const pendingItems = await prisma.inventoryItem.findMany({
+      where: {
+        status: 'WITHDRAWAL_REQUESTED',
+        OR: [{ giftId: { not: null } }, { prizeName: { not: '' } }],
+      },
+      select: { id: true, userId: true, prizeName: true },
+      orderBy: { createdAt: 'asc' },
+    })
+
+    for (const item of pendingItems) {
+      try {
+        const sent = await sendSavedGiftToUser(item.id, item.userId)
+        if (!sent) continue
+
+        const completed = await prisma.inventoryItem.updateMany({
+          where: { id: item.id, status: 'WITHDRAWAL_REQUESTED' },
+          data: { status: 'CLAIMED' },
+        })
+        if (completed.count === 1) {
+          await notifyUser(item.userId, `✅ Подарок «${item.prizeName}» успешно отправлен вам в Telegram!`)
+          console.info(`[Userbot] Pending NFT withdrawal ${item.id} completed`)
+        }
+      } catch (error) {
+        if (error instanceof UserbotTransferError && error.code === 'STARS_INSUFFICIENT') {
+          console.warn(`[Userbot] Pending withdrawal ${item.id} waits for relayer Stars balance`)
+          continue
+        }
+        console.error(`[Userbot] Pending withdrawal ${item.id} failed; it remains queued:`, error)
+      }
+    }
+  } finally {
+    pendingWithdrawalRetryRunning = false
   }
 }
 

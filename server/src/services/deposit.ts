@@ -6,7 +6,7 @@ import { prisma } from '../db/prisma.js'
 import { getGramRate, getStarsBasePriceUsd } from '../utils/rates.js'
 import { logTransaction } from './transaction.js'
 import { notifyUser } from './bot.js'
-import { sendSavedGiftToUser } from './userbot.js'
+import { sendSavedGiftToUser, UserbotTransferError } from './userbot.js'
 
 /** Границы одного пополнения в ⭐. */
 export const MIN_DEPOSIT_STARS = 10
@@ -724,7 +724,18 @@ async function handleNftWithdrawalPayment(
     return
   }
 
-  const sent = await sendSavedGiftToUser(item.id, item.userId)
+  let sent = false
+  let relayerStarsInsufficient = false
+  try {
+    sent = await sendSavedGiftToUser(item.id, item.userId)
+  } catch (error) {
+    if (error instanceof UserbotTransferError && error.code === 'STARS_INSUFFICIENT') {
+      relayerStarsInsufficient = true
+      console.warn(`[NFT_WITHDRAW] Relayer has insufficient Stars for item ${item.id}`)
+    } else {
+      console.error(`[NFT_WITHDRAW] Automatic send failed for item ${item.id}; leaving it queued:`, error)
+    }
+  }
   if (sent) {
     await prisma.inventoryItem.updateMany({
       where: {
@@ -746,7 +757,9 @@ async function handleNftWithdrawalPayment(
   if (env.ADMIN_ID) {
     await notifyUser(
       env.ADMIN_ID,
-      `📤 Нужна ручная отправка NFT «${item.prizeName}» для ${username}. ID заявки: ${item.id}.`,
+      relayerStarsInsufficient
+        ? '⚠️ У релаера не хватает 25⭐ для комиссии сети. Пожалуйста, пополните баланс релаера. Заявка в очереди.'
+        : `📤 Нужна ручная отправка NFT «${item.prizeName}» для ${username}. ID заявки: ${item.id}.`,
     )
   }
 }

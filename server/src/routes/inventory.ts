@@ -6,7 +6,6 @@ import { getInventory, sellNft, requestNftClaim, GameError } from '../services/g
 import { callTelegramApi, DepositError } from '../services/deposit.js'
 import { getTelegramMarketPrice } from '../services/userbot.js'
 import { findNftCatalogEntry } from '../services/nftPricing.js'
-import { hasAvailableRelayerGift } from '../services/userbot.js'
 import { notifyUser } from '../services/bot.js'
 
 export const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
@@ -108,15 +107,6 @@ export const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
         if (!item.isExternal && item.lockUntil && item.lockUntil > new Date()) {
           const daysLeft = Math.ceil((item.lockUntil.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
           throw new GameError('NFT_LOCKED', `Вывод заблокирован. Осталось дней: ${daysLeft}`)
-        }
-
-        const availability = await hasAvailableRelayerGift(item.id, user.id)
-        if (!availability.available) {
-          throw new GameError(
-            availability.code ?? 'GIFT_NOT_AVAILABLE',
-            availability.message ?? `На аккаунте релаера сейчас нет подарка «${item.prizeName}».`,
-            409,
-          )
         }
 
         const payload = `withdraw_${item.id}`

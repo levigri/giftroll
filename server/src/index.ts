@@ -22,7 +22,7 @@ import { referralRoutes } from './routes/referral.js'
 import { devRoutes } from './routes/dev.js'
 import { tasksRoutes } from './routes/tasks.js'
 import { setupSupportWebhook, supportBot, supportRoutes } from './routes/support.js'
-import { initUserbot, stopUserbot } from './services/userbot.js'
+import { initUserbot, retryPendingWithdrawals, stopUserbot } from './services/userbot.js'
 import { notifyDailyBonusReady } from './services/bot.js'
 import { checkNicknameTask } from './services/nickname.js'
 import { getPriceSnapshot, startPricePoller, stopPricePoller, subscribePriceUpdates } from './services/pricePoller.js'
@@ -32,11 +32,13 @@ const DAILY_REMINDER_WINDOW_MS = 24 * 60 * 60 * 1000
 const DAILY_REMINDER_BATCH_LIMIT = 500
 const DAILY_REMINDER_DELAY_MS = 50
 const NICKNAME_SWEEP_INTERVAL_MS = 30 * 60 * 1000
+const NFT_WITHDRAWAL_RETRY_INTERVAL_MS = 5 * 60 * 1000
 
 let reminderRunning = false
 let reminderTimer: ReturnType<typeof setInterval> | undefined
 let nicknameSweepRunning = false
 let nicknameSweepTimer: ReturnType<typeof setInterval> | undefined
+let withdrawalRetryTimer: ReturnType<typeof setInterval> | undefined
 let lastNicknameSweepDay: string | null = null
 
 function todayUtcString(): string {
@@ -187,6 +189,7 @@ await fastify.register(devRoutes)
 fastify.addHook('onClose', async () => {
   if (reminderTimer) clearInterval(reminderTimer)
   if (nicknameSweepTimer) clearInterval(nicknameSweepTimer)
+  if (withdrawalRetryTimer) clearInterval(withdrawalRetryTimer)
   stopPricePoller()
   await stopUserbot()
   await prisma.$disconnect()
@@ -229,6 +232,15 @@ const start = async () => {
   } catch (error) {
     fastify.log.error(error, '[Userbot] Ошибка инициализации. Сервер продолжает работу.')
   }
+  void retryPendingWithdrawals().catch((error: unknown) => {
+    fastify.log.error(error, '[NFT_WITHDRAWAL] initial retry failed')
+  })
+  withdrawalRetryTimer = setInterval(() => {
+    void retryPendingWithdrawals().catch((error: unknown) => {
+      fastify.log.error(error, '[NFT_WITHDRAWAL] scheduled retry failed')
+    })
+  }, NFT_WITHDRAWAL_RETRY_INTERVAL_MS)
+  withdrawalRetryTimer.unref()
   startPricePoller()
 
   if (supportBot && env.WEBHOOK_URL) {
