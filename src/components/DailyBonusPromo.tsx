@@ -27,7 +27,7 @@ export default function DailyBonusPromo({ onClose, onStart }: DailyBonusPromoPro
       aria-modal="true"
       aria-label="Бесплатный кейс готов"
     >
-      <div className="w-full max-w-[340px] bg-[#18181b] border border-[#8A2BE2]/40 rounded-[32px] p-5 flex flex-col items-center relative shadow-[0_0_50px_rgba(138,43,226,0.4)] overflow-hidden">
+      <div className="w-full max-w-[340px] bg-[#18181b] border border-[#8A2BE2]/40 rounded-[32px] p-5 flex flex-col items-center relative overflow-hidden">
         <button
           type="button"
           aria-label="Закрыть"
