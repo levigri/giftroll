@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { CheckCircle, Circle, Gift, Send, Share2 } from 'lucide-react'
 import type { ClaimDailyResponse } from '../api/types'
-import { checkSubscription, claimDaily } from '../api/client'
+import { checkSubscription, claimDaily, getReferralStats } from '../api/client'
 import { errorFeedback, successFeedback, tapFeedback } from '../telegram'
 
 const CHANNEL_URL = 'https://t.me/NewsGiftRoll'
-const SHARE_URL = `https://t.me/share/url?url=${encodeURIComponent(
-  CHANNEL_URL,
-)}&text=${encodeURIComponent('Залетай в GiftRoll!')}`
+const SHARE_TEXT = 'Залетай в GiftRoll! Открывай кейсы и получай NFT!'
 
 interface TelegramWebAppBridge {
   openTelegramLink?: (url: string) => void
@@ -46,6 +44,7 @@ export interface FreeCaseModalProps {
 export default function FreeCaseModal({ onClose, onClaimed }: FreeCaseModalProps) {
   const [subscribed, setSubscribed] = useState<boolean | null>(null)
   const [shared, setShared] = useState(false)
+  const [refLink, setRefLink] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -75,6 +74,26 @@ export default function FreeCaseModal({ onClose, onClaimed }: FreeCaseModalProps
     }
   }, [refreshSubscription])
 
+  useEffect(() => {
+    let isWithinTimeout = true
+    const timeoutId = window.setTimeout(() => {
+      isWithinTimeout = false
+    }, 3000)
+
+    void getReferralStats()
+      .then((stats) => {
+        if (!isWithinTimeout) return
+        const botUsername = import.meta.env.VITE_BOT_USERNAME?.trim() || 'Giftrollgamebot'
+        setRefLink(`https://t.me/${botUsername}?startapp=${encodeURIComponent(stats.refCode)}`)
+      })
+      .catch((err: unknown) => console.error('Failed to load referral link', err))
+
+    return () => {
+      isWithinTimeout = false
+      window.clearTimeout(timeoutId)
+    }
+  }, [])
+
   const handleSubscribe = () => {
     tapFeedback('light')
     openLink(CHANNEL_URL)
@@ -84,7 +103,9 @@ export default function FreeCaseModal({ onClose, onClaimed }: FreeCaseModalProps
 
   const handleShare = () => {
     tapFeedback('light')
-    openLink(SHARE_URL)
+    const targetUrl = refLink ?? CHANNEL_URL
+    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(targetUrl)}&text=${encodeURIComponent(SHARE_TEXT)}`
+    openLink(shareUrl)
     setShared(true)
   }
 

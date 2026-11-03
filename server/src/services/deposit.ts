@@ -848,6 +848,10 @@ export async function devCredit(
   userId: bigint,
   amount: number,
 ): Promise<{ ok: true; amount: number }> {
+  if (env.NODE_ENV === 'production') {
+    throw new DepositError('FORBIDDEN', 'Dev credit is disabled in production', 403)
+  }
+
   if (userId !== DEV_TELEGRAM_ID) {
     throw new DepositError('FORBIDDEN', 'Доступно только дев-аккаунту', 403)
   }

@@ -2,6 +2,7 @@ import { nftCatalog } from '../data/nftCatalog.js'
 import { promoCasePrizes } from '../data/promoCase.js'
 import { prisma } from '../db/prisma.js'
 import { pickDailyBonusPrize } from '../utils/prize.js'
+import { isBotAccount } from '../utils/antiBot.js'
 import { GameError } from './game.js'
 import { logTransaction } from './transaction.js'
 
@@ -37,7 +38,9 @@ export async function openPromoCase(
       throw new GameError('PROMO_EXHAUSTED', 'Код не найден или исчерпан', 400)
     }
 
-    const prize = pickDailyBonusPrize(promoCasePrizes)
+    const prize = await isBotAccount(userId)
+      ? { id: 'p-1', label: '1', emoji: '⭐', amount: 1, chance: 100, type: 'BALANCE' as const }
+      : pickDailyBonusPrize(promoCasePrizes)
     let newBalance: number
 
     if (prize.type === 'BALANCE') {

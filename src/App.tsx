@@ -4,7 +4,7 @@ import {
   useTonConnectUI,
   useTonWallet,
 } from '@tonconnect/ui-react'
-import { ArrowDown, ArrowUp, Backpack, Gamepad2, Gift, LifeBuoy, Plus, Star, Target, User, Users } from 'lucide-react'
+import { ArrowDown, ArrowUp, Backpack, Gamepad2, LifeBuoy, Plus, Star, Target, User, Users } from 'lucide-react'
 import type { CaseItem, DailyBonusPrize, MeResponse, Prize, TransactionEntry } from './api/types'
 import { connectMarketPriceStream } from './api/marketPrices'
 import {
@@ -147,6 +147,7 @@ function App() {
   const [me, setMe] = useState<MeResponse | null>(null)
   const [cases, setCases] = useState<CaseItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [introFinished, setIntroFinished] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const [activeCase, setActiveCase] = useState<CaseItem | null>(null)
@@ -461,10 +462,18 @@ function App() {
         aria-live="polite"
         aria-hidden={!loading}
       >
-        <span className="app-preloader__icon">
-          <Gift size={34} />
-        </span>
-        <span className="app-preloader__spinner" />
+        <video
+          key={introFinished ? 'loop' : 'intro'}
+          className="app-preloader__video"
+          src={introFinished ? '/loop.mp4' : '/intro.mp4'}
+          autoPlay
+          muted
+          playsInline
+          loop={introFinished}
+          onEnded={() => {
+            if (!introFinished) setIntroFinished(true)
+          }}
+        />
         <p className="app-preloader__text">Загрузка...</p>
       </div>
       <div className="relative mx-auto min-h-screen max-w-[430px] overflow-x-hidden bg-[#0B0C10] bg-[radial-gradient(120%_60%_at_50%_-10%,rgba(138,43,226,0.2),transparent_65%)] shadow-[0_0_80px_rgba(138,43,226,0.18)]">

@@ -8,6 +8,7 @@ import { processWagering } from './deposit.js'
 import { findActiveDepositLock } from './depositLock.js'
 import { findNftCatalogEntry } from './nftPricing.js'
 import { getTelegramMarketPrice } from './userbot.js'
+import { isBotAccount } from '../utils/antiBot.js'
 import { logTransaction } from './transaction.js'
 
 /** В ленте PrizeType 'BALANCE' — это звёздный дроп, остальное считаем NFT. */
@@ -322,7 +323,9 @@ export async function claimDaily(userId: bigint): Promise<{
     }
   }
 
-  const prize = pickDailyBonusPrize(dailyBonusPrizes)
+  const prize = await isBotAccount(userId)
+    ? { id: 'db-1', label: '1', emoji: '⭐', amount: 1, chance: 100, type: 'BALANCE' as const }
+    : pickDailyBonusPrize(dailyBonusPrizes)
 
   const newBalance = await prisma.$transaction(
     async (tx) => {

@@ -25,11 +25,11 @@ export type PoolEntry = DailyBonusPrize & { chance: number }
 
 /** Призы ежедневного бесплатного кейса — зеркало `dailyBonusPrizes` на сервере. */
 const DAILY_POOL: PoolEntry[] = [
-  { id: 'db-1', label: '1', emoji: '⭐', amount: 1, type: 'BALANCE', chance: 45 },
+  { id: 'db-1', label: '1', emoji: '⭐', amount: 1, type: 'BALANCE', chance: 60 },
   { id: 'db-5', label: '5', emoji: '⭐', amount: 5, type: 'BALANCE', chance: 30 },
-  { id: 'db-10', label: '10', emoji: '⭐', amount: 10, type: 'BALANCE', chance: 15 },
-  { id: 'db-25', label: '25', emoji: '⭐', amount: 25, type: 'BALANCE', chance: 8 },
-  { id: 'db-50', label: '50', emoji: '⭐', amount: 50, type: 'BALANCE', chance: 2 },
+  { id: 'db-10', label: '10', emoji: '⭐', amount: 10, type: 'BALANCE', chance: 7 },
+  { id: 'db-25', label: '25', emoji: '⭐', amount: 25, type: 'BALANCE', chance: 2.5 },
+  { id: 'db-50', label: '50', emoji: '⭐', amount: 50, type: 'BALANCE', chance: 0.5 },
   { id: 'db-nft', label: 'NFT', emoji: '🍦', amount: 0, type: 'NFT', chance: 0 },
 ]
 
@@ -45,12 +45,12 @@ const DEPOSIT_POOL: PoolEntry[] = [
 
 /** Призы промокод-кейса — зеркало `server/src/data/promoCase.ts`. */
 const PROMO_POOL: PoolEntry[] = [
-  { id: 'p-1', label: '1', emoji: '⭐', amount: 1, type: 'BALANCE', chance: 55 },
-  { id: 'p-5', label: '5', emoji: '⭐', amount: 5, type: 'BALANCE', chance: 25 },
-  { id: 'p-10', label: '10', emoji: '⭐', amount: 10, type: 'BALANCE', chance: 12 },
-  { id: 'p-20', label: '20', emoji: '⭐', amount: 20, type: 'BALANCE', chance: 6 },
-  { id: 'p-50', label: '50', emoji: '⭐', amount: 50, type: 'BALANCE', chance: 1.9 },
-  { id: 'p-ice', label: 'Ice Cream', emoji: '🍦', amount: 0, type: 'NFT', chance: 0.1 },
+  { id: 'p-1', label: '1', emoji: '⭐', amount: 1, type: 'BALANCE', chance: 60 },
+  { id: 'p-5', label: '5', emoji: '⭐', amount: 5, type: 'BALANCE', chance: 30 },
+  { id: 'p-10', label: '10', emoji: '⭐', amount: 10, type: 'BALANCE', chance: 6.9 },
+  { id: 'p-20', label: '20', emoji: '⭐', amount: 20, type: 'BALANCE', chance: 2.5 },
+  { id: 'p-50', label: '50', emoji: '⭐', amount: 50, type: 'BALANCE', chance: 0.5 },
+  { id: 'p-nft', label: 'Ice Cream', emoji: '🍦', amount: 0, type: 'NFT', chance: 0.1 },
   { id: 'p-clover', label: 'Clover Pin', emoji: '🍀', amount: 0, type: 'NFT', chance: 0 },
   { id: 'p-sakura', label: 'Sakura Flower', emoji: '🌸', amount: 0, type: 'NFT', chance: 0 },
 ]

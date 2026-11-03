@@ -1,4 +1,5 @@
 import type { Prisma, PvpParticipant, PvpRound } from '@prisma/client'
+import { env } from '../config/env.js'
 import { prisma } from '../db/prisma.js'
 import { GameError } from './game.js'
 import { processWagering } from './deposit.js'
@@ -324,16 +325,18 @@ export async function joinRound(
 
       // ⚠️ DEV ONLY — блок удалить при релизе: дев-игроку сразу подсаживается бот
       // с половинной ставкой, поэтому лобби не ждёт второго живого игрока.
-      if (active === null && userId === DEV_TELEGRAM_ID) {
-        await tx.pvpParticipant.create({
-          data: {
-            roundId: round.id,
-            userId: BOT_USER_ID,
-            username: BOT_NAME,
-            stars: Math.floor(stars * 0.5),
-            isBot: true,
-          },
-        })
+      if (env.NODE_ENV !== 'production') {
+        if (active === null && userId === DEV_TELEGRAM_ID) {
+          await tx.pvpParticipant.create({
+            data: {
+              roundId: round.id,
+              userId: BOT_USER_ID,
+              username: BOT_NAME,
+              stars: Math.floor(stars * 0.5),
+              isBot: true,
+            },
+          })
+        }
       }
       // ⚠️ Конец DEV ONLY.
 

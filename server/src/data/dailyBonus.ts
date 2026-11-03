@@ -10,11 +10,11 @@ export interface DailyBonusPrize {
 export const MIN_DAILY_BONUS_STARS = 1
 
 export const dailyBonusPrizes: DailyBonusPrize[] = [
-  { id: 'db-1', label: '1', emoji: '⭐', amount: 1, chance: 45, type: 'BALANCE' },
+  { id: 'db-1', label: '1', emoji: '⭐', amount: 1, chance: 60, type: 'BALANCE' },
   { id: 'db-5', label: '5', emoji: '⭐', amount: 5, chance: 30, type: 'BALANCE' },
-  { id: 'db-10', label: '10', emoji: '⭐', amount: 10, chance: 15, type: 'BALANCE' },
-  { id: 'db-25', label: '25', emoji: '⭐', amount: 25, chance: 8, type: 'BALANCE' },
-  { id: 'db-50', label: '50', emoji: '⭐', amount: 50, chance: 2, type: 'BALANCE' },
+  { id: 'db-10', label: '10', emoji: '⭐', amount: 10, chance: 7, type: 'BALANCE' },
+  { id: 'db-25', label: '25', emoji: '⭐', amount: 25, chance: 2.5, type: 'BALANCE' },
+  { id: 'db-50', label: '50', emoji: '⭐', amount: 50, chance: 0.5, type: 'BALANCE' },
   // Декоративный NFT — chance = 0, никогда не выигрывает. Нужен только для отображения в ленте.
   { id: 'db-nft', label: 'NFT', emoji: '🍦', amount: 0, chance: 0, type: 'NFT' },
 ]

@@ -872,28 +872,13 @@ select {
   pointer-events: none;
 }
 
-.app-preloader__icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 72px;
-  height: 72px;
-  border-radius: 24px;
-  color: #ffd700;
-  background: linear-gradient(145deg, rgba(255, 215, 0, 0.16), rgba(255, 165, 0, 0.06));
-  border: 1px solid rgba(255, 215, 0, 0.35);
-  box-shadow: 0 0 32px rgba(255, 215, 0, 0.25);
-  /* Пульсация логотипа, пока идёт загрузка. */
-  animation: app-preloader-pulse 1.6s ease-in-out infinite;
-}
-
-.app-preloader__spinner {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  border: 3px solid rgba(255, 215, 0, 0.18);
-  border-top-color: #ffd700;
-  animation: app-preloader-spin 0.8s linear infinite;
+.app-preloader__video {
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  border-radius: 20px;
+  object-fit: contain;
+  margin-bottom: 20px;
 }
 
 .app-preloader__text {
@@ -903,23 +888,5 @@ select {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #9ca3af;
-}
-
-@keyframes app-preloader-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes app-preloader-pulse {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.55;
-    transform: scale(1.06);
-  }
 }
 

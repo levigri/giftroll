@@ -203,6 +203,24 @@ export async function refreshTelegramMarketPrices(): Promise<Map<string, number>
   return getMarketPrices(true)
 }
 
+/** Returns Telegram's Stars rating value when available; MTProto failures are non-fatal. */
+export async function getTelegramStarsRating(userId: bigint): Promise<number | null> {
+  const client = userbot
+  if (!client || !isUserbotStarted) return null
+
+  try {
+    const fullUser = await client.getFullUser(userId.toString())
+    const rawRating = fullUser.starsRating?.stars
+    if (rawRating === undefined || rawRating === null) return null
+
+    const rating = Number(rawRating.toString())
+    return Number.isFinite(rating) ? rating : null
+  } catch (error) {
+    console.warn(`[Userbot] Не удалось получить Stars rating для ${userId}:`, error)
+    return null
+  }
+}
+
 async function listRelayerGifts(client: TelegramClient): Promise<SavedStarGift[]> {
   const gifts: SavedStarGift[] = []
   let offset: string | undefined
