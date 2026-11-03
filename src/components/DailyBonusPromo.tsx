@@ -22,12 +22,12 @@ export default function DailyBonusPromo({ onClose, onStart }: DailyBonusPromoPro
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 p-4"
       role="dialog"
       aria-modal="true"
       aria-label="Бесплатный кейс готов"
     >
-      <div className="w-full max-w-[340px] bg-[#18181b] border border-[#8A2BE2]/40 rounded-[32px] p-5 flex flex-col items-center relative overflow-hidden">
+      <div className="relative flex w-full max-w-[340px] flex-col items-center overflow-hidden rounded-[32px] border border-white/10 bg-[#18181b] p-5 shadow-none">
         <button
           type="button"
           aria-label="Закрыть"
@@ -63,7 +63,7 @@ export default function DailyBonusPromo({ onClose, onStart }: DailyBonusPromoPro
 
         <button
           type="button"
-          className="w-full py-3 bg-gradient-to-r from-[#FFD700] to-[#FFA500] text-black font-extrabold text-base rounded-xl shadow-lg active:scale-95 transition-transform"
+          className="w-full py-3 bg-gradient-to-r from-[#FFD700] to-[#FFA500] text-black font-extrabold text-base rounded-xl shadow-none active:scale-95 transition-transform"
           onClick={() => {
             tapFeedback('medium')
             onClose()

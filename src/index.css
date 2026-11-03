@@ -887,10 +887,14 @@ select {
   height: 100%;
   object-fit: contain;
   z-index: 0;
+  mix-blend-mode: screen;
 }
 
 .app-preloader__text {
-  position: relative;
+  position: absolute;
+  top: calc(50% + 84px);
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 10;
   margin: 0;
   padding: 8px 16px;
@@ -902,5 +906,6 @@ select {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #ffffff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
 }
 
