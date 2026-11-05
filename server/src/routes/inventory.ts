@@ -115,7 +115,7 @@ export const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
           description: `Комиссия сети Telegram за пересылку «${item.prizeName}»`,
           payload,
           currency: 'XTR',
-          prices: [{ label: 'Комиссия за вывод (ТЕСТ)', amount: 1 }],
+          prices: [{ label: 'Комиссия за вывод', amount: 25 }],
         })
 
         return reply.send({ invoiceLink })

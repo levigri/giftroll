@@ -559,7 +559,7 @@ export async function handleWebhook(update: TelegramUpdate): Promise<void> {
           item.status === 'PENDING' &&
           !isLocked &&
           query.currency === 'XTR' &&
-          query.total_amount === 1,
+          query.total_amount === 25,
       )
 
       await callTelegramApi<boolean>('answerPreCheckoutQuery', {
@@ -684,7 +684,7 @@ async function handleNftWithdrawalPayment(
 
   const validPayment =
     payment.currency === 'XTR' &&
-    payment.total_amount === 1 &&
+    payment.total_amount === 25 &&
     payerId !== undefined &&
     item !== null &&
     item.userId === BigInt(payerId)
@@ -723,22 +723,8 @@ async function handleNftWithdrawalPayment(
     return
   }
 
-  const sent = false
-  if (sent) {
-    await prisma.inventoryItem.updateMany({
-      where: {
-        id: item.id,
-        status: 'WITHDRAWAL_REQUESTED',
-        withdrawalChargeId: payment.telegram_payment_charge_id,
-      },
-      data: { status: 'CLAIMED' },
-    })
-    await notifyUser(item.userId, `✅ Подарок «${item.prizeName}» успешно отправлен вам в Telegram!`)
-    return
-  }
-
   const username = item.user.username ? `@${item.user.username}` : `ID ${item.userId.toString()}`
-  if (env.ADMIN_ID && item.userId !== env.ADMIN_ID) {
+  if (env.ADMIN_ID) {
     await notifyUser(
       env.ADMIN_ID,
       `📤 Нужна ручная отправка NFT «${item.prizeName}» для ${username}. ID заявки: ${item.id}.`,
