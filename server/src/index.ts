@@ -22,7 +22,7 @@ import { referralRoutes } from './routes/referral.js'
 import { devRoutes } from './routes/dev.js'
 import { tasksRoutes } from './routes/tasks.js'
 import { setupSupportWebhook, supportBot, supportRoutes } from './routes/support.js'
-import { initUserbot, retryPendingWithdrawals, stopUserbot } from './services/userbot.js'
+import { initUserbot, stopUserbot } from './services/userbot.js'
 import { notifyDailyBonusReady } from './services/bot.js'
 import { checkNicknameTask } from './services/nickname.js'
 import { getPriceSnapshot, startPricePoller, stopPricePoller, subscribePriceUpdates } from './services/pricePoller.js'
@@ -232,15 +232,8 @@ const start = async () => {
   } catch (error) {
     fastify.log.error(error, '[Userbot] Ошибка инициализации. Сервер продолжает работу.')
   }
-  void retryPendingWithdrawals().catch((error: unknown) => {
-    fastify.log.error(error, '[NFT_WITHDRAWAL] initial retry failed')
-  })
-  withdrawalRetryTimer = setInterval(() => {
-    void retryPendingWithdrawals().catch((error: unknown) => {
-      fastify.log.error(error, '[NFT_WITHDRAWAL] scheduled retry failed')
-    })
-  }, NFT_WITHDRAWAL_RETRY_INTERVAL_MS)
-  withdrawalRetryTimer.unref()
+  // Автоотправка NFT отключена (вывод обрабатывается вручную админом)
+  // void retryPendingWithdrawals().catch(...)
   startPricePoller()
 
   if (supportBot && env.WEBHOOK_URL) {

@@ -366,7 +366,7 @@ export default function InventoryModal({
             <p className="mb-0 mt-4 rounded-xl border border-amber-300/20 bg-amber-400/[0.07] px-3 py-3 text-xs leading-relaxed text-amber-100/90">
               <strong className="font-extrabold text-amber-100">Внимание! Если вы не написали @RelayerGiftRoll хотя бы одно сообщение, подарок не сможет дойти. Откройте чат и напишите «привет» перед оплатой.</strong>
               {' '}<a className="font-bold text-violet-300 underline" href="https://t.me/RelayerGiftRoll" target="_blank" rel="noreferrer">Открыть @RelayerGiftRoll</a>
-              <br /><br />Вывод подарка занимает до 12 часов. Подарок придет вам в Telegram от аккаунта @Giftrollgamebot.
+              <br /><br /><strong className="text-amber-200">Вывод занимает до 12 часов.</strong> Подарок придет в Telegram от аккаунта @Giftrollgamebot.
               <br /><br />Комиссия сети Telegram за пересылку NFT составит 25 ⭐. Она будет списана перед отправкой.
             </p>
             <div className="mt-4 flex gap-2">

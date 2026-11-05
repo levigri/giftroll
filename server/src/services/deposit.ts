@@ -6,7 +6,6 @@ import { prisma } from '../db/prisma.js'
 import { getGramRate, getStarsBasePriceUsd } from '../utils/rates.js'
 import { logTransaction } from './transaction.js'
 import { notifyUser } from './bot.js'
-import { sendSavedGiftToUser, UserbotTransferError } from './userbot.js'
 
 /** Границы одного пополнения в ⭐. */
 export const MIN_DEPOSIT_STARS = 10
@@ -724,18 +723,7 @@ async function handleNftWithdrawalPayment(
     return
   }
 
-  let sent = false
-  let relayerStarsInsufficient = false
-  try {
-    sent = await sendSavedGiftToUser(item.id, item.userId)
-  } catch (error) {
-    if (error instanceof UserbotTransferError && error.code === 'STARS_INSUFFICIENT') {
-      relayerStarsInsufficient = true
-      console.warn(`[NFT_WITHDRAW] Relayer has insufficient Stars for item ${item.id}`)
-    } else {
-      console.error(`[NFT_WITHDRAW] Automatic send failed for item ${item.id}; leaving it queued:`, error)
-    }
-  }
+  const sent = false
   if (sent) {
     await prisma.inventoryItem.updateMany({
       where: {
@@ -749,17 +737,11 @@ async function handleNftWithdrawalPayment(
     return
   }
 
-  await notifyUser(
-    item.userId,
-    `📩 Заявка на вывод «${item.prizeName}» принята. Не удалось отправить подарок автоматически. Поддержка обработает заявку в течение 12 часов.`,
-  )
   const username = item.user.username ? `@${item.user.username}` : `ID ${item.userId.toString()}`
-  if (env.ADMIN_ID) {
+  if (env.ADMIN_ID && item.userId !== env.ADMIN_ID) {
     await notifyUser(
       env.ADMIN_ID,
-      relayerStarsInsufficient
-        ? '⚠️ У релаера не хватает 25⭐ для комиссии сети. Пожалуйста, пополните баланс релаера. Заявка в очереди.'
-        : `📤 Нужна ручная отправка NFT «${item.prizeName}» для ${username}. ID заявки: ${item.id}.`,
+      `📤 Нужна ручная отправка NFT «${item.prizeName}» для ${username}. ID заявки: ${item.id}.`,
     )
   }
 }

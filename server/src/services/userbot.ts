@@ -194,9 +194,6 @@ async function handleIncomingMessage(message: Message): Promise<void> {
 
     console.info(`[Userbot] Telegram NFT #${giftId} зачислен в инвентарь GiftRoll`)
     await notifyUser(senderUserId, `✅ Твой подарок «${prizeName}» успешно зачислен в инвентарь GiftRoll!`)
-    void retryPendingWithdrawals().catch((error: unknown) => {
-      console.error('[Userbot] Не удалось обработать очередь выводов после получения NFT:', error)
-    })
   } catch (error) {
     if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
       console.info(`[Userbot] Повторное событие подарка пропущено (message ${message.id})`)

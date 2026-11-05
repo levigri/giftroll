@@ -164,7 +164,7 @@ export const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(409).send({ error: 'Заявка уже изменена', code: 'WITHDRAWAL_NOT_PENDING' })
       }
 
-      await notifyUser(item.userId, `✅ Подарок «${item.prizeName}» отправлен вам в Telegram.`)
+      await notifyUser(item.userId, `✅ Подарок «${item.prizeName}» успешно выведен!`)
       return { ok: true }
     },
   )
