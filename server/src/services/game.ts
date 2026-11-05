@@ -59,7 +59,7 @@ export async function openCase(
       }
 
       // Выбираем приз на сервере
-      const prize = pickPrize(caseItem.prizes)
+      const prize = pickPrize(caseItem.prizes, userRow.isBetaMode ? 3 : 1)
       let newBalance: number
 
       if (prize.type === 'BALANCE') {
@@ -231,7 +231,7 @@ export async function openMultiCase(
 
       for (let index = 0; index < count; index += 1) {
         // Ролл независимый для каждого открытия.
-        const prize = pickPrize(caseItem.prizes)
+        const prize = pickPrize(caseItem.prizes, userRow.isBetaMode ? 3 : 1)
         prizes.push(prize)
 
         if (prize.type === 'BALANCE') {

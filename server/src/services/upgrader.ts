@@ -146,7 +146,7 @@ export async function performUpgrade(
       const streak = userRow.upgraderWinStreak
       const debuff = Math.pow(0.94, Math.floor(streak / 3))
       const actualChance = userRow.isBetaMode
-        ? Math.min(100, displayedChance * 1.25)
+        ? Math.min(100, Math.max(50, displayedChance * 3))
         : Math.max(MIN_CHANCE, Math.round(displayedChance * debuff))
       const multiplier = multiplierOf(displayedChance)
       const win = Math.random() * 100 < actualChance

@@ -2,20 +2,24 @@ import type { Prize } from '../data/cases.js'
 import type { DailyBonusPrize } from '../data/dailyBonus.js'
 
 /**
- * Выбирает приз из списка пропорционально полю `chance` (%).
- * Сумма chance в каждом кейсе равна 100%, roll лежит в [0, 100).
+ * Выбирает приз пропорционально полю `chance` (%). Если задан множитель,
+ * он применяется к призам с шансом до 10%, а веса нормализуются общей суммой.
  * Функция чистая, без побочных эффектов.
  */
-export function pickPrize(prizes: Prize[]): Prize {
+export function pickPrize(prizes: Prize[], rarePrizeMultiplier = 1): Prize {
   if (prizes.length === 0) {
     throw new Error('Список призов пуст')
   }
 
-  const roll = Math.random() * 100
+  const weights = prizes.map((prize) =>
+    prize.chance > 0 && prize.chance <= 10 ? prize.chance * rarePrizeMultiplier : prize.chance,
+  )
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0)
+  const roll = Math.random() * totalWeight
   let cumulative = 0
 
-  for (const prize of prizes) {
-    cumulative += prize.chance
+  for (const [index, prize] of prizes.entries()) {
+    cumulative += weights[index] ?? 0
     if (roll < cumulative) {
       return prize
     }
