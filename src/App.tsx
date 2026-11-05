@@ -875,6 +875,7 @@ function App() {
         <RouletteModal
           caseItem={activeCase}
           balance={me?.balance ?? 0}
+          isBetaMode={me?.isBetaMode ?? false}
           onClose={() => void closeRoulette()}
           onOpen={(count) => openCaseBatch(activeCase, count)}
         />

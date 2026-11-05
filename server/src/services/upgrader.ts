@@ -140,13 +140,13 @@ export async function performUpgrade(
         throw new GameError('INSUFFICIENT_FUNDS', 'Недостаточно средств для такой ставки', 400)
       }
 
-      // Игрок видит displayedChance и множитель от неё: выплата при победе
-      // ровно такая, как ожидалась. Реальный шанс тихо падает с серией побед.
+      // В бета-режиме звёзды и NFT не списываются и не зачисляются,
+      // поэтому для тестов применяем бонус к фактическому шансу.
       const displayedChance = chance
       const streak = userRow.upgraderWinStreak
       const debuff = Math.pow(0.94, Math.floor(streak / 3))
       const actualChance = userRow.isBetaMode
-        ? displayedChance
+        ? Math.min(100, displayedChance * 1.25)
         : Math.max(MIN_CHANCE, Math.round(displayedChance * debuff))
       const multiplier = multiplierOf(displayedChance)
       const win = Math.random() * 100 < actualChance

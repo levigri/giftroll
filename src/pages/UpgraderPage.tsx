@@ -17,7 +17,7 @@ type Phase = 'idle' | 'spinning' | 'result'
 
 export interface UpgraderPageProps {
   balance: number
-  isBetaMode: boolean
+  isBetaMode?: boolean
   /** Обновляет профиль (баланс и счётчик инвентаря) после апгрейда. */
   onRefreshMe: () => Promise<void> | void
   /** Мгновенное оптимистичное обновление баланса в шапке. */
@@ -119,7 +119,7 @@ const targetKey = (target: { id: string; name: string }): string => `${target.id
 
 export default function UpgraderPage({
   balance,
-  isBetaMode,
+  isBetaMode = false,
   onRefreshMe,
   onBalanceChange,
 }: UpgraderPageProps) {
@@ -333,7 +333,7 @@ export default function UpgraderPage({
     pointerRef.current.style.transform = 'rotate(0deg)'
   }, [phase, requestTarget])
 
-  const overBalance = starsBet > balance
+  const overBalance = !isBetaMode && starsBet > balance
   const tooSmall = totalBet < MIN_TOTAL_BET
   const tooBig = totalBet > MAX_TOTAL_BET
   const busy = phase === 'spinning'

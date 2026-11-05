@@ -11,6 +11,7 @@ export interface RouletteModalProps {
   caseItem: CaseItem
   /** Текущий баланс — для блокировки кнопки, если звёзд не хватает. */
   balance: number
+  isBetaMode?: boolean
   onClose: () => void
   /** Открывает count кейсов и возвращает выпавшие призы в том же порядке. */
   onOpen: (count: OpenCount) => Promise<Prize[]>
@@ -59,6 +60,7 @@ function buildStrip(pool: Prize[], winner?: Prize): Prize[] {
 export default function RouletteModal({
   caseItem,
   balance,
+  isBetaMode = false,
   onClose,
   onOpen,
 }: RouletteModalProps) {
@@ -79,7 +81,7 @@ export default function RouletteModal({
   const cellGap = CELL_GAPS[count]
   const availableCounts: OpenCount[] = caseItem.id === 'case-deposit-bonus' ? [1] : OPEN_COUNTS
   const totalPrice = caseItem.price * count
-  const notEnough = balance < totalPrice
+  const notEnough = !isBetaMode && balance < totalPrice
   const spinning = phase === 'spinning'
 
   useEffect(
@@ -373,6 +375,8 @@ export default function RouletteModal({
               >
                 {notEnough ? (
                   'Недостаточно звёзд'
+                ) : isBetaMode ? (
+                  'Открыть за 0 ⭐ (Бета)'
                 ) : (
                   <>
                     {phase === 'result' ? 'Открыть ещё за ' : 'Открыть за '}{totalPrice}
