@@ -12,6 +12,17 @@ export async function findActiveDepositLock(
   now = new Date(),
 ): Promise<Date | null> {
   const lockCutoff = new Date(now.getTime() - DEPOSIT_LOCK_MS)
+
+  const recentCleanDeposit = await tx.deposit.findFirst({
+    where: {
+      userId,
+      status: 'completed',
+      currency: { in: ['GRAMS', 'CRYPTO'] },
+      createdAt: { gt: lockCutoff },
+    },
+  })
+  if (recentCleanDeposit) return null
+
   const deposit = await tx.deposit.findFirst({
     where: {
       userId,
