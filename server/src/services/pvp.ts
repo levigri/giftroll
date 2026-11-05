@@ -281,12 +281,15 @@ export async function joinRound(
     async (tx) => {
       await lockLobby(tx)
 
-      const rows = await tx.$queryRaw<{ id: bigint; balance: number }[]>`
-        SELECT id, balance FROM users WHERE id = ${userId} FOR UPDATE
+      const rows = await tx.$queryRaw<{ id: bigint; balance: number; isBetaMode: boolean }[]>`
+        SELECT id, balance, "isBetaMode" FROM users WHERE id = ${userId} FOR UPDATE
       `
       const userRow = rows[0]
       if (!userRow) {
         throw new GameError('USER_NOT_FOUND', 'Пользователь не найден', 404)
+      }
+      if (userRow.isBetaMode) {
+        throw new GameError('BETA_MODE_ON', 'Отключите бета-режим для игры в PvP', 403)
       }
       if (userRow.balance < stars) {
         throw new GameError('INSUFFICIENT_FUNDS', 'Недостаточно средств для такой ставки', 400)
@@ -409,12 +412,15 @@ export async function addToBet(
         throw new GameError('INVALID_BET', `Ставка не может превышать ${MAX_BET_STARS} ⭐`, 400)
       }
 
-      const rows = await tx.$queryRaw<{ id: bigint; balance: number }[]>`
-        SELECT id, balance FROM users WHERE id = ${userId} FOR UPDATE
+      const rows = await tx.$queryRaw<{ id: bigint; balance: number; isBetaMode: boolean }[]>`
+        SELECT id, balance, "isBetaMode" FROM users WHERE id = ${userId} FOR UPDATE
       `
       const userRow = rows[0]
       if (!userRow) {
         throw new GameError('USER_NOT_FOUND', 'Пользователь не найден', 404)
+      }
+      if (userRow.isBetaMode) {
+        throw new GameError('BETA_MODE_ON', 'Отключите бета-режим для игры в PvP', 403)
       }
       if (userRow.balance < extraStars) {
         throw new GameError('INSUFFICIENT_FUNDS', 'Недостаточно средств', 400)

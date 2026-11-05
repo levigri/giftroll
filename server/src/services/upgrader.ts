@@ -128,15 +128,15 @@ export async function performUpgrade(
       // Блокируем пользователя: баланс не уходит в минус, а инвентарь
       // не может быть одновременно сожжён двумя апгрейдами.
       const rows = await tx.$queryRaw<
-        { id: bigint; balance: number; upgraderWinStreak: number }[]
+        { id: bigint; balance: number; upgraderWinStreak: number; isBetaMode: boolean }[]
       >`
-        SELECT id, balance, "upgraderWinStreak" FROM users WHERE id = ${userId} FOR UPDATE
+        SELECT id, balance, "upgraderWinStreak", "isBetaMode" FROM users WHERE id = ${userId} FOR UPDATE
       `
       const userRow = rows[0]
       if (!userRow) {
         throw new GameError('USER_NOT_FOUND', 'Пользователь не найден', 404)
       }
-      if (userRow.balance < starsBet) {
+      if (!userRow.isBetaMode && userRow.balance < starsBet) {
         throw new GameError('INSUFFICIENT_FUNDS', 'Недостаточно средств для такой ставки', 400)
       }
 
@@ -145,7 +145,9 @@ export async function performUpgrade(
       const displayedChance = chance
       const streak = userRow.upgraderWinStreak
       const debuff = Math.pow(0.94, Math.floor(streak / 3))
-      const actualChance = Math.max(MIN_CHANCE, Math.round(displayedChance * debuff))
+      const actualChance = userRow.isBetaMode
+        ? displayedChance
+        : Math.max(MIN_CHANCE, Math.round(displayedChance * debuff))
       const multiplier = multiplierOf(displayedChance)
       const win = Math.random() * 100 < actualChance
 
@@ -180,7 +182,7 @@ export async function performUpgrade(
       }
 
       const winAmount = win ? Math.floor(totalBet * multiplier) : 0
-      if (win && winAmount < targetMarketPrice) {
+      if (!userRow.isBetaMode && win && winAmount < targetMarketPrice) {
         throw new GameError(
           'INVALID_BET',
           'Выплата меньше стоимости NFT. Увеличьте ставку или уменьшите шанс.',
@@ -188,12 +190,12 @@ export async function performUpgrade(
         )
       }
 
-      const grantNft = win
-      const remainingStars = win ? winAmount - targetMarketPrice : 0
-      const newBalance = userRow.balance - starsBet + remainingStars
+      const grantNft = win && !userRow.isBetaMode
+      const remainingStars = win && !userRow.isBetaMode ? winAmount - targetMarketPrice : 0
+      const newBalance = userRow.isBetaMode ? userRow.balance : userRow.balance - starsBet + remainingStars
 
-      // NFT сгорают в любом случае — и при победе, и при проигрыше.
-      if (uniqueIds.length > 0) {
+      // В бета-режиме тестовые ставки не уничтожают реальные NFT игрока.
+      if (!userRow.isBetaMode && uniqueIds.length > 0) {
         const consumed = await tx.inventoryItem.deleteMany({
           where: { userId, id: { in: uniqueIds }, status: 'PENDING' },
         })
@@ -218,18 +220,22 @@ export async function performUpgrade(
         })
       }
 
-      await tx.user.update({
-        where: { id: userId },
-        data: {
-          balance: newBalance,
-          upgraderWinStreak: win ? { increment: 1 } : 0,
-        },
-      })
+      if (!userRow.isBetaMode) {
+        await tx.user.update({
+          where: { id: userId },
+          data: {
+            balance: newBalance,
+            upgraderWinStreak: win ? { increment: 1 } : 0,
+          },
+        })
+      }
 
       // История операций: ставка апгрейдера и (при победе) выигрыш.
-      await logTransaction(userId, 'UPGRADE', -starsBet, `Апгрейд: ${targetNft.name}`, tx)
-      if (remainingStars > 0) {
-        await logTransaction(userId, 'UPGRADE', remainingStars, 'Выигрыш в апгрейдере', tx)
+      if (!userRow.isBetaMode) {
+        await logTransaction(userId, 'UPGRADE', -starsBet, `Апгрейд: ${targetNft.name}`, tx)
+        if (remainingStars > 0) {
+          await logTransaction(userId, 'UPGRADE', remainingStars, 'Выигрыш в апгрейдере', tx)
+        }
       }
 
       const receivedNft = grantNft
@@ -251,6 +257,7 @@ export async function performUpgrade(
         /** Только для внутренних логов: на фронт не уходит. */
         actualChance,
         streak,
+        isBetaMode: userRow.isBetaMode,
       }
     },
     { timeout: 10000 },
@@ -265,7 +272,9 @@ export async function performUpgrade(
   )
 
   // Списанные ⭐ отыгрывают депозит и приносят рефереру 10%.
-  processWagering(userId, starsBet, 'upgrader').catch(console.error)
+  if (!result.isBetaMode) {
+    processWagering(userId, starsBet, 'upgrader').catch(console.error)
+  }
 
   // При победе в апгрейдере всегда выдаётся NFT; в ленту звёзды не попадают.
   const feedItem = result.receivedNft

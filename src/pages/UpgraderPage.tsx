@@ -17,6 +17,7 @@ type Phase = 'idle' | 'spinning' | 'result'
 
 export interface UpgraderPageProps {
   balance: number
+  isBetaMode: boolean
   /** Обновляет профиль (баланс и счётчик инвентаря) после апгрейда. */
   onRefreshMe: () => Promise<void> | void
   /** Мгновенное оптимистичное обновление баланса в шапке. */
@@ -118,6 +119,7 @@ const targetKey = (target: { id: string; name: string }): string => `${target.id
 
 export default function UpgraderPage({
   balance,
+  isBetaMode,
   onRefreshMe,
   onBalanceChange,
 }: UpgraderPageProps) {
@@ -488,10 +490,12 @@ export default function UpgraderPage({
         errorFeedback()
       }
 
-      // Сгоревшие NFT больше не выбираемы: обновляем список с сервера.
-      setNftIds([])
-      void loadInventory()
-      onBalanceChange?.(balance - starsBet + res.remainingStars)
+      if (!isBetaMode) {
+        // Сгоревшие NFT больше не выбираемы: обновляем список с сервера.
+        setNftIds([])
+        void loadInventory()
+        onBalanceChange?.(balance - starsBet + res.remainingStars)
+      }
       void onRefreshMe()
     } catch (err: unknown) {
       // Ошибка до старта прокрутки — возвращаем стрелку в 0.
@@ -517,7 +521,9 @@ export default function UpgraderPage({
       </h2>
       <p className="upgrader__subtitle">
         Собери ставку из ⭐ и NFT. Цель автоматически меняется вместе с шансом и выплатой;
-        NFT из ставки сгорают в любом случае.
+        {isBetaMode
+          ? ' в бета-режиме результат тестовый, баланс и NFT не меняются.'
+          : ' NFT из ставки сгорают в любом случае.'}
       </p>
 
       {error && <div className="upgrader__error">{error}</div>}
@@ -1043,12 +1049,20 @@ export default function UpgraderPage({
           {result.win && result.receivedNft && <Confetti />}
 
           <div className="upgrader__result-title">
-            {result.win
+            {isBetaMode
+              ? result.win ? 'Тестовый успех' : 'Тестовый проигрыш'
+              : result.win
               ? result.receivedNft
                 ? 'Предмет у тебя!'
                 : `Выигрыш +${result.remainingStars}`
               : 'Проигрыш'}
           </div>
+
+          {isBetaMode && (
+            <p className="m-0 text-center text-xs text-gray-400">
+              Тестовый результат: звёзды и NFT не начисляются.
+            </p>
+          )}
 
           {result.win && result.receivedNft && (
             <div className="upgrader__prize-card">

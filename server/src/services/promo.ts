@@ -23,6 +23,17 @@ export async function openPromoCase(
   currentUses: number
 }> {
   return prisma.$transaction(async (tx) => {
+    const userRows = await tx.$queryRaw<{ isBetaMode: boolean }[]>`
+      SELECT "isBetaMode" FROM users WHERE id = ${userId} FOR UPDATE
+    `
+    const user = userRows[0]
+    if (!user) {
+      throw new GameError('USER_NOT_FOUND', 'Пользователь не найден', 404)
+    }
+    if (user.isBetaMode) {
+      throw new GameError('BETA_RESTRICTED', 'Промокод-кейс недоступен в бета-режиме', 403)
+    }
+
     const promo = await tx.promoCode.findUnique({ where: { code } })
     if (!promo) {
       throw new GameError('PROMO_INVALID', 'Код не найден или исчерпан', 400)

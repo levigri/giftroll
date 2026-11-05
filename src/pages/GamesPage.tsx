@@ -117,6 +117,7 @@ export default function GamesPage({
         {game === 'upgrader' && (
           <UpgraderPage
             balance={balance}
+            isBetaMode={me?.isBetaMode ?? false}
             onRefreshMe={onRefreshMe}
             onBalanceChange={onBalanceChange}
           />
@@ -127,6 +128,7 @@ export default function GamesPage({
             balance={balance}
             onRefreshMe={onRefreshMe}
             onBalanceChange={onBalanceChange}
+            isBetaMode={me?.isBetaMode ?? false}
           />
         )}
       </div>

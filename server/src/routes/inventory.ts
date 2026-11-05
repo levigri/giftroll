@@ -61,6 +61,9 @@ export const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
+        if (user.isBetaMode) {
+          throw new GameError('BETA_RESTRICTED', 'В бета-режиме вывод и продажа запрещены', 403)
+        }
         const result = await sellNft(user.id, itemId)
         return result
       } catch (err) {
@@ -91,6 +94,9 @@ export const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
+        if (user.isBetaMode) {
+          throw new GameError('BETA_RESTRICTED', 'В бета-режиме вывод и продажа запрещены', 403)
+        }
         const item = await prisma.inventoryItem.findFirst({
           where: { id: itemId, userId: user.id },
         })

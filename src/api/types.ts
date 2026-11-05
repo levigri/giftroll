@@ -27,6 +27,7 @@ export interface CasesResponse {
 
 export interface MeResponse {
   id: string
+  isBetaMode: boolean
   firstName: string
   lastName: string | null
   username: string | null

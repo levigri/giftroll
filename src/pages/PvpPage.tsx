@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Clock, Plus, Star, Swords, Trophy } from 'lucide-react'
+import { Clock, Lock, Plus, Star, Swords, Trophy } from 'lucide-react'
 import type {
   PvpHistoryEntry,
   PvpJoinResponse,
@@ -16,6 +16,7 @@ type Phase = 'idle' | 'in_round' | 'spinning' | 'result'
 
 export interface PvpPageProps {
   balance: number
+  isBetaMode: boolean
   /** Обновляет профиль (баланс в шапке) после входа и после спина. */
   onRefreshMe: () => Promise<void> | void
   /** Мгновенное оптимистичное обновление баланса при ставке или докиде. */
@@ -238,7 +239,7 @@ function formatTime(iso: string | null): string {
   )}`
 }
 
-export default function PvpPage({ balance, onRefreshMe, onBalanceChange }: PvpPageProps) {
+export default function PvpPage({ balance, onRefreshMe, onBalanceChange, isBetaMode }: PvpPageProps) {
   const [phase, setPhase] = useState<Phase>('idle')
   const [round, setRound] = useState<PvpRoundView | null>(null)
   const [result, setResult] = useState<RoundResult | null>(null)
@@ -774,6 +775,20 @@ export default function PvpPage({ balance, onRefreshMe, onBalanceChange }: PvpPa
     const timer = setTimeout(handlePlayAgain, RESULT_FALLBACK_CLOSE_MS)
     return () => clearTimeout(timer)
   }, [phase, hasWinner, handlePlayAgain])
+
+  if (isBetaMode) {
+    return (
+      <section className="glass-card flex flex-col items-center gap-3 p-6 text-center">
+        <span className="flex h-12 w-12 items-center justify-center rounded-full border border-violet-400/30 bg-violet-500/15">
+          <Lock size={22} className="text-violet-300" />
+        </span>
+        <h2 className="m-0 text-base font-extrabold text-white">PvP временно недоступен</h2>
+        <p className="m-0 max-w-xs text-sm leading-relaxed text-gray-400">
+          Отключите Бета-режим в профиле, чтобы играть в PvP.
+        </p>
+      </section>
+    )
+  }
 
   return (
     <div className="pvp">

@@ -43,8 +43,8 @@ export async function openCase(
   const result = await prisma.$transaction(
     async (tx) => {
       // Блокируем запись пользователя для защиты от race condition
-      const rows = await tx.$queryRaw<{ id: bigint; balance: number }[]>`
-        SELECT id, balance FROM users WHERE id = ${userId} FOR UPDATE
+      const rows = await tx.$queryRaw<{ id: bigint; balance: number; isBetaMode: boolean }[]>`
+        SELECT id, balance, "isBetaMode" FROM users WHERE id = ${userId} FOR UPDATE
       `
 
       const userRow = rows[0]
@@ -53,7 +53,8 @@ export async function openCase(
       }
 
       const currentBalance = userRow.balance
-      if (currentBalance < caseItem.price) {
+      const casePrice = userRow.isBetaMode ? 0 : caseItem.price
+      if (currentBalance < casePrice) {
         throw new GameError('INSUFFICIENT_FUNDS', 'Недостаточно средств', 400)
       }
 
@@ -62,30 +63,28 @@ export async function openCase(
       let newBalance: number
 
       if (prize.type === 'BALANCE') {
-        newBalance = currentBalance - caseItem.price + prize.price
-        await tx.user.update({
-          where: { id: userId },
-          data: { balance: newBalance },
-        })
+        newBalance = userRow.isBetaMode ? currentBalance : currentBalance - casePrice + prize.price
+        if (!userRow.isBetaMode) {
+          await tx.user.update({ where: { id: userId }, data: { balance: newBalance } })
+        }
       } else {
-        newBalance = currentBalance - caseItem.price
-        await tx.user.update({
-          where: { id: userId },
-          data: { balance: newBalance },
-        })
-        const inheritedLock = await findActiveDepositLock(tx, userId)
-        await tx.inventoryItem.create({
-          data: {
-            userId,
-            prizeId: prize.id,
-            prizeName: prize.name,
-            prizeEmoji: prize.emoji,
-            prizePrice: prize.price,
-            isExternal: false,
-            lockUntil: inheritedLock,
-            status: 'PENDING',
-          },
-        })
+        newBalance = userRow.isBetaMode ? currentBalance : currentBalance - casePrice
+        if (!userRow.isBetaMode) {
+          await tx.user.update({ where: { id: userId }, data: { balance: newBalance } })
+          const inheritedLock = await findActiveDepositLock(tx, userId)
+          await tx.inventoryItem.create({
+            data: {
+              userId,
+              prizeId: prize.id,
+              prizeName: prize.name,
+              prizeEmoji: prize.emoji,
+              prizePrice: prize.price,
+              isExternal: false,
+              lockUntil: inheritedLock,
+              status: 'PENDING',
+            },
+          })
+        }
       }
 
       const caseOpen = await tx.caseOpen.create({
@@ -99,35 +98,42 @@ export async function openCase(
       })
 
       // История операций: расход на открытие кейса.
-      await logTransaction(userId, 'CASE_OPEN', -caseItem.price, `Кейс: ${caseItem.name}`, tx)
+      if (!userRow.isBetaMode) {
+        await logTransaction(userId, 'CASE_OPEN', -casePrice, `Кейс: ${caseItem.name}`, tx)
+      }
 
       return {
         prize,
         newBalance,
         caseOpenId: caseOpen.id,
+        isBetaMode: userRow.isBetaMode,
       }
     },
     { timeout: 10000 },
   )
 
   // Отыгранная часть депозита уменьшается, реферер получает 10%.
-  processWagering(userId, caseItem.price, 'case', caseItem.id).catch(console.error)
+  if (!result.isBetaMode) {
+    processWagering(userId, caseItem.price, 'case', caseItem.id).catch(console.error)
+  }
 
   // Лента дропов: пишем после успешного открытия и не ждём БД.
-  const username = await getUsername(userId)
-  logDrop({
-    userId,
-    username,
-    eventType: 'case',
-    itemName: result.prize.name,
-    itemType: dropItemTypeOf(result.prize),
-    itemEmoji: result.prize.emoji,
-    itemPrice: result.prize.price,
-    sourceName: caseItem.name,
-    sourceEmoji: caseItem.emoji,
-  }).catch(console.error)
+  if (!result.isBetaMode) {
+    const username = await getUsername(userId)
+    logDrop({
+      userId,
+      username,
+      eventType: 'case',
+      itemName: result.prize.name,
+      itemType: dropItemTypeOf(result.prize),
+      itemEmoji: result.prize.emoji,
+      itemPrice: result.prize.price,
+      sourceName: caseItem.name,
+      sourceEmoji: caseItem.emoji,
+    }).catch(console.error)
+  }
 
-  return result
+  return { prize: result.prize, newBalance: result.newBalance, caseOpenId: result.caseOpenId }
 }
 
 export interface MultiCaseResultItem {
@@ -199,13 +205,13 @@ export async function openMultiCase(
     throw new GameError('CASE_NOT_FOUND', 'Кейс не найден', 404)
   }
 
-  const spent = caseItem.price * count
+  const nominalSpent = caseItem.price * count
 
   const result = await prisma.$transaction(
     async (tx) => {
       // Блокируем строку пользователя: баланс не может уйти в минус.
-      const rows = await tx.$queryRaw<{ id: bigint; balance: number }[]>`
-        SELECT id, balance FROM users WHERE id = ${userId} FOR UPDATE
+      const rows = await tx.$queryRaw<{ id: bigint; balance: number; isBetaMode: boolean }[]>`
+        SELECT id, balance, "isBetaMode" FROM users WHERE id = ${userId} FOR UPDATE
       `
 
       const userRow = rows[0]
@@ -213,6 +219,7 @@ export async function openMultiCase(
         throw new GameError('USER_NOT_FOUND', 'Пользователь не найден', 404)
       }
 
+      const spent = userRow.isBetaMode ? 0 : nominalSpent
       if (userRow.balance < spent) {
         throw new GameError('INSUFFICIENT_FUNDS', 'Недостаточно средств', 400)
       }
@@ -220,7 +227,7 @@ export async function openMultiCase(
       const results: MultiCaseResultItem[] = []
       const prizes: Prize[] = []
       let starsWon = 0
-      const inheritedLock = await findActiveDepositLock(tx, userId)
+      const inheritedLock = userRow.isBetaMode ? null : await findActiveDepositLock(tx, userId)
 
       for (let index = 0; index < count; index += 1) {
         // Ролл независимый для каждого открытия.
@@ -229,8 +236,8 @@ export async function openMultiCase(
 
         if (prize.type === 'BALANCE') {
           // Звёзды сразу на баланс — предметом в инвентарь они не попадают.
-          starsWon += prize.price
-        } else {
+          if (!userRow.isBetaMode) starsWon += prize.price
+        } else if (!userRow.isBetaMode) {
           await tx.inventoryItem.create({
             data: {
               userId,
@@ -265,29 +272,32 @@ export async function openMultiCase(
       }
 
       // Одно обновление баланса на всю пачку: ставка списана, звёзды зачислены.
-      const newBalance = userRow.balance - spent + starsWon
-      await tx.user.update({
-        where: { id: userId },
-        data: { balance: newBalance },
-      })
+      const newBalance = userRow.isBetaMode ? userRow.balance : userRow.balance - spent + starsWon
+      if (!userRow.isBetaMode) {
+        await tx.user.update({ where: { id: userId }, data: { balance: newBalance } })
+      }
 
       // История операций: расход на пакетное открытие (price × count).
-      await logTransaction(userId, 'CASE_OPEN', -spent, `Кейс: ${caseItem.name}`, tx)
+      if (!userRow.isBetaMode) {
+        await logTransaction(userId, 'CASE_OPEN', -spent, `Кейс: ${caseItem.name}`, tx)
+      }
 
-      return { results, prizes, newBalance }
+      return { results, prizes, newBalance, spent, isBetaMode: userRow.isBetaMode }
     },
     { timeout: 10000 },
   )
 
   // Мульти-открытие — расход price × count (одно списание в транзакции).
-  processWagering(userId, spent, 'multi_case', caseItem.id).catch(console.error)
+  if (result.spent > 0) {
+    processWagering(userId, result.spent, 'multi_case', caseItem.id).catch(console.error)
+  }
 
-  logCaseDrops(userId, result.prizes, caseItem)
+  if (!result.isBetaMode) logCaseDrops(userId, result.prizes, caseItem)
 
   return {
     results: result.results,
     totalValue: result.results.reduce((sum, prize) => sum + prize.price, 0),
-    spent,
+    spent: result.spent,
     newBalance: result.newBalance,
   }
 }
@@ -302,6 +312,11 @@ export async function claimDaily(userId: bigint): Promise<{
 }> {
   const ONE_DAY_MS = 24 * 60 * 60 * 1000
   const TWO_DAYS_MS = 48 * 60 * 60 * 1000
+
+  const userMode = await prisma.user.findUnique({ where: { id: userId }, select: { isBetaMode: true } })
+  if (userMode?.isBetaMode) {
+    throw new GameError('BETA_RESTRICTED', 'Ежедневные награды недоступны в бета-режиме', 403)
+  }
 
   const existing = await prisma.dailyBonus.findUnique({
     where: { userId },
@@ -329,13 +344,16 @@ export async function claimDaily(userId: bigint): Promise<{
 
   const newBalance = await prisma.$transaction(
     async (tx) => {
-      const rows = await tx.$queryRaw<{ id: bigint; balance: number }[]>`
-        SELECT id, balance FROM users WHERE id = ${userId} FOR UPDATE
+      const rows = await tx.$queryRaw<{ id: bigint; balance: number; isBetaMode: boolean }[]>`
+        SELECT id, balance, "isBetaMode" FROM users WHERE id = ${userId} FOR UPDATE
       `
 
       const userRow = rows[0]
       if (!userRow) {
         throw new GameError('USER_NOT_FOUND', 'Пользователь не найден', 404)
+      }
+      if (userRow.isBetaMode) {
+        throw new GameError('BETA_RESTRICTED', 'Ежедневные награды недоступны в бета-режиме', 403)
       }
 
       const nextBalance = userRow.balance + prize.amount
@@ -395,13 +413,17 @@ export async function claimFreeCase(userId: bigint): Promise<{
         id: bigint
         balance: number
         hasClaimedDepositBonus: boolean
+        isBetaMode: boolean
       }[]>`
-        SELECT id, balance, "hasClaimedDepositBonus" FROM users WHERE id = ${userId} FOR UPDATE
+        SELECT id, balance, "hasClaimedDepositBonus", "isBetaMode" FROM users WHERE id = ${userId} FOR UPDATE
       `
 
       const userRow = rows[0]
       if (!userRow) {
         throw new GameError('USER_NOT_FOUND', 'Пользователь не найден', 404)
+      }
+      if (userRow.isBetaMode) {
+        throw new GameError('BETA_RESTRICTED', 'Бонусный кейс недоступен в бета-режиме', 403)
       }
       if (userRow.hasClaimedDepositBonus) {
         throw new GameError(

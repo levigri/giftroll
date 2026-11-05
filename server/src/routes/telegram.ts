@@ -19,7 +19,7 @@ export const telegramRoutes: FastifyPluginAsync = async (fastify) => {
   const bot = new Bot(env.BOT_TOKEN)
 
   bot.command('start', async (ctx) => {
-    const welcomeText = `👋 Добро пожаловать в GiftRoll!\n\n🎁 Открывай кейсы, собирай реальные NFT из Telegram Gifts и зарабатывай звёзды.\n\n🚨 Мультиаккаунты запрещены\n📢 Наш канал: t.me/giftrollchannel\n\nЖми на кнопку ниже, чтобы начать!`
+    const welcomeText = `👋 Добро пожаловать в GiftRoll!\n\n🎁 Открывай кейсы, собирай реальные NFT из Telegram Gifts и зарабатывай звёзды.\n\n🚨 Мультиаккаунты запрещены\n📢 Наш канал: t.me/NewsGiftRoll\n\nЖми на кнопку ниже, чтобы начать!`
     const replyMarkup = {
       inline_keyboard: [
         [{ text: '🎮 Играть в GiftRoll', web_app: { url: 'https://giftroll-six.vercel.app/?v=2' } }],

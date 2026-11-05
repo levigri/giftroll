@@ -104,6 +104,13 @@ export async function getMe(): Promise<MeResponse> {
   return request<MeResponse>('/api/me')
 }
 
+export async function toggleBetaMode(enabled: boolean): Promise<{ ok: boolean; isBetaMode: boolean }> {
+  return request<{ ok: boolean; isBetaMode: boolean }>('/api/user/beta', {
+    method: 'POST',
+    body: JSON.stringify({ enabled }),
+  })
+}
+
 export async function getCases(): Promise<CasesResponse> {
   return request<CasesResponse>('/api/cases')
 }

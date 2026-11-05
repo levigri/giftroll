@@ -16,6 +16,7 @@ import {
   getTransactions,
   openCase as openCaseApi,
   openMultiCase as openMultiCaseApi,
+  toggleBetaMode,
 } from './api/client'
 import {
   captureStartParamRef,
@@ -145,6 +146,7 @@ function App() {
   const connectionRestored = useIsConnectionRestored()
 
   const [me, setMe] = useState<MeResponse | null>(null)
+  const [betaModeSaving, setBetaModeSaving] = useState(false)
   const [cases, setCases] = useState<CaseItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -344,6 +346,20 @@ function App() {
     })
   }
 
+  const handleBetaModeChange = async (enabled: boolean) => {
+    if (betaModeSaving) return
+    setBetaModeSaving(true)
+    try {
+      const result = await toggleBetaMode(enabled)
+      setMe((current) => (current ? { ...current, isBetaMode: result.isBetaMode } : current))
+      tapFeedback('light')
+    } catch (err: unknown) {
+      showToastError(err)
+    } finally {
+      setBetaModeSaving(false)
+    }
+  }
+
   const handleDailyBonusClaimed = (result: { prize: DailyBonusPrize; newBalance: number }) => {
     setShowFreeCase(false)
     setMe((prev) => (prev ? { ...prev, balance: result.newBalance, dailyBonusAvailable: false } : null))
@@ -401,7 +417,9 @@ function App() {
                 ...prev,
                 balance: res.newBalance,
                 inventoryCount:
-                  res.prize.type === 'NFT' ? prev.inventoryCount + 1 : prev.inventoryCount,
+                  !prev.isBetaMode && res.prize.type === 'NFT'
+                    ? prev.inventoryCount + 1
+                    : prev.inventoryCount,
               }
             : null,
         )
@@ -418,7 +436,7 @@ function App() {
           ? {
               ...prev,
               balance: res.newBalance,
-              inventoryCount: prev.inventoryCount + nftCount,
+              inventoryCount: prev.inventoryCount + (prev.isBetaMode ? 0 : nftCount),
             }
           : null,
       )
@@ -566,6 +584,14 @@ function App() {
       <LiveFeed />
 
       <main className="app__main">
+        {me?.isBetaMode && (
+          <div
+            className="mb-3 rounded-xl border border-violet-400/30 bg-violet-500/10 px-3 py-2 text-center text-xs font-semibold text-violet-200"
+            role="status"
+          >
+            Бета-режим: это тестовые результаты — звёзды и NFT не начисляются.
+          </div>
+        )}
         {tab === 'games' && (
           <GamesPage
             balance={me?.balance ?? 0}
@@ -690,6 +716,25 @@ function App() {
                 >
                   {connected ? 'Отключить кошелёк' : 'Подключить кошелёк'}
                 </button>
+
+                <label className="glass-card flex cursor-pointer items-center justify-between gap-3 p-3.5">
+                  <span className="min-w-0">
+                    <span className="block text-sm font-bold text-white">
+                      Бета-режим (Только для тестов)
+                    </span>
+                    <span className="mt-1 block text-xs leading-relaxed text-gray-400">
+                      Открытия бесплатны, но звёзды и NFT не начисляются. PvP, продажа и вывод отключены.
+                    </span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5 shrink-0 accent-violet-500"
+                    checked={me.isBetaMode}
+                    disabled={betaModeSaving}
+                    onChange={(event) => void handleBetaModeChange(event.currentTarget.checked)}
+                    aria-label="Бета-режим"
+                  />
+                </label>
 
                 <button
                   type="button"

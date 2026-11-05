@@ -39,6 +39,7 @@ export const meRoutes: FastifyPluginAsync = async (fastify) => {
 
       return {
         id: user.id.toString(),
+        isBetaMode: user.isBetaMode,
         firstName: user.firstName,
         lastName: user.lastName,
         username: user.username,
@@ -56,6 +57,27 @@ export const meRoutes: FastifyPluginAsync = async (fastify) => {
         referral: request.referralBind ?? null,
         createdAt: user.createdAt.toISOString(),
       }
+    },
+  )
+
+  fastify.post<{ Body: { enabled?: unknown } }>(
+    '/api/user/beta',
+    { preHandler: authenticateTelegram },
+    async (request, reply) => {
+      const user = request.telegramUser
+      if (!user) {
+        return reply.code(401).send({ error: 'Unauthorized', code: 'AUTH_REQUIRED' })
+      }
+      if (typeof request.body?.enabled !== 'boolean') {
+        return reply.code(400).send({ error: 'enabled должен быть boolean', code: 'VALIDATION_ERROR' })
+      }
+
+      const updated = await prisma.user.update({
+        where: { id: user.id },
+        data: { isBetaMode: request.body.enabled },
+        select: { isBetaMode: true },
+      })
+      return { ok: true, isBetaMode: updated.isBetaMode }
     },
   )
 
