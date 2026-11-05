@@ -35,7 +35,7 @@ function isInsufficientRelayerStarsError(error: unknown): boolean {
       if (typeof value === 'string') details.push(value)
     }
   }
-  return /STARS?_INSUFFICIENT|BALANCE_TOO_LOW|NOT_ENOUGH_STARS|INSUFFICIENT_(?:BALANCE|STARS)/i.test(
+  return /STARS?_INSUFFICIENT|BALANCE_TOO_LOW|NOT_ENOUGH_STARS|INSUFFICIENT_(?:BALANCE|STARS)|STARGIFT_TRANSFER_UNAVAILABLE|GIFT_TRANSFER_FORBIDDEN/i.test(
     details.join(' '),
   )
 }
@@ -115,25 +115,27 @@ async function handleIncomingMessage(message: Message): Promise<void> {
 
   if (!message.isService || message.chat.type !== 'user') return
 
-  const action = message.action
-  let giftToProcess: UniqueGiftLike | null = null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const action = message.action as any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let giftToProcess: any = null
 
-  // В mtcute и обычные, и уникальные подарки приходят как star_gift_sent
-  if (action?.type === 'star_gift_sent' && 'gift' in action) {
-    if (isUniqueGift(action.gift)) {
+  if (action) {
+    if (action.type === 'star_gift_transferred' && 'gift' in action) {
       giftToProcess = action.gift
-    } else {
-      console.info(`[Userbot] Получен обычный гифт (не NFT) в сообщении ${message.id}. Игнорируем.`)
-      return
+    } else if (action.type === 'star_gift_sent' && 'gift' in action) {
+      giftToProcess = action.gift
+    } else if ('gift' in action && action.gift) {
+      giftToProcess = action.gift
     }
-  } else if (action && 'gift' in action && isUniqueGift(action.gift)) {
-    // Обработка на случай, если тип события отличается (например, gift_received)
-    giftToProcess = action.gift
   }
 
-  if (!giftToProcess) return
+  if (!giftToProcess) {
+    console.info(`[Userbot] Событие ${action?.type} не содержит подарка. Игнорируем.`)
+    return
+  }
 
-  if (action && 'refunded' in action && action.refunded) {
+  if ('refunded' in action && action.refunded) {
     console.info(`[Userbot] NFT-подарок в сообщении ${message.id} возвращён. Игнорируем.`)
     return
   }
@@ -145,8 +147,8 @@ async function handleIncomingMessage(message: Message): Promise<void> {
   }
   const peerId = message.chat.id
   const senderUserId = BigInt(senderId)
-  const giftId = giftToProcess.id.toString()
-  const rawPrizeName = giftToProcess.title || `Telegram NFT #${giftId}`
+  const giftId = giftToProcess.id?.toString() || `unknown-${message.id}`
+  const rawPrizeName = giftToProcess.title || (giftToProcess.gift?.title) || `Telegram NFT #${giftId}`
   const catalogEntry = findNftCatalogEntry(rawPrizeName)
   const prizeName = catalogEntry?.name ?? rawPrizeName
 
@@ -191,6 +193,7 @@ async function handleIncomingMessage(message: Message): Promise<void> {
     })
 
     console.info(`[Userbot] Telegram NFT #${giftId} зачислен в инвентарь GiftRoll`)
+    await notifyUser(senderUserId, `✅ Твой подарок «${prizeName}» успешно зачислен в инвентарь GiftRoll!`)
     void retryPendingWithdrawals().catch((error: unknown) => {
       console.error('[Userbot] Не удалось обработать очередь выводов после получения NFT:', error)
     })
