@@ -109,24 +109,44 @@ function isUniqueGift(value: unknown): value is UniqueGiftLike {
 }
 
 async function handleIncomingMessage(message: Message): Promise<void> {
-  if (message.isOutgoing || !message.isService || message.chat.type !== 'user') return
+  if (message.isOutgoing) return
+
+  console.info(`[Userbot-DEBUG] Пришло сообщение: ID=${message.id}, isService=${message.isService}, chatType=${message.chat.type}, action=${message.action?.type ?? 'none'}, text=${message.text?.slice(0, 50) ?? 'none'}`)
+
+  if (!message.isService || message.chat.type !== 'user') return
 
   const action = message.action
-  if (action?.type === 'star_gift_sent') {
-    console.info(`[Userbot] Получен обычный гифт в сообщении ${message.id}. Игнорируем.`)
-    return
+  let giftToProcess: UniqueGiftLike | null = null
+
+  // В mtcute и обычные, и уникальные подарки приходят как star_gift_sent
+  if (action?.type === 'star_gift_sent' && 'gift' in action) {
+    if (isUniqueGift(action.gift)) {
+      giftToProcess = action.gift
+    } else {
+      console.info(`[Userbot] Получен обычный гифт (не NFT) в сообщении ${message.id}. Игнорируем.`)
+      return
+    }
+  } else if (action && 'gift' in action && isUniqueGift(action.gift)) {
+    // Обработка на случай, если тип события отличается (например, gift_received)
+    giftToProcess = action.gift
   }
-  if (!action || !('gift' in action) || !isUniqueGift(action.gift)) return
-  if ('refunded' in action && action.refunded) {
+
+  if (!giftToProcess) return
+
+  if (action && 'refunded' in action && action.refunded) {
     console.info(`[Userbot] NFT-подарок в сообщении ${message.id} возвращён. Игнорируем.`)
     return
   }
 
-  const senderId = message.sender.id
+  const senderId = message.sender?.id
+  if (!senderId) {
+    console.warn(`[Userbot] Подарок в сообщении ${message.id} не имеет отправителя.`)
+    return
+  }
   const peerId = message.chat.id
   const senderUserId = BigInt(senderId)
-  const giftId = action.gift.id.toString()
-  const rawPrizeName = action.gift.title || `Telegram NFT #${giftId}`
+  const giftId = giftToProcess.id.toString()
+  const rawPrizeName = giftToProcess.title || `Telegram NFT #${giftId}`
   const catalogEntry = findNftCatalogEntry(rawPrizeName)
   const prizeName = catalogEntry?.name ?? rawPrizeName
 
@@ -136,7 +156,7 @@ async function handleIncomingMessage(message: Message): Promise<void> {
     senderId,
     giftId,
     title: rawPrizeName,
-    action: action.type,
+    action: action?.type,
   }).slice(0, 2000)}`)
 
   const user = await prisma.user.findUnique({ where: { id: senderUserId } })
