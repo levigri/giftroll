@@ -478,7 +478,10 @@ export async function claimFreeCase(userId: bigint): Promise<{
  */
 export async function getInventory(userId: bigint): Promise<InventoryItem[]> {
   return prisma.inventoryItem.findMany({
-    where: { userId },
+    where: {
+      userId,
+      status: { not: 'CLAIMED' },
+    },
     orderBy: { createdAt: 'desc' },
   })
 }

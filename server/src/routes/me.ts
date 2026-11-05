@@ -19,7 +19,10 @@ export const meRoutes: FastifyPluginAsync = async (fastify) => {
 
       const [inventoryCount, dailyBonus] = await Promise.all([
         prisma.inventoryItem.count({
-          where: { userId: user.id },
+          where: {
+            userId: user.id,
+            status: { not: 'CLAIMED' },
+          },
         }),
         prisma.dailyBonus.findUnique({
           where: { userId: user.id },
