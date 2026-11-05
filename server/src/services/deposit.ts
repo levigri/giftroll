@@ -559,7 +559,7 @@ export async function handleWebhook(update: TelegramUpdate): Promise<void> {
           item.status === 'PENDING' &&
           !isLocked &&
           query.currency === 'XTR' &&
-          query.total_amount === 25,
+          query.total_amount === 1,
       )
 
       await callTelegramApi<boolean>('answerPreCheckoutQuery', {
@@ -684,7 +684,7 @@ async function handleNftWithdrawalPayment(
 
   const validPayment =
     payment.currency === 'XTR' &&
-    payment.total_amount === 25 &&
+    payment.total_amount === 1 &&
     payerId !== undefined &&
     item !== null &&
     item.userId === BigInt(payerId)
