@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0B0C10" />
+    <title>GiftRoll — рекламный экран</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      html, body { min-height: 100%; }
+      body {
+        margin: 0;
+        overflow-x: hidden;
+        background: #0B0C10;
+        color: #fff;
+        font-family: 'Manrope', sans-serif;
+      }
+      .promo-scrollbar { scrollbar-width: none; }
+      .promo-scrollbar::-webkit-scrollbar { display: none; }
+      .roulette-window::before, .roulette-window::after {
+        position: absolute; z-index: 2; top: 0; bottom: 0; width: 38px;
+        content: ''; pointer-events: none;
+      }
+      .roulette-window::before { left: 0; background: linear-gradient(90deg, #111217, transparent); }
+      .roulette-window::after { right: 0; background: linear-gradient(270deg, #111217, transparent); }
+      .roulette-pointer {
+        position: absolute; z-index: 4; top: 0; bottom: 0; left: 50%; width: 2px;
+        transform: translateX(-50%); background: linear-gradient(180deg, transparent, #FFD700 16%, #FFD700 84%, transparent);
+        box-shadow: 0 0 12px rgba(255, 215, 0, .8); pointer-events: none;
+      }
+      .roulette-pointer::before, .roulette-pointer::after {
+        position: absolute; left: 50%; content: ''; transform: translateX(-50%);
+        border-left: 6px solid transparent; border-right: 6px solid transparent;
+      }
+      .roulette-pointer::before { top: 0; border-top: 8px solid #FFD700; }
+      .roulette-pointer::after { bottom: 0; border-bottom: 8px solid #FFD700; }
+      .prize-image { filter: drop-shadow(0 7px 9px rgba(0,0,0,.42)); }
+      .modal-enter { animation: modal-in .22s ease-out both; }
+      @keyframes modal-in { from { opacity: 0; transform: scale(.94) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+      @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; } }
+    </style>
+  </head>
+  <body class="min-h-screen overflow-x-hidden">
+    <main class="mx-auto flex min-h-screen w-full max-w-[430px] flex-col gap-4 px-4 pb-7 pt-4 sm:pt-6">
+      <header class="flex items-center justify-between rounded-[22px] border border-white/10 bg-white/[0.045] px-3 py-3 shadow-[0_12px_35px_rgba(0,0,0,0.2)] backdrop-blur-md">
+        <div class="flex min-w-0 items-center gap-3">
+          <div class="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-white/10 bg-gradient-to-br from-[#8A2BE2] via-[#5b31ae] to-[#20243b] text-lg font-extrabold shadow-[0_0_18px_rgba(138,43,226,0.22)]">G</div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.16em] text-gray-400"><span class="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,.8)]"></span>GiftRoll</div>
+            <div class="mt-0.5 truncate text-sm font-extrabold">Игрок</div>
+          </div>
+        </div>
+        <div class="flex shrink-0 items-center gap-2 rounded-2xl border border-[#FFD700]/30 bg-gradient-to-r from-[#FFD700]/15 to-[#FFA500]/10 px-3 py-2 shadow-[0_0_20px_rgba(255,215,0,0.12)]">
+          <span class="text-[#FFD700]">★</span><span class="text-sm font-extrabold tabular-nums">10 000</span>
+        </div>
+      </header>
+
+      <section class="relative overflow-hidden rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_50%_3%,rgba(138,43,226,.2),transparent_42%),linear-gradient(160deg,rgba(255,255,255,.055),rgba(255,255,255,.018))] p-4 shadow-[0_18px_50px_rgba(0,0,0,.26)] backdrop-blur-md">
+        <div class="absolute -right-14 -top-20 h-48 w-48 rounded-full bg-violet-600/10 blur-3xl"></div>
+        <div class="relative flex items-center justify-between gap-3">
+          <div>
+            <div class="mb-1 flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.17em] text-[#B9A2FF]"><span>✦</span> Коллекционный кейс</div>
+            <h1 class="text-[26px] font-extrabold leading-tight tracking-[-0.04em]">Легенда</h1>
+            <p class="mt-1 text-xs text-gray-400">Редкие подарки Telegram в одном кейсе</p>
+          </div>
+          <div class="relative grid h-[94px] w-[94px] shrink-0 place-items-center rounded-[26px] border border-white/10 bg-white/[0.045]">
+            <div class="absolute inset-2 rounded-[20px] bg-violet-500/15 blur-xl"></div>
+            <img class="prize-image relative h-[78px] w-[78px] object-contain" src="https://api.changes.tg/original/IceCream.png?size=256" alt="Ice Cream" onerror="this.onerror=null;this.src='https://img.icons8.com/3d-fluency/512/gift.png'" />
+          </div>
+        </div>
+        <div class="relative mt-4 flex items-center justify-between rounded-2xl border border-white/[0.07] bg-black/20 px-3 py-2.5">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-gray-500">Возможный выигрыш</span>
+          <span class="flex items-center gap-1.5 text-xs font-extrabold text-[#FFD700]"><span>✦</span> Plush Pepe · 560 000</span>
+        </div>
+        <button id="openButton" type="button" class="relative mt-3 w-full rounded-2xl bg-gradient-to-r from-[#FFD700] to-[#FFA500] px-4 py-3.5 text-sm font-extrabold text-black shadow-[0_0_24px_rgba(255,215,0,0.45)] transition duration-200 hover:brightness-110 active:scale-[.98] disabled:cursor-wait disabled:opacity-75">
+          Открыть за 100 ⭐
+        </button>
+      </section>
+
+      <section class="overflow-hidden rounded-[26px] border border-white/10 bg-white/[0.035] p-3.5 backdrop-blur-md">
+        <div class="mb-3 flex items-center justify-between px-0.5">
+          <div>
+            <h2 class="text-sm font-extrabold">Рулетка</h2>
+            <p id="rouletteCaption" class="mt-0.5 text-[10px] text-gray-500">Смотри, что может выпасть</p>
+          </div>
+          <span class="rounded-full border border-[#FFD700]/20 bg-[#FFD700]/[0.07] px-2.5 py-1 text-[10px] font-extrabold text-[#FFD700]">×1</span>
+        </div>
+        <div id="rouletteWindow" class="roulette-window relative h-[124px] overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0b0c10]/75">
+          <div id="rouletteTrack" class="absolute left-0 top-1/2 flex w-max -translate-y-1/2 items-center gap-2"></div>
+          <div class="roulette-pointer"></div>
+        </div>
+        <div class="mt-3 flex items-center justify-between px-0.5 text-[10px] font-semibold text-gray-500">
+          <span>50 подарков в ленте</span><span class="flex items-center gap-1"><span class="h-1.5 w-1.5 rounded-full bg-[#FFD700]"></span> указатель выигрыша</span>
+        </div>
+      </section>
+
+      <section class="rounded-[24px] border border-white/[0.08] bg-white/[0.025] p-3.5">
+        <div class="mb-3 flex items-center justify-between">
+          <h2 class="text-xs font-extrabold">В этом кейсе</h2>
+          <span class="text-[10px] font-semibold text-gray-500">Подборка подарков</span>
+        </div>
+        <div id="prizeGrid" class="promo-scrollbar grid max-h-[190px] grid-cols-4 gap-2 overflow-y-auto pr-0.5"></div>
+      </section>
+
+      <footer class="mt-auto flex items-center justify-center gap-1.5 pt-1 text-[10px] font-semibold tracking-wide text-gray-600"><span class="text-[#FFD700]">✦</span> GIFTS · CASES · BIG WINS</footer>
+    </main>
+
+    <div id="resultModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/75 px-5 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+      <div class="modal-enter relative w-full max-w-[360px] overflow-hidden rounded-[30px] border border-[#FFD700]/25 bg-[#17181e] p-5 text-center shadow-[0_0_55px_rgba(255,215,0,.16)]">
+        <div class="absolute left-1/2 top-0 h-32 w-56 -translate-x-1/2 rounded-full bg-[#FFD700]/10 blur-3xl"></div>
+        <div class="relative mx-auto mb-3 grid h-[142px] w-[142px] place-items-center rounded-[34px] border border-[#FFD700]/15 bg-gradient-to-br from-[#FFD700]/10 to-violet-500/10">
+          <img class="prize-image h-[122px] w-[122px] object-contain" src="https://api.changes.tg/original/PlushPepe.png?size=256" alt="Plush Pepe" onerror="this.onerror=null;this.src='https://img.icons8.com/3d-fluency/512/gift.png'" />
+        </div>
+        <div class="relative mb-1 text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#FFD700]">Редкий дроп</div>
+        <h2 id="resultTitle" class="relative text-[25px] font-extrabold tracking-[-0.04em]">Вы выиграли!</h2>
+        <p class="relative mt-1 text-sm font-bold text-gray-300">Plush Pepe</p>
+        <div class="relative mx-auto mt-3 inline-flex items-center gap-1.5 rounded-full border border-[#FFD700]/20 bg-[#FFD700]/[0.07] px-3 py-1.5 text-xs font-extrabold text-[#FFD700]">★ 560 000</div>
+        <button id="claimButton" type="button" class="relative mt-5 w-full rounded-2xl bg-gradient-to-r from-[#FFD700] to-[#FFA500] py-3.5 text-sm font-extrabold text-black shadow-[0_0_24px_rgba(255,215,0,0.35)] transition hover:brightness-110 active:scale-[.98]">Забрать</button>
+      </div>
+    </div>
+
+    <script>
+      const items = [
+        { name: 'Ice Cream', image: 'IceCream', price: '450' },
+        { name: "Durov's Cap", image: 'DurovsCap', price: '39 900' },
+        { name: 'Heart Locket', image: 'HeartLocket', price: '125 000' },
+        { name: 'Pool Float', image: 'PoolFloat', price: '450' },
+        { name: 'Eternal Rose', image: 'EternalRose', price: '1 250' },
+        { name: 'Lol Pop', image: 'LolPop', price: '480' },
+        { name: 'Diamond Ring', image: 'DiamondRing', price: '3 150' },
+        { name: 'Plush Pepe', image: 'PlushPepe', price: '560 000' },
+        { name: 'Toy Bear', image: 'ToyBear', price: '3 610' },
+        { name: 'Top Hat', image: 'TopHat', price: '1 040' },
+      ]
+      const WINNER_INDEX = 37
+      const CARD_WIDTH = 88
+      const CARD_GAP = 8
+      const track = document.getElementById('rouletteTrack')
+      const grid = document.getElementById('prizeGrid')
+      const openButton = document.getElementById('openButton')
+      const modal = document.getElementById('resultModal')
+      const claimButton = document.getElementById('claimButton')
+      const caption = document.getElementById('rouletteCaption')
+      let isSpinning = false
+
+      function imageUrl(item) {
+        return `https://api.changes.tg/original/${item.image}.png?size=256`
+      }
+
+      function imageFallback(image) {
+        image.onerror = null
+        image.src = 'https://img.icons8.com/3d-fluency/512/gift.png'
+      }
+
+      function makeCard(item, compact = false) {
+        const card = document.createElement('div')
+        card.className = compact
+          ? 'flex min-w-0 flex-col items-center rounded-xl border border-white/10 bg-white/5 px-1.5 py-2'
+          : 'flex h-[102px] w-[88px] shrink-0 flex-col items-center justify-center rounded-xl border border-white/10 bg-white/5 px-1.5 py-2'
+        const img = document.createElement('img')
+        img.className = compact ? 'prize-image h-10 w-10 object-contain' : 'prize-image h-14 w-14 object-contain'
+        img.src = imageUrl(item)
+        img.alt = item.name
+        img.loading = 'eager'
+        img.onerror = () => imageFallback(img)
+        const name = document.createElement('span')
+        name.className = 'mt-1 w-full truncate text-center text-[9px] font-bold text-gray-300'
+        name.textContent = item.name
+        const price = document.createElement('span')
+        price.className = 'mt-0.5 flex items-center gap-1 text-[9px] font-extrabold text-gray-500'
+        price.innerHTML = `<span class="text-[#FFD700]">★</span>${item.price}`
+        card.append(img, name, price)
+        return card
+      }
+
+      const strip = Array.from({ length: 50 }, (_, index) =>
+        index === WINNER_INDEX ? items[7] : items[(index * 7 + Math.floor(index / 3)) % items.length],
+      )
+      strip.forEach((item) => track.appendChild(makeCard(item)))
+      ;[...new Map(items.map((item) => [item.name, item])).values()].forEach((item) => grid.appendChild(makeCard(item, true)))
+
+      function resetRoulette() {
+        track.style.transition = 'none'
+        track.style.transform = 'translateX(0px) translateY(-50%)'
+        void track.offsetWidth
+      }
+
+      openButton.addEventListener('click', () => {
+        if (isSpinning) return
+        isSpinning = true
+        openButton.disabled = true
+        openButton.textContent = 'Крутим…'
+        caption.textContent = 'Подарок уже на ленте…'
+        resetRoulette()
+
+        requestAnimationFrame(() => {
+          const viewport = document.getElementById('rouletteWindow')
+          const viewportWidth = viewport.clientWidth
+          const baseCenter = WINNER_INDEX * (CARD_WIDTH + CARD_GAP) + CARD_WIDTH / 2
+          const randomOffset = (Math.random() * 2 - 1) * CARD_WIDTH * 0.3
+          const offset = viewportWidth / 2 - baseCenter + randomOffset
+          track.style.transition = 'transform 4.5s cubic-bezier(0.12, 0.8, 0.15, 1)'
+          track.style.transform = `translateX(${offset}px) translateY(-50%)`
+        })
+
+        window.setTimeout(() => {
+          modal.classList.remove('hidden')
+          modal.classList.add('flex')
+        }, 4500)
+      })
+
+      function closeResult() {
+        modal.classList.add('hidden')
+        modal.classList.remove('flex')
+        isSpinning = false
+        openButton.disabled = false
+        openButton.textContent = 'Открыть за 1000 ⭐'
+        caption.textContent = 'Смотри, что может выпасть'
+        resetRoulette()
+      }
+
+      claimButton.addEventListener('click', closeResult)
+      modal.addEventListener('click', (event) => {
+        if (event.target === modal) closeResult()
+      })
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !modal.classList.contains('hidden')) closeResult()
+      })
+    </script>
+  </body>
+</html>
