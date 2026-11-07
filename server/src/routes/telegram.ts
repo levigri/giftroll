@@ -1,4 +1,3 @@
-import { randomBytes } from 'node:crypto'
 import type { FastifyPluginAsync } from 'fastify'
 import { Bot, webhookCallback } from 'grammy'
 import { z } from 'zod'
@@ -82,12 +81,12 @@ export const telegramRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const user = request.telegramUser
       if (!user) {
-        return reply.code(401).send({ error: 'Unauthorized', code: 'AUTH_REQUIRED' })
+        return reply.code(401).send({ ok: false, error: 'Unauthorized' })
       }
 
       const userId = Number(user.id)
       if (!Number.isSafeInteger(userId)) {
-        return reply.code(400).send({ error: 'Invalid Telegram user ID', code: 'INVALID_USER_ID' })
+        return reply.code(400).send({ ok: false, error: 'Invalid Telegram user ID' })
       }
 
       try {
@@ -98,7 +97,7 @@ export const telegramRoutes: FastifyPluginAsync = async (fastify) => {
           user_id: userId,
           result: {
             type: 'photo',
-            id: randomBytes(8).toString('hex'),
+            id: `share_${Date.now()}`,
             photo_url: 'https://giftroll-six.vercel.app/free-case-banner.png',
             thumbnail_url: 'https://giftroll-six.vercel.app/free-case-banner.png',
             title: 'GiftRoll',
@@ -107,7 +106,7 @@ export const telegramRoutes: FastifyPluginAsync = async (fastify) => {
             reply_markup: {
               inline_keyboard: [[{
                 text: '🎁 Играть в GiftRoll',
-                web_app: { url: 'https://giftroll-six.vercel.app/?v=2' },
+                url: 'https://t.me/Giftrollgamebot',
               }]],
             },
           },
@@ -120,10 +119,9 @@ export const telegramRoutes: FastifyPluginAsync = async (fastify) => {
         return { preparedMessageId: preparedMessage.id }
       } catch (error) {
         request.log.error(error, '[TELEGRAM] failed to prepare share message')
-        if (error instanceof DepositError) {
-          return reply.code(error.statusCode).send({ error: error.message, code: error.code })
-        }
-        throw error
+        const statusCode = error instanceof DepositError ? error.statusCode : 502
+        const message = error instanceof Error ? error.message : 'Failed to prepare share message'
+        return reply.code(statusCode).send({ ok: false, error: message })
       }
     },
   )
