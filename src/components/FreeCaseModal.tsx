@@ -51,6 +51,9 @@ export default function FreeCaseModal({ onClose, onClaimed }: FreeCaseModalProps
   const [subscribed, setSubscribed] = useState<boolean | null>(null)
   const [shared, setShared] = useState(false)
   const [refLink, setRefLink] = useState<string | null>(null)
+  const [preparedMessageId, setPreparedMessageId] = useState<string | null>(null)
+  const [sharePreparing, setSharePreparing] = useState(true)
+  const [sharePrepareError, setSharePrepareError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -60,6 +63,30 @@ export default function FreeCaseModal({ onClose, onClaimed }: FreeCaseModalProps
       setSubscribed(res.subscribed)
     } catch {
       // Сеть моргнула — оставляем прежнее значение, проверим при следующем фокусе.
+    }
+  }, [])
+
+  useEffect(() => {
+    let isMounted = true
+
+    void prepareTelegramShare()
+      .then(({ preparedMessageId: id }) => {
+        if (isMounted) {
+          setPreparedMessageId(id)
+          setSharePrepareError(null)
+        }
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : 'неизвестная ошибка Bot API'
+        console.warn('[GiftRoll] Could not prepare share message', error)
+        if (isMounted) setSharePrepareError(message)
+      })
+      .finally(() => {
+        if (isMounted) setSharePreparing(false)
+      })
+
+    return () => {
+      isMounted = false
     }
   }, [])
 
@@ -107,7 +134,7 @@ export default function FreeCaseModal({ onClose, onClaimed }: FreeCaseModalProps
     window.setTimeout(() => void refreshSubscription(), 2000)
   }
 
-  const handleShare = async () => {
+  const handleShare = () => {
     tapFeedback('light')
 
     const fallbackShare = (reason: string) => {
@@ -118,28 +145,40 @@ export default function FreeCaseModal({ onClose, onClaimed }: FreeCaseModalProps
       setShared(true)
     }
 
-    try {
-      const { preparedMessageId } = await prepareTelegramShare()
-      const webApp = getTelegramWebApp()
-      if (preparedMessageId && webApp?.shareMessage) {
+    if (sharePreparing) {
+      setNotice('Готовим картинку для отправки. Попробуй нажать ещё раз через секунду.')
+      return
+    }
+
+    const webApp = getTelegramWebApp()
+    if (preparedMessageId && webApp?.shareMessage) {
+      try {
+        // ID уже подготовлен при открытии модалки: вызываем нативный диалог
+        // прямо в обработчике клика, не теряя пользовательский жест на fetch.
         webApp.shareMessage(preparedMessageId, (sent) => {
           if (sent) {
             setShared(true)
           } else {
+            console.warn('[GiftRoll] Telegram shareMessage returned sent=false')
             fallbackShare('Telegram не подтвердил отправку фото; открыт запасной вариант без картинки.')
           }
         })
-        return
+      } catch (error) {
+        console.warn('[GiftRoll] shareMessage failed', error)
+        const message = error instanceof Error ? error.message : 'ошибка Telegram WebApp'
+        fallbackShare(`Telegram не открыл отправку фото: ${message}. Открыт запасной вариант без неё.`)
       }
-      fallbackShare(
-        'Этот Telegram-клиент не поддерживает отправку подготовленной картинки; открыт запасной вариант без неё.',
-      )
       return
-    } catch (error) {
-      console.warn('[GiftRoll] Prepared share unavailable; using URL fallback', error)
-      const message = error instanceof Error ? error.message : 'неизвестная ошибка Bot API'
-      fallbackShare(`Не удалось подготовить картинку: ${message}. Открыт запасной вариант без неё.`)
     }
+
+    if (sharePrepareError) {
+      fallbackShare(`Не удалось подготовить картинку: ${sharePrepareError}. Открыт запасной вариант без неё.`)
+      return
+    }
+
+    fallbackShare(
+      'Этот Telegram-клиент не поддерживает отправку подготовленной картинки; открыт запасной вариант без неё.',
+    )
   }
 
   const handleClaim = async () => {
@@ -245,9 +284,10 @@ export default function FreeCaseModal({ onClose, onClaimed }: FreeCaseModalProps
                 type="button"
                 className="flex shrink-0 items-center gap-1.5 rounded-xl border border-[#8A2BE2]/40 bg-[#8A2BE2]/20 px-3 py-2 text-xs font-extrabold text-violet-200 transition hover:brightness-110"
                 onClick={handleShare}
+                disabled={sharePreparing}
               >
                 <Share2 size={14} />
-                Поделиться
+                {sharePreparing ? 'Готовим…' : 'Поделиться'}
               </button>
             )}
           </div>
