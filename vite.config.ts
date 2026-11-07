@@ -24,6 +24,21 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('/node_modules/@tonconnect/')) return 'tonconnect'
+            if (
+              id.includes('/node_modules/@telegram-apps/') ||
+              id.includes('/node_modules/@tma.js/')
+            ) {
+              return 'telegram-sdk'
+            }
+          },
+        },
+      },
+    },
     server: {
       host: true,
       port: 5173,

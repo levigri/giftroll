@@ -145,7 +145,7 @@ fastify.setErrorHandler((error, request, reply) => {
 
   request.log.error(error)
   reply.code(500).send({
-    error: error.message || 'Internal server error',
+    error: error instanceof Error ? error.message : 'Internal server error',
     code: 'INTERNAL_ERROR',
   })
 })

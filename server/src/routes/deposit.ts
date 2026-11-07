@@ -13,7 +13,11 @@ import {
   MAX_DEPOSIT_STARS,
   MIN_DEPOSIT_STARS,
 } from '../services/deposit.js'
-import { createCryptoInvoice, handleCryptoWebhook } from '../services/cryptobot.js'
+import {
+  createCryptoInvoice,
+  handleCryptoWebhook,
+  isValidCryptoWebhookSignature,
+} from '../services/cryptobot.js'
 import { getGramRate, STARS_BASE_PRICE_USD } from '../utils/rates.js'
 
 /** Сколько живёт котировка Gram: фронт показывает зафиксированную сумму 2 минуты. */
@@ -202,15 +206,43 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
     },
   )
 
-  // POST /api/deposit/crypto/webhook — публичный вебхук Crypto Pay (без авторизации).
-  // Всегда отвечает { ok: true }, чтобы Crypto Bot не повторял доставку бесконечно.
-  fastify.post('/api/deposit/crypto/webhook', async (request, reply) => {
-    try {
-      return await handleCryptoWebhook(request.body)
-    } catch (err) {
-      request.log.error(err)
-      return reply.code(200).send({ ok: true })
-    }
+  // Crypto Pay signs the exact JSON bytes; this encapsulated parser keeps them
+  // alongside the parsed update without changing parsers for other endpoints.
+  await fastify.register(async (cryptoWebhookRoutes) => {
+    cryptoWebhookRoutes.removeContentTypeParser('application/json')
+    cryptoWebhookRoutes.addContentTypeParser(
+      'application/json',
+      { parseAs: 'string' },
+      (_request, rawBody, done) => {
+        try {
+          const rawBodyText =
+            typeof rawBody === 'string' ? rawBody : rawBody.toString('utf8')
+          done(null, { rawBody: rawBodyText, update: JSON.parse(rawBodyText) as unknown })
+        } catch (error) {
+          done(error instanceof Error ? error : new Error('Invalid JSON body'))
+        }
+      },
+    )
+
+    cryptoWebhookRoutes.post('/api/deposit/crypto/webhook', async (request, reply) => {
+      const body = request.body as { rawBody: string; update: unknown }
+      const signature = request.headers['crypto-pay-api-signature']
+
+      if (
+        typeof signature !== 'string' ||
+        !isValidCryptoWebhookSignature(body.rawBody, signature)
+      ) {
+        return reply.code(401).send({ ok: false, error: 'Invalid Crypto Pay signature' })
+      }
+
+      try {
+        return await handleCryptoWebhook(body.update)
+      } catch (err) {
+        request.log.error(err)
+        // A 5xx response asks Crypto Pay to retry; the deposit claim is idempotent.
+        return reply.code(500).send({ ok: false })
+      }
+    })
   })
 
   if (env.NODE_ENV !== 'production') {

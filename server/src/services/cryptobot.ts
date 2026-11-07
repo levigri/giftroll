@@ -1,3 +1,4 @@
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
 import { env } from '../config/env.js'
 import { prisma } from '../db/prisma.js'
 import {
@@ -13,6 +14,17 @@ import { notifyUser } from './bot.js'
 const CRYPTO_PAY_API_URL = 'https://pay.crypt.bot/api'
 /** Наценка шлюза 3% — её платит игрок; на баланс зачисляются ровно звёзды. */
 const CRYPTO_GATEWAY_MARKUP = 1.03
+
+/** Verifies the Crypto Pay signature against the exact, unparsed HTTP body. */
+export function isValidCryptoWebhookSignature(rawBody: string, signature: string): boolean {
+  if (!env.CRYPTO_PAY_TOKEN || !/^[a-f\d]{64}$/i.test(signature)) return false
+
+  const secret = createHash('sha256').update(env.CRYPTO_PAY_TOKEN).digest()
+  const expected = createHmac('sha256', secret).update(rawBody).digest()
+  const received = Buffer.from(signature, 'hex')
+
+  return received.length === expected.length && timingSafeEqual(received, expected)
+}
 
 interface CryptoPayResponse<T> {
   ok?: boolean
