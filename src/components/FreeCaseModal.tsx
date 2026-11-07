@@ -110,7 +110,8 @@ export default function FreeCaseModal({ onClose, onClaimed }: FreeCaseModalProps
   const handleShare = async () => {
     tapFeedback('light')
 
-    const fallbackShare = () => {
+    const fallbackShare = (reason: string) => {
+      setNotice(reason)
       const targetUrl = refLink ?? CHANNEL_URL
       const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(targetUrl)}&text=${encodeURIComponent(SHARE_TEXT)}`
       openLink(shareUrl)
@@ -125,16 +126,20 @@ export default function FreeCaseModal({ onClose, onClaimed }: FreeCaseModalProps
           if (sent) {
             setShared(true)
           } else {
-            fallbackShare()
+            fallbackShare('Telegram не подтвердил отправку фото; открыт запасной вариант без картинки.')
           }
         })
         return
       }
+      fallbackShare(
+        'Этот Telegram-клиент не поддерживает отправку подготовленной картинки; открыт запасной вариант без неё.',
+      )
+      return
     } catch (error) {
       console.warn('[GiftRoll] Prepared share unavailable; using URL fallback', error)
+      const message = error instanceof Error ? error.message : 'неизвестная ошибка Bot API'
+      fallbackShare(`Не удалось подготовить картинку: ${message}. Открыт запасной вариант без неё.`)
     }
-
-    fallbackShare()
   }
 
   const handleClaim = async () => {
