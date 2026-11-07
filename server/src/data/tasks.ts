@@ -22,7 +22,7 @@ export const tasks: TaskDefinition[] = [
     id: 'task-channel',
     title: 'Подписка на канал',
     description: 'Подпишись на @NewsGiftRoll',
-    reward: 5,
+    reward: 1,
     emoji: '📢',
     type: 'channel_subscription',
   },
