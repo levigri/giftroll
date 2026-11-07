@@ -98,8 +98,8 @@ export const telegramRoutes: FastifyPluginAsync = async (fastify) => {
           result: {
             type: 'photo',
             id: `share_${Date.now()}`,
-            photo_url: 'https://giftroll-six.vercel.app/free-case-banner.png',
-            thumbnail_url: 'https://giftroll-six.vercel.app/free-case-banner.png',
+            photo_url: 'https://giftroll-six.vercel.app/free-case-banner.jpg',
+            thumbnail_url: 'https://giftroll-six.vercel.app/free-case-banner.jpg',
             title: 'GiftRoll',
             description: 'Открывай кейсы и получай NFT!',
             caption: 'Залетай в GiftRoll! Открывай кейсы и получай NFT!',
