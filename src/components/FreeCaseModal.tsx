@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { CheckCircle, Circle, Gift, Send, Share2 } from 'lucide-react'
 import type { ClaimDailyResponse } from '../api/types'
-import { checkSubscription, claimDaily, getReferralStats } from '../api/client'
+import {
+  checkSubscription,
+  claimDaily,
+  getReferralStats,
+  prepareTelegramShare,
+} from '../api/client'
 import { errorFeedback, successFeedback, tapFeedback } from '../telegram'
 
 const CHANNEL_URL = 'https://t.me/NewsGiftRoll'
@@ -9,6 +14,7 @@ const SHARE_TEXT = 'Залетай в GiftRoll! Открывай кейсы и �
 
 interface TelegramWebAppBridge {
   openTelegramLink?: (url: string) => void
+  shareMessage?: (preparedMessageId: string, callback?: (sent: boolean) => void) => void
 }
 
 function getTelegramWebApp(): TelegramWebAppBridge | undefined {
@@ -101,12 +107,34 @@ export default function FreeCaseModal({ onClose, onClaimed }: FreeCaseModalProps
     window.setTimeout(() => void refreshSubscription(), 2000)
   }
 
-  const handleShare = () => {
+  const handleShare = async () => {
     tapFeedback('light')
-    const targetUrl = refLink ?? CHANNEL_URL
-    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(targetUrl)}&text=${encodeURIComponent(SHARE_TEXT)}`
-    openLink(shareUrl)
-    setShared(true)
+
+    const fallbackShare = () => {
+      const targetUrl = refLink ?? CHANNEL_URL
+      const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(targetUrl)}&text=${encodeURIComponent(SHARE_TEXT)}`
+      openLink(shareUrl)
+      setShared(true)
+    }
+
+    try {
+      const { preparedMessageId } = await prepareTelegramShare()
+      const webApp = getTelegramWebApp()
+      if (preparedMessageId && webApp?.shareMessage) {
+        webApp.shareMessage(preparedMessageId, (sent) => {
+          if (sent) {
+            setShared(true)
+          } else {
+            fallbackShare()
+          }
+        })
+        return
+      }
+    } catch (error) {
+      console.warn('[GiftRoll] Prepared share unavailable; using URL fallback', error)
+    }
+
+    fallbackShare()
   }
 
   const handleClaim = async () => {

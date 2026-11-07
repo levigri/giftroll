@@ -167,6 +167,13 @@ export async function checkSubscription(): Promise<{ subscribed: boolean }> {
   })
 }
 
+/** Подготавливает inline-сообщение с баннером для Telegram WebApp.shareMessage. */
+export async function prepareTelegramShare(): Promise<{ preparedMessageId: string }> {
+  return request<{ preparedMessageId: string }>('/api/telegram/prepare-share', {
+    method: 'POST',
+  })
+}
+
 /** Бонусный кейс за депозит от 200 ⭐: выдаёт приз и списывает одну единицу. */
 export async function claimFreeCase(): Promise<ClaimDepositBonusResponse> {
   return request<ClaimDepositBonusResponse>(

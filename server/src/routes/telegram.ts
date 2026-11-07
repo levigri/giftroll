@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto'
 import type { FastifyPluginAsync } from 'fastify'
 import { Bot, webhookCallback } from 'grammy'
 import { z } from 'zod'
@@ -6,6 +7,7 @@ import { authenticateTelegram } from '../middleware/auth.js'
 import { parseBody } from '../utils/validators.js'
 import {
   DepositError,
+  callTelegramApi,
   handleWebhook,
   setWebhook,
   type TelegramUpdate,
@@ -72,6 +74,59 @@ export const telegramRoutes: FastifyPluginAsync = async (fastify) => {
 
     return reply
   })
+
+  // Включите inline mode через @BotFather (/setinline).
+  fastify.post(
+    '/api/telegram/prepare-share',
+    { preHandler: authenticateTelegram },
+    async (request, reply) => {
+      const user = request.telegramUser
+      if (!user) {
+        return reply.code(401).send({ error: 'Unauthorized', code: 'AUTH_REQUIRED' })
+      }
+
+      const userId = Number(user.id)
+      if (!Number.isSafeInteger(userId)) {
+        return reply.code(400).send({ error: 'Invalid Telegram user ID', code: 'INVALID_USER_ID' })
+      }
+
+      try {
+        const preparedMessage = await callTelegramApi<{
+          id: string
+          expiration_date: number
+        }>('savePreparedInlineMessage', {
+          user_id: userId,
+          result: {
+            type: 'photo',
+            id: randomBytes(8).toString('hex'),
+            photo_url: 'https://giftroll-six.vercel.app/free-case-banner.png',
+            thumbnail_url: 'https://giftroll-six.vercel.app/free-case-banner.png',
+            title: 'GiftRoll',
+            description: 'Открывай кейсы и получай NFT!',
+            caption: 'Залетай в GiftRoll! Открывай кейсы и получай NFT!',
+            reply_markup: {
+              inline_keyboard: [[{
+                text: '🎁 Играть в GiftRoll',
+                web_app: { url: 'https://giftroll-six.vercel.app/?v=2' },
+              }]],
+            },
+          },
+          allow_user_chats: true,
+          allow_bot_chats: true,
+          allow_group_chats: true,
+          allow_channel_chats: true,
+        })
+
+        return { preparedMessageId: preparedMessage.id }
+      } catch (error) {
+        request.log.error(error, '[TELEGRAM] failed to prepare share message')
+        if (error instanceof DepositError) {
+          return reply.code(error.statusCode).send({ error: error.message, code: error.code })
+        }
+        throw error
+      }
+    },
+  )
 
   // POST /api/telegram/setup-webhook — однократная настройка после деплоя
   fastify.post(
