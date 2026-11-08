@@ -1,4 +1,7 @@
 import type {
+  AdminTransaction,
+  AdminUserDetails,
+  AdminUserSummary,
   CasesResponse,
   ClaimDepositBonusResponse,
   ClaimDailyResponse,
@@ -102,6 +105,18 @@ export async function getMe(): Promise<MeResponse> {
   // блока диагностики на странице «Друзья». Повторные попытки привязки
   // сервер дедуплицирует кэшем.
   return request<MeResponse>('/api/me')
+}
+
+export async function adminSearchUsers(q: string): Promise<AdminUserSummary[]> {
+  return request<AdminUserSummary[]>(`/api/admin/users/search?q=${encodeURIComponent(q)}`)
+}
+
+export async function adminGetUser(id: string): Promise<AdminUserDetails> {
+  return request<AdminUserDetails>(`/api/admin/users/${encodeURIComponent(id)}`)
+}
+
+export async function adminGetRecentTransactions(): Promise<AdminTransaction[]> {
+  return request<AdminTransaction[]>('/api/admin/transactions')
 }
 
 export async function toggleBetaMode(enabled: boolean): Promise<{ ok: boolean; isBetaMode: boolean }> {

@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify'
+import { env } from '../config/env.js'
 import { authenticateTelegram } from '../middleware/auth.js'
 import { prisma } from '../db/prisma.js'
 
@@ -39,6 +40,7 @@ export const meRoutes: FastifyPluginAsync = async (fastify) => {
 
       return {
         id: user.id.toString(),
+        isAdmin: env.ADMIN_ID !== undefined && user.id === env.ADMIN_ID,
         isBetaMode: user.isBetaMode,
         firstName: user.firstName,
         lastName: user.lastName,

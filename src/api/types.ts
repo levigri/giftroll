@@ -27,6 +27,7 @@ export interface CasesResponse {
 
 export interface MeResponse {
   id: string
+  isAdmin: boolean
   isBetaMode: boolean
   firstName: string
   lastName: string | null
@@ -45,6 +46,50 @@ export interface MeResponse {
   /** Итог привязки по реф-ссылке при первом заходе; null — кода не было. */
   referral?: { ok: boolean; reason?: string } | null
   createdAt: string
+}
+
+export interface AdminUserSummary {
+  id: string
+  username: string | null
+  firstName: string
+  balance: number
+  isBetaMode: boolean
+  createdAt: string
+}
+
+export interface AdminDeposit {
+  id: string
+  amount: number
+  currency: string
+  status: string
+  createdAt: string
+  txHash: string | null
+  gramsAmount: number | null
+}
+
+export interface AdminTransaction {
+  id: string
+  userId: string
+  username: string | null
+  firstName: string
+  type: string
+  amount: number
+  details: string | null
+  createdAt: string
+}
+
+export interface AdminUserDetails {
+  user: AdminUserSummary & {
+    lastName: string | null
+    photoUrl: string | null
+    depositUnspent: number
+    referredBy: string | null
+    refCode: string
+    updatedAt: string
+  }
+  inventory: InventoryItem[]
+  deposits: AdminDeposit[]
+  transactions: Array<Pick<AdminTransaction, 'id' | 'type' | 'amount' | 'details' | 'createdAt'>>
 }
 
 export interface InventoryItem {

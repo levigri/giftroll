@@ -4,7 +4,7 @@ import {
   useTonConnectUI,
   useTonWallet,
 } from '@tonconnect/ui-react'
-import { ArrowDown, ArrowUp, Backpack, Gamepad2, LifeBuoy, Plus, Star, Target, User, Users } from 'lucide-react'
+import { ArrowDown, ArrowUp, Backpack, Gamepad2, LifeBuoy, Plus, Shield, Star, Target, User, Users } from 'lucide-react'
 import type { CaseItem, DailyBonusPrize, MeResponse, Prize, TransactionEntry } from './api/types'
 import { connectMarketPriceStream } from './api/marketPrices'
 import {
@@ -37,13 +37,14 @@ import type { OpenCount } from './pages/CasesPage'
 import ReferralPage from './pages/ReferralPage'
 import DepositPage from './pages/DepositPage'
 import TasksPage from './pages/TasksPage'
+import AdminPage from './pages/AdminPage'
 import './App.css'
 
 /**
  * Вкладки нижней навигации.
  * 'deposit' — отдельная страница без вкладки: открывается кнопкой «Пополнить».
  */
-type TabId = 'games' | 'tasks' | 'referral' | 'inventory' | 'profile' | 'deposit'
+type TabId = 'games' | 'tasks' | 'referral' | 'inventory' | 'profile' | 'deposit' | 'admin'
 
 const TABS: { id: TabId; icon: typeof Gamepad2; label: string }[] = [
   { id: 'games', icon: Gamepad2, label: 'Игры' },
@@ -51,6 +52,7 @@ const TABS: { id: TabId; icon: typeof Gamepad2; label: string }[] = [
   { id: 'referral', icon: Users, label: 'Друзья' },
   { id: 'inventory', icon: Backpack, label: 'Инвентарь' },
   { id: 'profile', icon: User, label: 'Профиль' },
+  { id: 'admin', icon: Shield, label: 'Админка' },
 ]
 
 /**
@@ -831,6 +833,8 @@ function App() {
 
         {tab === 'referral' && <ReferralPage />}
 
+        {tab === 'admin' && me?.isAdmin === true && <AdminPage />}
+
         {tab === 'deposit' && (
           <DepositPage
             balance={me?.balance ?? 0}
@@ -845,7 +849,7 @@ function App() {
         className="fixed bottom-0 left-1/2 z-[900] flex w-full max-w-[430px] -translate-x-1/2 gap-1 border-t border-white/10 bg-[#0B0C10]/90 px-2 pb-[calc(8px+env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl"
         aria-label="Навигация"
       >
-        {TABS.map((item) => {
+        {TABS.filter((item) => item.id !== 'admin' || me?.isAdmin === true).map((item) => {
           const Icon = item.icon
           const active = tab === item.id
           return (

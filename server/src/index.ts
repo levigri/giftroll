@@ -8,6 +8,7 @@ import { prisma } from './db/prisma.js'
 import { GameError } from './services/game.js'
 import { healthRoutes } from './routes/health.js'
 import { meRoutes } from './routes/me.js'
+import { adminRoutes } from './routes/admin.js'
 import { casesRoutes } from './routes/cases.js'
 import { openCaseRoutes } from './routes/openCase.js'
 import { inventoryRoutes } from './routes/inventory.js'
@@ -170,6 +171,7 @@ fastify.get('/api/prices/stream', { websocket: true }, (socket) => {
 
 await fastify.register(healthRoutes)
 await fastify.register(meRoutes)
+await fastify.register(adminRoutes)
 await fastify.register(casesRoutes)
 await fastify.register(openCaseRoutes)
 await fastify.register(inventoryRoutes)
