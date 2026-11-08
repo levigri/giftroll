@@ -235,7 +235,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
         username: entry.user.username,
         firstName: entry.user.firstName,
         title: `Кейс «${caseItem?.name ?? entry.caseId}» открыт`,
-        result: entry.isBetaMode ? `ТЕСТ · выпало бы: ${prizeLabel}` : `ВЫИГРАНО · ${prizeLabel}`,
+        result: entry.isBetaMode ? `БЕТА · выпало бы: ${prizeLabel}` : `ВЫИГРАНО · ${prizeLabel}`,
         won: true,
         isBetaMode: entry.isBetaMode,
         createdAt: entry.createdAt.toISOString(),
@@ -251,9 +251,9 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
       title: `Апгрейд · цель ${attempt.targetNftEmoji} ${attempt.targetNftName}`,
       result: attempt.win
         ? attempt.isBetaMode
-          ? `ТЕСТ · ПОБЕДА · выпал бы NFT за ${attempt.targetNftPrice} ⭐`
+          ? `БЕТА · выпал бы NFT за ${attempt.targetNftPrice} ⭐`
           : `ПОБЕДА · выпал NFT за ${attempt.targetNftPrice} ⭐, выплата ${attempt.winAmount} ⭐`
-        : 'ПРОИГРЫШ · NFT не выпал',
+        : `${attempt.isBetaMode ? 'БЕТА · ' : ''}ПРОИГРЫШ · NFT не выпал`,
       won: attempt.win,
       isBetaMode: attempt.isBetaMode,
       createdAt: attempt.createdAt.toISOString(),
