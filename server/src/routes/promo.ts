@@ -10,13 +10,18 @@ const promoCodeSchema = z.object({
 
 export const promoRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/api/promo/check', { preHandler: authenticateTelegram }, async (request, reply) => {
+    const user = request.telegramUser
+    if (!user) {
+      return reply.code(401).send({ valid: false, error: 'Unauthorized', code: 'AUTH_REQUIRED' })
+    }
+
     const parsed = promoCodeSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.code(400).send({ valid: false, error: 'Введите промокод' })
     }
 
-    const valid = await checkPromoCode(parsed.data.code)
-    return valid ? { valid: true } : { valid: false, error: 'Код не найден или исчерпан' }
+    const valid = await checkPromoCode(user.id, parsed.data.code)
+    return valid ? { valid: true } : { valid: false, error: 'Код уже использован или исчерпан' }
   })
 
   fastify.post('/api/promo/open', { preHandler: authenticateTelegram }, async (request, reply) => {

@@ -6,12 +6,22 @@ import { isBotAccount } from '../utils/antiBot.js'
 import { GameError } from './game.js'
 import { logTransaction } from './transaction.js'
 
-export async function checkPromoCode(code: string): Promise<boolean> {
+export async function checkPromoCode(userId: bigint, code: string): Promise<boolean> {
   const promo = await prisma.promoCode.findUnique({
     where: { code },
-    select: { currentUses: true, maxUses: true },
+    select: { id: true, currentUses: true, maxUses: true },
   })
-  return Boolean(promo && promo.currentUses < promo.maxUses)
+  if (!promo || promo.currentUses >= promo.maxUses) return false
+
+  const redemption = await prisma.promoCodeRedemption.findUnique({
+    where: { promoCodeId_userId: { promoCodeId: promo.id, userId } },
+    select: { id: true },
+  })
+  return redemption === null
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002'
 }
 
 export async function openPromoCase(
@@ -39,6 +49,14 @@ export async function openPromoCase(
       throw new GameError('PROMO_INVALID', 'Код не найден или исчерпан', 400)
     }
 
+    const existingRedemption = await tx.promoCodeRedemption.findUnique({
+      where: { promoCodeId_userId: { promoCodeId: promo.id, userId } },
+      select: { id: true },
+    })
+    if (existingRedemption) {
+      throw new GameError('PROMO_ALREADY_USED', 'Вы уже использовали этот промокод', 400)
+    }
+
     // Условное атомарное обновление не позволяет параллельным запросам
     // превысить maxUses даже при одновременной проверке одного кода.
     const claimed = await tx.promoCode.updateMany({
@@ -47,6 +65,15 @@ export async function openPromoCase(
     })
     if (claimed.count !== 1) {
       throw new GameError('PROMO_EXHAUSTED', 'Код не найден или исчерпан', 400)
+    }
+
+    try {
+      await tx.promoCodeRedemption.create({ data: { promoCodeId: promo.id, userId } })
+    } catch (error) {
+      if (isUniqueConstraintError(error)) {
+        throw new GameError('PROMO_ALREADY_USED', 'Вы уже использовали этот промокод', 400)
+      }
+      throw error
     }
 
     const prize = await isBotAccount(userId)

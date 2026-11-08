@@ -53,6 +53,7 @@ model User {
   dailyBonus DailyBonus?
   transactions Transaction[]
   tasks        UserTask[]
+  promoCodeRedemptions PromoCodeRedemption[]
 
   @@index([referredBy])
   @@map("users")
@@ -147,6 +148,21 @@ model PromoCode {
   maxUses     Int      @default(1)
   currentUses Int      @default(0)
   createdAt   DateTime @default(now())
+  redemptions PromoCodeRedemption[]
+}
+
+model PromoCodeRedemption {
+  id          String   @id @default(cuid())
+  promoCodeId String   @db.Uuid
+  userId      BigInt
+  redeemedAt  DateTime @default(now())
+
+  promoCode PromoCode @relation(fields: [promoCodeId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([promoCodeId, userId])
+  @@index([userId])
+  @@map("promo_code_redemptions")
 }
 
 // Публичная лента дропов: пишется fire-and-forget из кейсов и PvP.
