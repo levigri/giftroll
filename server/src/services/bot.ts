@@ -27,14 +27,18 @@ export const FREE_CASE_CHANNEL = '@NewsGiftRoll'
  * Проверяет подписку пользователя на канал.
  * Без токена бота (локальная разработка) пропускаем, в проде считаем неподписанным.
  */
-export async function checkChannelSubscription(userId: bigint): Promise<boolean> {
+export async function checkChannelSubscription(
+  userId: bigint,
+  channelUsername = FREE_CASE_CHANNEL,
+): Promise<boolean> {
   const bot = getNotifyBot()
   if (!bot) {
     return env.NODE_ENV !== 'production'
   }
 
   try {
-    const member = await bot.api.getChatMember(FREE_CASE_CHANNEL, Number(userId))
+    const channel = channelUsername.startsWith('@') ? channelUsername : `@${channelUsername}`
+    const member = await bot.api.getChatMember(channel, Number(userId))
     return member.status === 'member' || member.status === 'administrator' || member.status === 'creator'
   } catch (err) {
     // Ошибка API (нет сети, бот не админ) — считаем, что не подписан, с логом.

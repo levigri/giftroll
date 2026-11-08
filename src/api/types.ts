@@ -87,6 +87,7 @@ export interface AdminCaseOpen {
   prizeEmoji: string
   prizeType: 'BALANCE' | 'NFT'
   prizePrice: number
+  isBetaMode: boolean
   createdAt: string
 }
 
@@ -102,6 +103,33 @@ export interface AdminUpgraderAttempt {
   winAmount: number
   isBetaMode: boolean
   createdAt: string
+}
+
+export interface AdminActivity {
+  id: string
+  kind: 'CASE_OPEN' | 'UPGRADE'
+  userId: string
+  username: string | null
+  firstName: string
+  title: string
+  result: string
+  won: boolean
+  isBetaMode: boolean
+  createdAt: string
+}
+
+export interface AdminTask {
+  id: string
+  title: string
+  description: string
+  reward: number
+  emoji: string
+  type: 'channel_subscription' | 'amateur_case' | 'nickname_streak' | 'first_upgrade' | 'first_pvp' | 'daily_streak_7' | 'active_referral'
+  target?: number
+  channelUsername: string | null
+  maxCompletions: number | null
+  completedByCount: number
+  active: boolean
 }
 
 export interface AdminUserDetails {
@@ -222,6 +250,10 @@ export interface TaskItem {
   progressCurrent?: number
   progressTarget?: number
   completedByCount?: number
+  maxCompletions?: number | null
+  available: boolean
+  type: AdminTask['type']
+  channelUsername?: string | null
 }
 
 export interface TasksResponse {

@@ -9,8 +9,9 @@ interface TasksPageProps {
   onBalanceChange: (newBalance: number) => void
 }
 
-function openChannel(): void {
-  openTelegramLink('https://t.me/NewsGiftRoll')
+function openChannel(channelUsername?: string | null): void {
+  const username = (channelUsername || 'NewsGiftRoll').replace(/^@/, '')
+  openTelegramLink(`https://t.me/${encodeURIComponent(username)}`)
 }
 
 function openTelegramLink(url: string): void {
@@ -160,14 +161,20 @@ export default function TasksPage({ balance, onBalanceChange }: TasksPageProps) 
                     </div>
                   )}
 
-                  {!!task.completedByCount && (
-                    <p className="mb-2 mt-0 text-[10px] text-gray-500">Уже выполнили: {task.completedByCount}</p>
+                  {task.maxCompletions !== null && task.maxCompletions !== undefined && (
+                    <p className="mb-2 mt-0 text-[10px] text-gray-500">
+                      Выполнили: {task.completedByCount ?? 0}/{task.maxCompletions}
+                    </p>
                   )}
 
                   {task.claimed ? (
                     <button type="button" disabled className="inline-flex cursor-not-allowed items-center gap-1 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs font-bold text-emerald-300">
                       <Check size={14} /> Получено
                     </button>
+                  ) : !task.available ? (
+                    <span className="inline-flex rounded-xl border border-gray-500/20 bg-white/[0.04] px-3 py-2 text-xs font-bold text-gray-500">
+                      Лимит выполнений достигнут
+                    </span>
                   ) : task.completed ? (
                     <button type="button" className="gold-btn px-3 py-2 text-xs" disabled={busy} onClick={() => void handleClaim(task)}>
                       {busy ? 'Зачисляем…' : `Забрать +${task.reward} ⭐`}
@@ -177,8 +184,8 @@ export default function TasksPage({ balance, onBalanceChange }: TasksPageProps) 
                       <button type="button" className="ghost-btn px-3 py-2 text-xs" disabled={busy} onClick={() => void handleCheck(task.id)}>
                         {busy ? 'Проверяем…' : 'Проверить'}
                       </button>
-                      {task.id === 'task-channel' && (
-                        <button type="button" className="ghost-btn px-3 py-2 text-xs" onClick={() => { tapFeedback('light'); openChannel() }}>
+                      {task.type === 'channel_subscription' && (
+                        <button type="button" className="ghost-btn px-3 py-2 text-xs" onClick={() => { tapFeedback('light'); openChannel(task.channelUsername) }}>
                           Подписаться
                         </button>
                       )}

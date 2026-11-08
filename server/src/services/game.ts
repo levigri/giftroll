@@ -94,6 +94,7 @@ export async function openCase(
           prizeId: prize.id,
           prizeType: prize.type,
           prizePrice: prize.price,
+          isBetaMode: userRow.isBetaMode,
         },
       })
 
@@ -259,6 +260,7 @@ export async function openMultiCase(
             prizeId: prize.id,
             prizeType: prize.type,
             prizePrice: prize.price,
+            isBetaMode: userRow.isBetaMode,
           },
         })
 

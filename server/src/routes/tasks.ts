@@ -1,8 +1,9 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { authenticateTelegram } from '../middleware/auth.js'
 import { prisma } from '../db/prisma.js'
-import { findTask, tasks, type TaskType } from '../data/tasks.js'
+import type { TaskDefinition } from '../data/tasks.js'
 import { checkChannelSubscription } from '../services/bot.js'
+import { getTaskDefinition, getTaskDefinitions } from '../services/taskDefinitions.js'
 import { checkNicknameTask } from '../services/nickname.js'
 import { GameError } from '../services/game.js'
 import { logTransaction } from '../services/transaction.js'
@@ -22,12 +23,12 @@ async function getDailyStreak(userId: bigint): Promise<number> {
 
 async function checkTaskCompletion(
   userId: bigint,
-  type: TaskType,
+  task: TaskDefinition,
   forceFreshNickname: boolean,
 ): Promise<TaskCompletion> {
-  switch (type) {
+  switch (task.type) {
     case 'channel_subscription':
-      return { completed: await checkChannelSubscription(userId) }
+      return { completed: await checkChannelSubscription(userId, task.channelUsername ?? undefined) }
     case 'amateur_case': {
       const count = await prisma.caseOpen.count({ where: { userId, caseId: 'case-amateur' } })
       return { completed: count > 0 }
@@ -78,12 +79,14 @@ export const tasksRoutes: FastifyPluginAsync = async (fastify) => {
       select: { taskId: true },
     })
     const claimedIds = new Set(claimedRows.map((row) => row.taskId))
+    const availableTasks = (await getTaskDefinitions()).filter((task) => task.active !== false)
 
     return {
       tasks: await Promise.all(
-        tasks.map(async (task) => {
-          const completion = await checkTaskCompletion(user.id, task.type, false)
+        availableTasks.map(async (task) => {
+          const completion = await checkTaskCompletion(user.id, task, false)
           const completedByCount = await prisma.userTask.count({ where: { taskId: task.id } })
+          const available = task.maxCompletions == null || completedByCount < task.maxCompletions
           return {
             id: task.id,
             title: task.title,
@@ -95,6 +98,10 @@ export const tasksRoutes: FastifyPluginAsync = async (fastify) => {
             progressCurrent: completion.progressCurrent,
             progressTarget: completion.progressTarget,
             completedByCount,
+            maxCompletions: task.maxCompletions ?? null,
+            available,
+            type: task.type,
+            channelUsername: task.channelUsername ?? null,
           }
         }),
       ),
@@ -109,15 +116,26 @@ export const tasksRoutes: FastifyPluginAsync = async (fastify) => {
       if (!user) return reply.code(401).send({ error: 'Unauthorized', code: 'AUTH_REQUIRED' })
 
       try {
-        const task = findTask(request.params.id)
+        const task = await getTaskDefinition(request.params.id)
         if (!task) throw new GameError('TASK_NOT_FOUND', 'Задание не найдено', 404)
+        if (task.active === false) throw new GameError('TASK_INACTIVE', 'Задание больше недоступно', 403)
 
-        const completion = await checkTaskCompletion(user.id, task.type, true)
+        const completion = await checkTaskCompletion(user.id, task, true)
         if (!completion.completed) {
           throw new GameError('TASK_NOT_COMPLETED', 'Задание ещё не выполнено', 403)
         }
 
         const newBalance = await prisma.$transaction(async (tx) => {
+          if (task.maxCompletions != null) {
+            await tx.$queryRaw<{ id: string }[]>`
+              SELECT id FROM managed_tasks WHERE id = ${task.id} FOR UPDATE
+            `
+            const completedCount = await tx.userTask.count({ where: { taskId: task.id } })
+            if (completedCount >= task.maxCompletions) {
+              throw new GameError('TASK_LIMIT_REACHED', 'Лимит выполнений задания уже достигнут', 409)
+            }
+          }
+
           try {
             await tx.userTask.create({ data: { userId: user.id, taskId: task.id } })
           } catch (err) {

@@ -1,4 +1,6 @@
 import type {
+  AdminActivity,
+  AdminTask,
   AdminTransaction,
   AdminUserDetails,
   AdminUserSummary,
@@ -117,6 +119,36 @@ export async function adminGetUser(id: string): Promise<AdminUserDetails> {
 
 export async function adminGetRecentTransactions(): Promise<AdminTransaction[]> {
   return request<AdminTransaction[]>('/api/admin/transactions')
+}
+
+export async function adminGetHistory(): Promise<AdminActivity[]> {
+  return request<AdminActivity[]>('/api/admin/history')
+}
+
+export async function adminGetTasks(): Promise<AdminTask[]> {
+  return request<AdminTask[]>('/api/admin/tasks')
+}
+
+export async function adminCreateChannelTask(input: {
+  channelUsername: string
+  reward: number
+  maxCompletions: number
+  title?: string
+}): Promise<AdminTask> {
+  return request<AdminTask>('/api/admin/tasks', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export async function adminUpdateTask(
+  id: string,
+  input: { reward?: number; maxCompletions?: number | null; active?: boolean },
+): Promise<AdminTask> {
+  return request<AdminTask>(`/api/admin/tasks/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  })
 }
 
 export async function toggleBetaMode(enabled: boolean): Promise<{ ok: boolean; isBetaMode: boolean }> {

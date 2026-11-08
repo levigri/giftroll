@@ -15,6 +15,9 @@ export interface TaskDefinition {
   emoji: string
   type: TaskType
   target?: number
+  channelUsername?: string | null
+  maxCompletions?: number | null
+  active?: boolean
 }
 
 export const tasks: TaskDefinition[] = [

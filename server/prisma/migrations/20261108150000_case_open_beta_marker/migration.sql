@@ -1,0 +1,2 @@
+ALTER TABLE "case_opens"
+ADD COLUMN "isBetaMode" BOOLEAN NOT NULL DEFAULT false;
