@@ -238,6 +238,21 @@ export async function performUpgrade(
         }
       }
 
+      await tx.upgraderAttempt.create({
+        data: {
+          userId,
+          targetNftId: targetNft.id,
+          targetNftName: targetNft.name,
+          targetNftEmoji: targetNft.emoji,
+          targetNftPrice: targetMarketPrice,
+          betAmount: totalBet,
+          chance,
+          win,
+          winAmount: win ? winAmount : 0,
+          isBetaMode: userRow.isBetaMode,
+        },
+      })
+
       const receivedNft = grantNft
         ? {
             id: targetNft.id,

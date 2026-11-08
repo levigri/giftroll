@@ -2,6 +2,7 @@ import type { FastifyReply, FastifyRequest, FastifyPluginAsync } from 'fastify'
 import { env } from '../config/env.js'
 import { authenticateTelegram } from '../middleware/auth.js'
 import { prisma } from '../db/prisma.js'
+import { allCases } from '../data/cases.js'
 
 async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const user = request.telegramUser
@@ -85,7 +86,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
       })
       if (!user) return reply.code(404).send({ error: 'Пользователь не найден', code: 'USER_NOT_FOUND' })
 
-      const [inventory, deposits, transactions] = await Promise.all([
+      const [inventory, deposits, transactions, caseOpens, upgraderAttempts] = await Promise.all([
         prisma.inventoryItem.findMany({
           where: { userId: id },
           orderBy: { createdAt: 'desc' },
@@ -108,6 +109,16 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
           select: { id: true, type: true, amount: true, details: true, createdAt: true },
           orderBy: { createdAt: 'desc' },
           take: 50,
+        }),
+        prisma.caseOpen.findMany({
+          where: { userId: id },
+          orderBy: { createdAt: 'desc' },
+          take: 100,
+        }),
+        prisma.upgraderAttempt.findMany({
+          where: { userId: id },
+          orderBy: { createdAt: 'desc' },
+          take: 100,
         }),
       ])
 
@@ -133,6 +144,26 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
         transactions: transactions.map((transaction) => ({
           ...transaction,
           createdAt: transaction.createdAt.toISOString(),
+        })),
+        caseOpens: caseOpens.map((entry) => {
+          const caseItem = allCases.find((item) => item.id === entry.caseId)
+          const prize = caseItem?.prizes.find((item) => item.id === entry.prizeId)
+          return {
+            id: entry.id,
+            caseId: entry.caseId,
+            caseName: caseItem?.name ?? entry.caseId,
+            prizeId: entry.prizeId,
+            prizeName: prize?.name ?? entry.prizeId,
+            prizeEmoji: prize?.emoji ?? '',
+            prizeType: entry.prizeType,
+            prizePrice: entry.prizePrice,
+            createdAt: entry.createdAt.toISOString(),
+          }
+        }),
+        upgraderAttempts: upgraderAttempts.map((attempt) => ({
+          ...attempt,
+          userId: attempt.userId.toString(),
+          createdAt: attempt.createdAt.toISOString(),
         })),
       }
     },

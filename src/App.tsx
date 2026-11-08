@@ -21,6 +21,7 @@ import {
 import {
   captureStartParamRef,
   getTelegramUser,
+  getStartParam,
   isTelegramEnv,
   successFeedback,
   tapFeedback,
@@ -253,8 +254,15 @@ function App() {
       const [meData, casesData] = await Promise.all([getMe(), getCases()])
       void getTasks().catch(() => {})
 
-      // Бэкенд вернул итог привязки по X-Ref-Code — если не засчиталось, объясняем почему.
-      if (meData.referral && !meData.referral.ok && !referralNoticeShown.current) {
+      // Показываем сообщение только при запуске по реферальной ссылке,
+      // а не из-за сохранённого в браузере старого X-Ref-Code.
+      const arrivedViaReferralLink = getStartParam().startsWith('ref_')
+      if (
+        arrivedViaReferralLink &&
+        meData.referral &&
+        !meData.referral.ok &&
+        !referralNoticeShown.current
+      ) {
         referralNoticeShown.current = true
         showReferralNotice(meData.referral.reason ?? 'ссылка не засчитана')
       }

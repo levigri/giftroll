@@ -261,6 +261,58 @@ export default function AdminPage() {
           </section>
 
           <section className="glass-card p-4">
+            <h2 className="mb-3 mt-0 flex items-center gap-2 text-base font-extrabold text-white"><Package size={17} className="text-amber-300" />Открытия кейсов ({selectedUser.caseOpens.length})</h2>
+            {selectedUser.caseOpens.length === 0 ? <p className="m-0 text-sm text-gray-500">Открытий кейсов нет</p> : (
+              <ul className="m-0 list-none divide-y divide-white/5 p-0">
+                {selectedUser.caseOpens.map((entry) => (
+                  <li key={entry.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.05] text-xl">{entry.prizeEmoji || '🎁'}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-extrabold text-white">{entry.prizeType === 'BALANCE' ? `+${entry.prizePrice} ⭐` : entry.prizeName}</span>
+                      <span className="mt-1 block truncate text-xs text-gray-400">Кейс «{entry.caseName}» · {entry.prizeType}</span>
+                      <span className="mt-1 block text-[11px] text-gray-600">{formatDate(entry.createdAt)}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="glass-card p-4">
+            <h2 className="mb-3 mt-0 flex items-center gap-2 text-base font-extrabold text-white"><Activity size={17} className="text-violet-300" />Апгрейдер ({selectedUser.upgraderAttempts.length})</h2>
+            {selectedUser.upgraderAttempts.length === 0 ? <p className="m-0 text-sm text-gray-500">Попыток апгрейда нет</p> : (
+              <ul className="m-0 list-none divide-y divide-white/5 p-0">
+                {selectedUser.upgraderAttempts.map((attempt) => (
+                  <li key={attempt.id} className="py-3 first:pt-0 last:pb-0">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="m-0 text-sm font-extrabold text-white">
+                          {attempt.targetNftEmoji} {attempt.targetNftName}
+                          <span className="ml-2 text-xs font-bold text-gray-500">{attempt.chance.toFixed(2)}%</span>
+                        </p>
+                        <p className="mb-0 mt-1 text-xs text-gray-400">
+                          Ставка {attempt.betAmount} ⭐ · цель {attempt.targetNftPrice} ⭐
+                        </p>
+                        <p className="mb-0 mt-1 text-[11px] text-gray-600">{formatDate(attempt.createdAt)}</p>
+                      </div>
+                      <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-extrabold ${attempt.win ? 'bg-emerald-400/10 text-emerald-300' : 'bg-rose-400/10 text-rose-300'}`}>
+                        {attempt.win ? (attempt.isBetaMode ? 'БЕТА · ПОБЕДА' : 'ПОБЕДА') : 'ПРОИГРЫШ'}
+                      </span>
+                    </div>
+                    <p className="mb-0 mt-2 text-xs text-gray-300">
+                      {attempt.win
+                        ? attempt.isBetaMode
+                          ? `Тестовый результат: выпал бы NFT «${attempt.targetNftName}» (${attempt.targetNftPrice} ⭐), расчётная выплата ${attempt.winAmount} ⭐.`
+                          : `Выигран NFT «${attempt.targetNftName}» (${attempt.targetNftPrice} ⭐), выплата ${attempt.winAmount} ⭐.`
+                        : `NFT не выпал. Ставка ${attempt.betAmount} ⭐ проиграна.`}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="glass-card p-4">
             <h2 className="mb-3 mt-0 flex items-center gap-2 text-base font-extrabold text-white"><Package size={17} className="text-violet-300" />Инвентарь ({selectedUser.inventory.length})</h2>
             {selectedUser.inventory.length === 0 ? <p className="m-0 text-sm text-gray-500">Предметов нет</p> : (
               <ul className="m-0 list-none divide-y divide-white/5 p-0">

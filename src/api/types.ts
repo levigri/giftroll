@@ -78,6 +78,32 @@ export interface AdminTransaction {
   createdAt: string
 }
 
+export interface AdminCaseOpen {
+  id: string
+  caseId: string
+  caseName: string
+  prizeId: string
+  prizeName: string
+  prizeEmoji: string
+  prizeType: 'BALANCE' | 'NFT'
+  prizePrice: number
+  createdAt: string
+}
+
+export interface AdminUpgraderAttempt {
+  id: string
+  targetNftId: string
+  targetNftName: string
+  targetNftEmoji: string
+  targetNftPrice: number
+  betAmount: number
+  chance: number
+  win: boolean
+  winAmount: number
+  isBetaMode: boolean
+  createdAt: string
+}
+
 export interface AdminUserDetails {
   user: AdminUserSummary & {
     lastName: string | null
@@ -90,6 +116,8 @@ export interface AdminUserDetails {
   inventory: InventoryItem[]
   deposits: AdminDeposit[]
   transactions: Array<Pick<AdminTransaction, 'id' | 'type' | 'amount' | 'details' | 'createdAt'>>
+  caseOpens: AdminCaseOpen[]
+  upgraderAttempts: AdminUpgraderAttempt[]
 }
 
 export interface InventoryItem {

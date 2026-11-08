@@ -54,6 +54,7 @@ model User {
   transactions Transaction[]
   tasks        UserTask[]
   promoCodeRedemptions PromoCodeRedemption[]
+  upgraderAttempts UpgraderAttempt[]
 
   @@index([referredBy])
   @@map("users")
@@ -95,6 +96,26 @@ model CaseOpen {
 
   @@index([userId])
   @@map("case_opens")
+}
+
+model UpgraderAttempt {
+  id             String   @id @default(cuid())
+  userId         BigInt
+  targetNftId    String
+  targetNftName  String
+  targetNftEmoji String
+  targetNftPrice Int
+  betAmount      Int
+  chance         Float
+  win            Boolean
+  winAmount      Int
+  isBetaMode     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("upgrader_attempts")
 }
 
 model InventoryItem {
