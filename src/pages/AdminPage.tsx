@@ -382,7 +382,7 @@ export default function AdminPage() {
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.05] text-xl">{entry.prizeEmoji || '🎁'}</span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-extrabold text-white">
-                        {entry.isBetaMode ? 'ТЕСТ · ' : 'КЕЙС ОТКРЫТ · ВЫИГРЫШ · '}
+                        {entry.isBetaMode ? 'БЕТА · ТЕСТ · ' : 'КЕЙС ОТКРЫТ · ВЫИГРЫШ · '}
                         {entry.prizeType === 'BALANCE' ? `+${entry.prizePrice} ⭐` : entry.prizeName}
                       </span>
                       <span className="mt-1 block truncate text-xs text-gray-400">Кейс «{entry.caseName}» · {entry.prizeType}{entry.isBetaMode ? ' · не начислено' : ''}</span>
@@ -411,8 +411,8 @@ export default function AdminPage() {
                         </p>
                         <p className="mb-0 mt-1 text-[11px] text-gray-600">{formatDate(attempt.createdAt)}</p>
                       </div>
-                      <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-extrabold ${attempt.win ? 'bg-emerald-400/10 text-emerald-300' : 'bg-rose-400/10 text-rose-300'}`}>
-                        {attempt.win ? (attempt.isBetaMode ? 'БЕТА · ПОБЕДА' : 'ПОБЕДА') : 'ПРОИГРЫШ'}
+                      <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-extrabold ${attempt.isBetaMode ? 'bg-violet-400/10 text-violet-300' : attempt.win ? 'bg-emerald-400/10 text-emerald-300' : 'bg-rose-400/10 text-rose-300'}`}>
+                        {attempt.isBetaMode ? `БЕТА · ${attempt.win ? 'ПОБЕДА' : 'ПРОИГРЫШ'}` : attempt.win ? 'ПОБЕДА' : 'ПРОИГРЫШ'}
                       </span>
                     </div>
                     <p className="mb-0 mt-2 text-xs text-gray-300">
@@ -420,7 +420,7 @@ export default function AdminPage() {
                         ? attempt.isBetaMode
                           ? `Тестовый результат: выпал бы NFT «${attempt.targetNftName}» (${attempt.targetNftPrice} ⭐), расчётная выплата ${attempt.winAmount} ⭐.`
                           : `Выигран NFT «${attempt.targetNftName}» (${attempt.targetNftPrice} ⭐), выплата ${attempt.winAmount} ⭐.`
-                          : `АПГРЕЙД ПРОИГРАН · NFT не выпал, ставка ${attempt.betAmount} ⭐ сгорела.`}
+                        : `${attempt.isBetaMode ? 'БЕТА · ' : ''}АПГРЕЙД ПРОИГРАН · NFT не выпал, ставка ${attempt.betAmount} ⭐${attempt.isBetaMode ? ' не списана' : ' сгорела'}.`}
                     </p>
                   </li>
                 ))}
