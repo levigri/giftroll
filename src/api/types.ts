@@ -17,6 +17,8 @@ export interface CaseItem {
   prizes: Prize[]
   /** Опциональная картинка кейса для модалки открытия. */
   imageUrl?: string
+  availableAt?: string
+  availableUntil?: string
 }
 
 export interface CasesResponse {

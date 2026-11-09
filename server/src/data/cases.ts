@@ -20,6 +20,15 @@ export interface CaseItem {
   prizes: Prize[]
 }
 
+// Окно ограниченного кейса фиксируется при старте процесса, а не на каждом GET.
+export const LIMITED_CASE_AVAILABLE_AT = Date.now() + 60 * 60 * 1000
+export const LIMITED_CASE_AVAILABLE_UNTIL = Date.now() + 3 * 24 * 60 * 60 * 1000
+
+export function isCaseAvailable(caseId: string, now = Date.now()): boolean {
+  if (caseId !== 'case-limited') return true
+  return now >= LIMITED_CASE_AVAILABLE_AT && now <= LIMITED_CASE_AVAILABLE_UNTIL
+}
+
 export const allCases: CaseItem[] = [
   // Стартовый — 20 STARS
   {
@@ -52,8 +61,8 @@ export const allCases: CaseItem[] = [
       { id: 'case-amateur-4', name: '+150', emoji: '⭐', type: 'BALANCE', price: 150, chance: 2.50 },
       { id: 'case-amateur-5', name: '+200', emoji: '⭐', type: 'BALANCE', price: 200, chance: 1.00 },
       { id: 'lol-pop', name: 'Lol Pop', emoji: '🍭', type: 'NFT', price: 378, chance: 1.20 },
-      { id: 'fresh-socks', name: 'Fresh Socks', emoji: '🧦', type: 'NFT', price: 400, chance: 1.00 },
-      { id: 'santa-hat', name: 'Santa Hat', emoji: '🎅', type: 'NFT', price: 540, chance: 2.35 },
+      { id: 'fresh-socks', name: 'Fresh Socks', emoji: '🧦', type: 'NFT', price: 400, chance: 2.35 },
+      { id: 'santa-hat', name: 'Santa Hat', emoji: '🎅', type: 'NFT', price: 540, chance: 1.00 },
     ],
   },
 
@@ -72,8 +81,8 @@ export const allCases: CaseItem[] = [
       { id: 'surge-board', name: 'Surge Board', emoji: '🏄', type: 'NFT', price: 650, chance: 8.00 },
       { id: 'berry-box', name: 'Berry Box', emoji: '🍓', type: 'NFT', price: 860, chance: 6.00 },
       { id: 'top-hat', name: 'Top Hat', emoji: '🎩', type: 'NFT', price: 1040, chance: 4.00 },
-      { id: 'flying-broom', name: 'Flying Broom', emoji: '🧹', type: 'NFT', price: 1240, chance: 1.99 },
-      { id: 'diamond-ring', name: 'Diamond Ring', emoji: '💍', type: 'NFT', price: 3150, chance: 3.57 },
+      { id: 'flying-broom', name: 'Flying Broom', emoji: '🧹', type: 'NFT', price: 1240, chance: 3.57 },
+      { id: 'diamond-ring', name: 'Diamond Ring', emoji: '💍', type: 'NFT', price: 3150, chance: 1.99 },
     ],
   },
 
@@ -92,8 +101,8 @@ export const allCases: CaseItem[] = [
       { id: 'ufc-strike', name: 'UFC Strike', emoji: '🥊', type: 'NFT', price: 1620, chance: 3.99 },
       { id: 'cupid-charm', name: 'Cupid Charm', emoji: '🏹', type: 'NFT', price: 2200, chance: 2.50 },
       { id: 'diamond-ring', name: 'Diamond Ring', emoji: '💍', type: 'NFT', price: 3150, chance: 1.50 },
-      { id: 'artisan-brick', name: 'Artisan Brick', emoji: '🧱', type: 'NFT', price: 6290, chance: 0.70 },
-      { id: 'durovs-glasses', name: "Durov's Glasses", emoji: '👓', type: 'NFT', price: 9480, chance: 2.53 },
+      { id: 'artisan-brick', name: 'Artisan Brick', emoji: '🧱', type: 'NFT', price: 6290, chance: 2.53 },
+      { id: 'durovs-glasses', name: "Durov's Glasses", emoji: '👓', type: 'NFT', price: 9480, chance: 0.70 },
     ],
   },
 
@@ -112,8 +121,27 @@ export const allCases: CaseItem[] = [
       { id: 'artisan-brick', name: 'Artisan Brick', emoji: '🧱', type: 'NFT', price: 8100, chance: 6.00 },
       { id: 'durovs-glasses', name: "Durov's Glasses", emoji: '👓', type: 'NFT', price: 9480, chance: 3.00 },
       { id: 'mighty-arm', name: 'Mighty Arm', emoji: '💪', type: 'NFT', price: 12300, chance: 2.00 },
-      { id: 'heroic-helmet', name: 'Heroic Helmet', emoji: '🪖', type: 'NFT', price: 17690, chance: 0.80 },
-      { id: 'durovs-cap', name: "Durov's Cap", emoji: '🧢', type: 'NFT', price: 39900, chance: 2.34 },
+      { id: 'heroic-helmet', name: 'Heroic Helmet', emoji: '🪖', type: 'NFT', price: 17690, chance: 2.34 },
+      { id: 'durovs-cap', name: "Durov's Cap", emoji: '🧢', type: 'NFT', price: 39900, chance: 0.80 },
+    ],
+  },
+
+  // Супер Дроп: RTP 80% (EV 279.2 ⭐); Precious Peach остаётся витринным призом.
+  {
+    id: 'case-limited',
+    name: 'Супер Дроп',
+    price: 349,
+    currency: 'STARS',
+    emoji: '🎁',
+    prizes: [
+      { id: 'limited-balance-100', name: '+100', emoji: '⭐', type: 'BALANCE', price: 100, chance: 40.061012 },
+      { id: 'limited-balance-200', name: '+200', emoji: '⭐', type: 'BALANCE', price: 200, chance: 28 },
+      { id: 'limited-balance-270', name: '+270', emoji: '⭐', type: 'BALANCE', price: 270, chance: 15.5 },
+      { id: 'nft-fresh-socks', name: 'Fresh Socks', emoji: '🧦', type: 'NFT', price: 400, chance: 8 },
+      { id: 'nft-snow-mittens', name: 'Snow Mittens', emoji: '🧤', type: 'NFT', price: 500, chance: 4.5 },
+      { id: 'nft-love-potion', name: 'Love Potion', emoji: '🧪', type: 'NFT', price: 1480, chance: 2.5 },
+      { id: 'nft-genie-lamp', name: 'Genie Lamp', emoji: '🪔', type: 'NFT', price: 3460, chance: 1.438988 },
+      { id: 'lim-peach', name: 'Precious Peach', emoji: '🍑', type: 'NFT', price: 24000, chance: 0 },
     ],
   },
 ]

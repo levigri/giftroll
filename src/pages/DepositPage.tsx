@@ -23,6 +23,7 @@ const TON_RECEIVER_ADDRESS = 'UQCrIF5c20wufcyh7AFWgzam5KtgZtXzbT2AuIblNHApbUAg'
 /** Границы совпадают с серверными MIN_DEPOSIT_STARS / MAX_DEPOSIT_STARS. */
 const MIN_AMOUNT = 10
 const MAX_AMOUNT = 100_000
+const GRAM_PROMO_END_AT = Date.parse('2026-11-16T23:59:59Z')
 interface TelegramWebAppBridge {
   openInvoice?: (url: string, callback?: (status: string) => void) => void
   /** Открывает внешнюю ссылку внутри Telegram (например, счёт @CryptoBot). */
@@ -151,6 +152,7 @@ function DepositPageContent({
   const safeBalance = typeof balance === 'number' && !Number.isNaN(balance) ? balance : 0
 
   const [tab, setTab] = useState<Tab>('stars')
+  const [gramsBonusPercent, setGramsBonusPercent] = useState(() => Date.now() < GRAM_PROMO_END_AT ? 15 : 5)
   const [amount, setAmount] = useState(100)
   const [custom, setCustom] = useState('')
   const [busy, setBusy] = useState(false)
@@ -192,6 +194,16 @@ function DepositPageContent({
   const cryptoBaseUsd = (cryptoAmount / 100) * rates.starsUsd
   const cryptoFinalUsd = cryptoBaseUsd * 1.03
 
+  useEffect(() => {
+    const promoRemaining = GRAM_PROMO_END_AT - Date.now()
+    if (promoRemaining <= 0) {
+      setGramsBonusPercent(5)
+      return
+    }
+    const timeoutId = window.setTimeout(() => setGramsBonusPercent(5), promoRemaining)
+    return () => window.clearTimeout(timeoutId)
+  }, [])
+
   // Курсы берём у бэкенда (там CoinGecko без CORS-проблем) — один раз на открытие страницы.
   useEffect(() => {
     let alive = true
@@ -207,7 +219,7 @@ function DepositPageContent({
     }
   }, [])
 
-  // Получаем рассчитанную сервером сумму со скидкой, не создавая pending-депозит
+  // Получаем рассчитанную сервером сумму, не создавая pending-депозит
   // на каждый символ, который игрок вводит в поле.
   useEffect(() => {
     if (!gramsValid) {
@@ -483,7 +495,7 @@ function DepositPageContent({
           }`}
           onClick={() => setTab('grams')}
         >
-          <span className="inline-flex items-center gap-1"><Gem size={13} /> Gram</span>
+          <span className="inline-flex items-center gap-1"><Gem size={13} /> Gram <span className="font-extrabold text-emerald-400">+{gramsBonusPercent}%</span></span>
         </button>
         <button
           type="button"
@@ -582,7 +594,7 @@ function DepositPageContent({
           <div className="flex items-center justify-between rounded-2xl border border-[#48A9FF]/25 bg-gradient-to-r from-[#48A9FF]/10 to-emerald-400/10 px-3.5 py-3">
             <div>
               <div className="text-sm font-extrabold text-white">
-                Оплата в <span className="font-extrabold text-emerald-400">Gram +5%</span>
+                Оплата в <span className="font-extrabold text-emerald-400">Gram +{gramsBonusPercent}%</span>
               </div>
             </div>
             <span className="rounded-full border border-[#48A9FF]/30 bg-[#48A9FF]/10 px-2.5 py-1 text-xs font-extrabold text-[#A9D8FF]">TON</span>
@@ -633,7 +645,7 @@ function DepositPageContent({
                   </p>
                   {gramsQuote && (
                     <p className="m-0 text-center text-xs text-emerald-400">
-                      Зачислим: <strong>{gramsQuote.starsAmount} ⭐</strong> (включая +5% бонус)
+                      Зачислим: <strong>{gramsQuote.starsAmount} ⭐</strong> (включая +{gramsBonusPercent}% бонус)
                     </p>
                   )}
                   {gramsQuote && quoteFixedUntil !== null && quoteFixedUntil > Date.now() && (

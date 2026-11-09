@@ -301,13 +301,15 @@ export async function quoteGramsAmount(starsAmount: number): Promise<{
     )
   }
 
-  // Начисляемые ⭐ включают 5% бонус, а сумма TON получает 5% скидку.
-  const creditedStarsAmount = Math.round(starsAmount * 1.05)
+  // Акция действует до указанного момента включительно; после него возвращается базовый бонус 5%.
+  const promoEndDate = new Date('2026-11-16T23:59:59Z').getTime()
+  const isPromoActive = Date.now() < promoEndDate
+  const multiplier = isPromoActive ? 1.15 : 1.05
+  const creditedStarsAmount = Math.round(starsAmount * multiplier)
   const usdAmount = getStarsBasePriceUsd(starsAmount)
   const tonRate = await getGramRate()
   const baseGrams = usdAmount / tonRate
-  const discountedGrams = baseGrams * 0.95
-  const gramsAmount = Math.round(discountedGrams * 1_000_000) / 1_000_000
+  const gramsAmount = Math.round(baseGrams * 1_000_000) / 1_000_000
   return { gramsAmount, starsAmount: creditedStarsAmount }
 }
 

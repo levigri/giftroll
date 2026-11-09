@@ -79,6 +79,27 @@ export default function CasesPage({
   const [promoError, setPromoError] = useState<string | null>(null)
   const [promoBusy, setPromoBusy] = useState(false)
   const [promoPrize, setPromoPrize] = useState<DailyBonusPrize | null>(null)
+  const [caseTimeNow, setCaseTimeNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    const limitedCase = cases.find((caseItem) => caseItem.id === 'case-limited')
+    if (!limitedCase?.availableAt || !limitedCase.availableUntil) return
+
+    const availableAt = Date.parse(limitedCase.availableAt)
+    const availableUntil = Date.parse(limitedCase.availableUntil)
+    const nextBoundary = caseTimeNow < availableAt
+      ? availableAt
+      : caseTimeNow < availableUntil
+        ? availableUntil
+        : null
+    if (nextBoundary === null) return
+
+    const timeoutId = window.setTimeout(
+      () => setCaseTimeNow(Date.now()),
+      Math.max(0, nextBoundary - caseTimeNow + 50),
+    )
+    return () => window.clearTimeout(timeoutId)
+  }, [cases, caseTimeNow])
 
   const hottestPrice = cases.reduce((max, item) => Math.max(max, item.price), 0)
   const countdown = useCountdown(bonus.dailyAvailableAt, !bonus.dailyAvailable)
@@ -296,6 +317,10 @@ export default function CasesPage({
             </article>
 
             {cases.map((caseItem) => {
+              const isLockedByTime = caseItem.id === 'case-limited' && caseItem.availableAt && caseItem.availableUntil &&
+                (caseTimeNow < new Date(caseItem.availableAt).getTime() || caseTimeNow > new Date(caseItem.availableUntil).getTime())
+              if (isLockedByTime) return null
+
               const isHot = caseItem.price === hottestPrice && hottestPrice > 0
               const bestPrize = getBestPrize(caseItem.prizes)
               const bestPrizeImg = bestPrize
