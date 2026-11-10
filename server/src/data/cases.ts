@@ -20,8 +20,8 @@ export interface CaseItem {
   prizes: Prize[]
 }
 
-// Окно ограниченного кейса фиксируется при старте процесса, а не на каждом GET.
-export const LIMITED_CASE_AVAILABLE_AT = Date.now() + 60 * 60 * 1000
+// Кейс доступен сразу после запуска сервера; окно фиксируется, а не сдвигается на каждом GET.
+export const LIMITED_CASE_AVAILABLE_AT = Date.now()
 export const LIMITED_CASE_AVAILABLE_UNTIL = Date.now() + 3 * 24 * 60 * 60 * 1000
 
 export function isCaseAvailable(caseId: string, now = Date.now()): boolean {
