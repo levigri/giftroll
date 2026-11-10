@@ -30,6 +30,25 @@ export function isCaseAvailable(caseId: string, now = Date.now()): boolean {
 }
 
 export const allCases: CaseItem[] = [
+  // Супер Дроп: RTP 80% (EV 279.2 ⭐); Precious Peach остаётся витринным призом.
+  {
+    id: 'case-limited',
+    name: 'Супер Дроп',
+    price: 349,
+    currency: 'STARS',
+    emoji: '🎁',
+    prizes: [
+      { id: 'limited-balance-100', name: '+100', emoji: '⭐', type: 'BALANCE', price: 100, chance: 40.061012 },
+      { id: 'limited-balance-200', name: '+200', emoji: '⭐', type: 'BALANCE', price: 200, chance: 28 },
+      { id: 'limited-balance-270', name: '+270', emoji: '⭐', type: 'BALANCE', price: 270, chance: 15.5 },
+      { id: 'nft-fresh-socks', name: 'Fresh Socks', emoji: '🧦', type: 'NFT', price: 400, chance: 8 },
+      { id: 'nft-snow-mittens', name: 'Snow Mittens', emoji: '🧤', type: 'NFT', price: 500, chance: 4.5 },
+      { id: 'nft-love-potion', name: 'Love Potion', emoji: '🧪', type: 'NFT', price: 1480, chance: 2.5 },
+      { id: 'nft-genie-lamp', name: 'Genie Lamp', emoji: '🪔', type: 'NFT', price: 3460, chance: 1.438988 },
+      { id: 'lim-peach', name: 'Precious Peach', emoji: '🍑', type: 'NFT', price: 24000, chance: 0 },
+    ],
+  },
+
   // Стартовый — 20 STARS
   {
     id: 'case-start',
@@ -126,24 +145,6 @@ export const allCases: CaseItem[] = [
     ],
   },
 
-  // Супер Дроп: RTP 80% (EV 279.2 ⭐); Precious Peach остаётся витринным призом.
-  {
-    id: 'case-limited',
-    name: 'Супер Дроп',
-    price: 349,
-    currency: 'STARS',
-    emoji: '🎁',
-    prizes: [
-      { id: 'limited-balance-100', name: '+100', emoji: '⭐', type: 'BALANCE', price: 100, chance: 40.061012 },
-      { id: 'limited-balance-200', name: '+200', emoji: '⭐', type: 'BALANCE', price: 200, chance: 28 },
-      { id: 'limited-balance-270', name: '+270', emoji: '⭐', type: 'BALANCE', price: 270, chance: 15.5 },
-      { id: 'nft-fresh-socks', name: 'Fresh Socks', emoji: '🧦', type: 'NFT', price: 400, chance: 8 },
-      { id: 'nft-snow-mittens', name: 'Snow Mittens', emoji: '🧤', type: 'NFT', price: 500, chance: 4.5 },
-      { id: 'nft-love-potion', name: 'Love Potion', emoji: '🧪', type: 'NFT', price: 1480, chance: 2.5 },
-      { id: 'nft-genie-lamp', name: 'Genie Lamp', emoji: '🪔', type: 'NFT', price: 3460, chance: 1.438988 },
-      { id: 'lim-peach', name: 'Precious Peach', emoji: '🍑', type: 'NFT', price: 24000, chance: 0 },
-    ],
-  },
 ]
 
 // Валидация при импорте: проверяем, что сумма всех chance в каждом кейсе ровно 100%

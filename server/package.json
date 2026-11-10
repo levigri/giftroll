@@ -7,6 +7,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "broadcast": "tsx scripts/broadcast.ts",
     "generate:session": "tsx scripts/generate-session.ts",
     "check:scripts": "tsc -p tsconfig.scripts.json",
     "prisma:generate": "prisma generate",
