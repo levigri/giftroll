@@ -321,6 +321,7 @@ export default function CasesPage({
                 (caseTimeNow < new Date(caseItem.availableAt).getTime() || caseTimeNow > new Date(caseItem.availableUntil).getTime())
               if (isLockedByTime) return null
 
+              const isLimitedCase = caseItem.id === 'case-limited'
               const isHot = caseItem.price === hottestPrice && hottestPrice > 0
               const bestPrize = getBestPrize(caseItem.prizes)
               const bestPrizeImg = bestPrize
@@ -344,9 +345,17 @@ export default function CasesPage({
                     }
                   }}
                   className={`glass-card glass-card--hover group relative flex cursor-pointer flex-col items-center gap-2 overflow-hidden p-3.5 text-center transition hover:scale-[1.02] active:scale-[0.98] ${
-                    isHot ? 'border-[#FFD700]/40 shadow-[0_0_24px_rgba(255,215,0,0.12)]' : ''
+                    isLimitedCase
+                      ? 'border-[#FFD700]/50 shadow-[0_0_24px_rgba(255,215,0,0.15)]'
+                      : isHot ? 'border-[#FFD700]/40 shadow-[0_0_24px_rgba(255,215,0,0.12)]' : ''
                   }`}
                 >
+                  {isLimitedCase && (
+                    <span className="absolute left-2 top-2 z-10 rounded-full border border-red-500/40 bg-red-500/20 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-red-300">
+                      -50%
+                    </span>
+                  )}
+
                   <div className="relative mt-1 flex h-24 w-24 items-center justify-center">
                     <img
                       src={bestPrizeImg}
@@ -368,14 +377,32 @@ export default function CasesPage({
 
                   <h3 className="m-0 text-[15px] font-extrabold text-white">{caseItem.name}</h3>
 
-                  <div className="flex items-center gap-1 text-sm font-extrabold text-[#FFD700]">
-                    {caseItem.price}
-                    <Star size={13} fill="currentColor" />
-                  </div>
+                  {isLimitedCase ? (
+                    <div className="flex flex-col items-center gap-0.5">
+                      <span className="text-[11px] font-bold text-gray-500 line-through">700 ⭐</span>
+                      <div className="flex items-center gap-1 text-sm font-extrabold text-[#FFD700]">
+                        {caseItem.price}
+                        <Star size={13} fill="currentColor" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 text-sm font-extrabold text-[#FFD700]">
+                      {caseItem.price}
+                      <Star size={13} fill="currentColor" />
+                    </div>
+                  )}
 
-                  <div className="mt-1 flex w-full items-center justify-center rounded-xl border border-white/10 bg-white/5 py-1.5 text-xs font-bold text-gray-300 transition group-hover:border-[#FFD700]/50 group-hover:text-white">
-                    Содержимое
-                  </div>
+                  {isLimitedCase ? (
+                    <div className="mt-1 flex w-full items-center justify-center">
+                      <span className="rounded-full border border-amber-300/25 bg-amber-300/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-amber-200">
+                        Лимит
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="mt-1 flex w-full items-center justify-center rounded-xl border border-white/10 bg-white/5 py-1.5 text-xs font-bold text-gray-300 transition group-hover:border-[#FFD700]/50 group-hover:text-white">
+                      Содержимое
+                    </div>
+                  )}
                 </article>
               )
             })}

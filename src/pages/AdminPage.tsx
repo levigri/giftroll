@@ -32,6 +32,7 @@ function amountClass(amount: number): string {
 
 export default function AdminPage() {
   const [section, setSection] = useState<'players' | 'history' | 'tasks'>('players')
+  const [historyView, setHistoryView] = useState<'wins' | 'spending' | 'transactions'>('wins')
   const [query, setQuery] = useState('')
   const [users, setUsers] = useState<AdminUserSummary[]>([])
   const [selectedUser, setSelectedUser] = useState<AdminUserDetails | null>(null)
@@ -450,11 +451,30 @@ export default function AdminPage() {
 
       {section === 'history' && (
         <>
-          <section className="glass-card p-4">
-            <h2 className="mb-2 mt-0 flex items-center gap-2 text-base font-extrabold text-white"><Activity size={17} className="text-violet-300" />История кейсов и апгрейдера</h2>
-            {history.length === 0 ? <p className="m-0 text-sm text-gray-500">Результатов пока нет</p> : (
+          <div className="grid grid-cols-3 gap-1 rounded-2xl border border-white/10 bg-black/20 p-1">
+            {([
+              ['wins', 'Выигрыши'],
+              ['spending', 'Траты'],
+              ['transactions', 'Транзакции'],
+            ] as const).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setHistoryView(id)}
+                className={`rounded-xl px-1.5 py-2.5 text-[11px] font-extrabold transition ${
+                  historyView === id ? 'bg-white/10 text-amber-300' : 'text-gray-500 hover:text-white'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {historyView === 'wins' && <section className="glass-card p-4">
+            <h2 className="mb-2 mt-0 flex items-center gap-2 text-base font-extrabold text-white"><Activity size={17} className="text-violet-300" />Результаты кейсов и апгрейдера</h2>
+            {history.filter((item) => item.won).length === 0 ? <p className="m-0 text-sm text-gray-500">Выигрышей пока нет</p> : (
               <ul className="m-0 list-none divide-y divide-white/5 p-0">
-                {history.map((item) => (
+                {history.filter((item) => item.won).map((item) => (
                   <li key={item.id} className="py-3 first:pt-0 last:pb-0">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -475,14 +495,21 @@ export default function AdminPage() {
                 ))}
               </ul>
             )}
-          </section>
+          </section>}
 
-          <section className="glass-card p-4">
-            <h2 className="mb-2 mt-0 text-base font-extrabold text-white">Последние транзакции</h2>
-            {recentTransactions.length === 0 ? <p className="m-0 text-sm text-gray-500">Операций пока нет</p> : (
+          {historyView === 'spending' && <section className="glass-card p-4">
+            <h2 className="mb-2 mt-0 text-base font-extrabold text-white">Траты</h2>
+            {recentTransactions.filter((transaction) => transaction.amount < 0).length === 0 ? <p className="m-0 text-sm text-gray-500">Трат пока нет</p> : (
+              <ul className="m-0 list-none p-0">{recentTransactions.filter((transaction) => transaction.amount < 0).map(renderTransaction)}</ul>
+            )}
+          </section>}
+
+          {historyView === 'transactions' && <section className="glass-card p-4">
+            <h2 className="mb-2 mt-0 text-base font-extrabold text-white">Все последние транзакции</h2>
+            {recentTransactions.length === 0 ? <p className="m-0 text-sm text-gray-500">Транзакций пока нет</p> : (
               <ul className="m-0 list-none p-0">{recentTransactions.map(renderTransaction)}</ul>
             )}
-          </section>
+          </section>}
         </>
       )}
 
