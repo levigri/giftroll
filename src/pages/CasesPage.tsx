@@ -103,10 +103,8 @@ export default function CasesPage({
 
   const hottestPrice = cases.reduce((max, item) => Math.max(max, item.price), 0)
   const limitedCase = cases.find((caseItem) => caseItem.id === 'case-limited')
-  const limitedCaseIsTimeLocked = Boolean(
-    limitedCase?.availableAt && limitedCase.availableUntil &&
-    (caseTimeNow < Date.parse(limitedCase.availableAt) || caseTimeNow > Date.parse(limitedCase.availableUntil)),
-  )
+  const limitedCaseIsWaiting = Boolean(limitedCase?.availableAt && caseTimeNow < Date.parse(limitedCase.availableAt))
+  const limitedCaseIsExpired = Boolean(limitedCase?.availableUntil && caseTimeNow > Date.parse(limitedCase.availableUntil))
   const limitedCasePrize = limitedCase ? getBestPrize(limitedCase.prizes) : undefined
   const limitedCaseImage = limitedCasePrize
     ? prizeImage(limitedCasePrize.name, limitedCasePrize.emoji, limitedCasePrize.type)
@@ -166,21 +164,26 @@ export default function CasesPage({
           <div className="py-16 text-center font-bold text-gray-400">Загрузка кейсов...</div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            {limitedCase && !limitedCaseIsTimeLocked && (
+            {limitedCase && !limitedCaseIsExpired && (
               <article
                 role="button"
-                tabIndex={0}
+                tabIndex={limitedCaseIsWaiting ? -1 : 0}
+                aria-disabled={limitedCaseIsWaiting}
                 onClick={() => {
+                  if (limitedCaseIsWaiting) return
                   tapFeedback('light')
                   onOpenCase(limitedCase)
                 }}
                 onKeyDown={(event) => {
+                  if (limitedCaseIsWaiting) return
                   if (event.key !== 'Enter' && event.key !== ' ') return
                   event.preventDefault()
                   tapFeedback('light')
                   onOpenCase(limitedCase)
                 }}
-                className="glass-card glass-card--hover group relative flex cursor-pointer flex-col items-center gap-2 overflow-hidden border-[#FFD700]/50 p-3.5 text-center shadow-[0_0_24px_rgba(255,215,0,0.15)] transition hover:scale-[1.02] active:scale-[0.98]"
+                className={`glass-card group relative flex flex-col items-center gap-2 overflow-hidden border-[#FFD700]/50 p-3.5 text-center shadow-[0_0_24px_rgba(255,215,0,0.15)] transition ${
+                  limitedCaseIsWaiting ? 'cursor-not-allowed opacity-60' : 'glass-card--hover cursor-pointer hover:scale-[1.02] active:scale-[0.98]'
+                }`}
               >
                 <span className="absolute left-2 top-2 z-10 rounded-full border border-red-500/40 bg-red-500/20 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-red-300">-50%</span>
                 <div className="relative mt-1 flex h-24 w-24 items-center justify-center">
@@ -207,7 +210,9 @@ export default function CasesPage({
                   </div>
                 </div>
                 <div className="mt-1 flex w-full items-center justify-center">
-                  <span className="rounded-full border border-amber-300/25 bg-amber-300/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-amber-200">Лимит</span>
+                  <span className="rounded-full border border-amber-300/25 bg-amber-300/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-amber-200">
+                    {limitedCaseIsWaiting ? 'Скоро' : 'Лимит'}
+                  </span>
                 </div>
               </article>
             )}
