@@ -2,7 +2,6 @@ import { convertFromGramjsSession } from '@mtcute/convert'
 import { MemoryStorage, TelegramClient, type Message } from '@mtcute/node'
 import { env } from '../config/env.js'
 import { prisma } from '../db/prisma.js'
-import { nftCatalog } from '../data/nftCatalog.js'
 import { notifyUser } from './bot.js'
 import { findNftCatalogEntry } from './nftPricing.js'
 
@@ -216,10 +215,11 @@ async function getMarketPrices(forceRefresh = false): Promise<Map<string, number
       await waitForMarketPriceBackoff()
       const gifts = await client.getStarGiftOptions()
       const prices = new Map<string, number>()
-      const catalogNames = new Set(nftCatalog.map((gift) => normalizeGiftName(gift.name)))
       for (const gift of gifts) {
         const title = gift.title
-        if (!title || !catalogNames.has(normalizeGiftName(title))) continue
+        // Не ограничиваемся локальным nftCatalog: релаер может получить новый
+        // или редкий NFT, название которого уже отдаёт Telegram Marketplace.
+        if (!title) continue
 
         const floorPrice = positivePrice(gift.resaleFloorPrice?.toString())
         const price = floorPrice ?? optionalAveragePrice(gift)
