@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { Bot, webhookCallback } from 'grammy'
 import { z } from 'zod'
 import { env } from '../config/env.js'
+import { prisma } from '../db/prisma.js'
 import { authenticateTelegram } from '../middleware/auth.js'
 import { parseBody } from '../utils/validators.js'
 import {
@@ -18,6 +19,112 @@ const setupWebhookSchema = z.object({
 
 export const telegramRoutes: FastifyPluginAsync = async (fastify) => {
   const bot = new Bot(env.BOT_TOKEN)
+  type BroadcastState =
+    | { stage: 'awaiting_text' }
+    | { stage: 'awaiting_confirmation'; text: string }
+  let broadcastState: BroadcastState | null = null
+  let broadcastRunning = false
+
+  const isAdmin = (telegramId: number | undefined): boolean =>
+    telegramId !== undefined && env.ADMIN_ID !== undefined && BigInt(telegramId) === env.ADMIN_ID
+
+  const delay = (milliseconds: number): Promise<void> =>
+    new Promise((resolve) => setTimeout(resolve, milliseconds))
+
+  bot.command('broadcast', async (ctx) => {
+    if (!isAdmin(ctx.from?.id)) return
+    if (broadcastRunning) {
+      await ctx.reply('Рассылка уже выполняется. Дождись отчёта перед запуском следующей.')
+      return
+    }
+
+    broadcastState = { stage: 'awaiting_text' }
+    await ctx.reply('Пришли текст рассылки одним сообщением. Чтобы отменить, отправь /cancel.')
+  })
+
+  bot.command('cancel', async (ctx) => {
+    if (!isAdmin(ctx.from?.id) || !broadcastState) return
+    broadcastState = null
+    await ctx.reply('Создание рассылки отменено.')
+  })
+
+  bot.on('message:text', async (ctx) => {
+    if (!isAdmin(ctx.from?.id) || broadcastState?.stage !== 'awaiting_text') return
+    const messageText = ctx.message.text.trim()
+    if (!messageText || messageText.startsWith('/')) return
+    if (messageText.length > 3800) {
+      await ctx.reply('Сообщение слишком длинное. Максимум 3800 символов, пришли сокращённый текст.')
+      return
+    }
+
+    broadcastState = { stage: 'awaiting_confirmation', text: messageText }
+    const recipientCount = await prisma.user.count()
+    await ctx.reply(`Предпросмотр рассылки (${recipientCount} пользователей):\n\n${messageText}`, {
+      reply_markup: {
+        inline_keyboard: [[
+          { text: `Отправить всем · ${recipientCount}`, callback_data: 'admin_broadcast:confirm' },
+          { text: 'Отмена', callback_data: 'admin_broadcast:cancel' },
+        ]],
+      },
+    })
+  })
+
+  bot.callbackQuery(/^admin_broadcast:(confirm|cancel)$/, async (ctx) => {
+    if (!isAdmin(ctx.from.id)) {
+      await ctx.answerCallbackQuery({ text: 'Недостаточно прав', show_alert: true })
+      return
+    }
+
+    const action = ctx.match[1]
+    if (action === 'cancel') {
+      broadcastState = null
+      await ctx.answerCallbackQuery({ text: 'Рассылка отменена' })
+      await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } })
+      return
+    }
+
+    if (broadcastRunning || broadcastState?.stage !== 'awaiting_confirmation') {
+      await ctx.answerCallbackQuery({ text: 'Рассылка уже запущена или черновик устарел', show_alert: true })
+      return
+    }
+
+    const text = broadcastState.text
+    broadcastState = null
+    broadcastRunning = true
+    await ctx.answerCallbackQuery({ text: 'Рассылка запущена' })
+    await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } })
+
+    void (async () => {
+      let sent = 0
+      let failed = 0
+      try {
+        const users = await prisma.user.findMany({ select: { id: true } })
+        for (const user of users) {
+          try {
+            await bot.api.sendMessage(user.id.toString(), text)
+            sent += 1
+          } catch (error: unknown) {
+            failed += 1
+            const message = error instanceof Error ? error.message : String(error)
+            fastify.log.warn(`[Broadcast] delivery failed for user ${user.id}: ${message}`)
+          }
+          await delay(50)
+        }
+
+        await bot.api.sendMessage(
+          env.ADMIN_ID!.toString(),
+          `✅ Рассылка завершена.\nОтправлено: ${sent}\nОшибок доставки: ${failed}\nВсего пользователей: ${users.length}`,
+        )
+        fastify.log.info(`[Broadcast] completed: sent=${sent}, failed=${failed}, total=${users.length}`)
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error)
+        fastify.log.error(`[Broadcast] aborted: ${message}`)
+        await bot.api.sendMessage(env.ADMIN_ID!.toString(), `Рассылка прервана из-за ошибки: ${message}`).catch(() => undefined)
+      } finally {
+        broadcastRunning = false
+      }
+    })()
+  })
 
   bot.command('start', async (ctx) => {
     const welcomeText = `👋 Добро пожаловать в GiftRoll!\n\n🎁 Открывай кейсы, собирай реальные NFT из Telegram Gifts и зарабатывай звёзды.\n\n🚨 Мультиаккаунты запрещены\n📢 Наш канал: t.me/NewsGiftRoll\n\nЖми на кнопку ниже, чтобы начать!`
