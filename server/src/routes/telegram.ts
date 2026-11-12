@@ -21,7 +21,8 @@ export const telegramRoutes: FastifyPluginAsync = async (fastify) => {
   const bot = new Bot(env.BOT_TOKEN)
   type BroadcastState =
     | { stage: 'awaiting_text' }
-    | { stage: 'awaiting_confirmation'; text: string }
+    | { stage: 'awaiting_recipient_count'; text: string; totalUsers: number }
+    | { stage: 'awaiting_confirmation'; text: string; recipientLimit: number | null }
   let broadcastState: BroadcastState | null = null
   let broadcastRunning = false
 
@@ -49,24 +50,48 @@ export const telegramRoutes: FastifyPluginAsync = async (fastify) => {
   })
 
   bot.on('message:text', async (ctx) => {
-    if (!isAdmin(ctx.from?.id) || broadcastState?.stage !== 'awaiting_text') return
+    if (!isAdmin(ctx.from?.id) || !broadcastState) return
     const messageText = ctx.message.text.trim()
-    if (!messageText || messageText.startsWith('/')) return
-    if (messageText.length > 3800) {
-      await ctx.reply('Сообщение слишком длинное. Максимум 3800 символов, пришли сокращённый текст.')
+    if (messageText.startsWith('/')) return
+
+    if (broadcastState.stage === 'awaiting_text') {
+      if (!messageText) return
+      if (messageText.length > 3800) {
+        await ctx.reply('Сообщение слишком длинное. Максимум 3800 символов, пришли сокращённый текст.')
+        return
+      }
+
+      const totalUsers = await prisma.user.count()
+      if (totalUsers === 0) {
+        broadcastState = null
+        await ctx.reply('В базе пока нет пользователей для рассылки.')
+        return
+      }
+
+      broadcastState = { stage: 'awaiting_recipient_count', text: messageText, totalUsers }
+      await ctx.reply(`Скольким пользователям отправить? Напиши число от 1 до ${totalUsers} или «всем».\nЧтобы отменить — /cancel.`)
       return
     }
 
-    broadcastState = { stage: 'awaiting_confirmation', text: messageText }
-    const recipientCount = await prisma.user.count()
-    await ctx.reply(`Предпросмотр рассылки (${recipientCount} пользователей):\n\n${messageText}`, {
+    if (broadcastState.stage === 'awaiting_recipient_count') {
+      const draft = broadcastState
+      const recipientLimit = /^всем$/i.test(messageText) ? null : Number(messageText)
+      if (recipientLimit !== null && (!Number.isInteger(recipientLimit) || recipientLimit < 1 || recipientLimit > draft.totalUsers)) {
+        await ctx.reply(`Введи целое число от 1 до ${draft.totalUsers} или напиши «всем».`)
+        return
+      }
+
+      const recipientCount = recipientLimit ?? draft.totalUsers
+      broadcastState = { stage: 'awaiting_confirmation', text: draft.text, recipientLimit }
+      await ctx.reply(`Предпросмотр рассылки (${recipientCount} из ${draft.totalUsers} пользователей):\n\n${draft.text}`, {
       reply_markup: {
         inline_keyboard: [[
-          { text: `Отправить всем · ${recipientCount}`, callback_data: 'admin_broadcast:confirm' },
+          { text: `Опубликовать · ${recipientCount}`, callback_data: 'admin_broadcast:confirm' },
           { text: 'Отмена', callback_data: 'admin_broadcast:cancel' },
         ]],
       },
-    })
+      })
+    }
   })
 
   bot.callbackQuery(/^admin_broadcast:(confirm|cancel)$/, async (ctx) => {
@@ -79,7 +104,7 @@ export const telegramRoutes: FastifyPluginAsync = async (fastify) => {
     if (action === 'cancel') {
       broadcastState = null
       await ctx.answerCallbackQuery({ text: 'Рассылка отменена' })
-      await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } })
+      await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } }).catch(() => undefined)
       return
     }
 
@@ -88,17 +113,30 @@ export const telegramRoutes: FastifyPluginAsync = async (fastify) => {
       return
     }
 
-    const text = broadcastState.text
+    const { text, recipientLimit } = broadcastState
     broadcastState = null
     broadcastRunning = true
     await ctx.answerCallbackQuery({ text: 'Рассылка запущена' })
-    await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } })
+    void ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } }).catch(() => undefined)
+    void bot.api.sendMessage(
+      env.ADMIN_ID!.toString(),
+      `Рассылка запущена. Подготовлю ${recipientLimit === null ? 'всех пользователей' : `${recipientLimit} получателей`} и пришлю отчёт.`,
+    ).catch((error: unknown) => fastify.log.warn(error, '[Broadcast] could not send start notice'))
 
     void (async () => {
       let sent = 0
       let failed = 0
       try {
-        const users = await prisma.user.findMany({ select: { id: true } })
+        const allUsers = await prisma.user.findMany({ select: { id: true } })
+        // Перемешиваем список, чтобы при ограниченной рассылке не выбирать каждый раз
+        // только одних и тех же пользователей в порядке ID.
+        for (let index = allUsers.length - 1; index > 0; index -= 1) {
+          const swapIndex = Math.floor(Math.random() * (index + 1))
+          const user = allUsers[index]
+          allUsers[index] = allUsers[swapIndex]
+          allUsers[swapIndex] = user
+        }
+        const users = recipientLimit === null ? allUsers : allUsers.slice(0, recipientLimit)
         for (const user of users) {
           try {
             await bot.api.sendMessage(user.id.toString(), text)
@@ -113,7 +151,7 @@ export const telegramRoutes: FastifyPluginAsync = async (fastify) => {
 
         await bot.api.sendMessage(
           env.ADMIN_ID!.toString(),
-          `✅ Рассылка завершена.\nОтправлено: ${sent}\nОшибок доставки: ${failed}\nВсего пользователей: ${users.length}`,
+          `✅ Рассылка завершена.\nОтправлено: ${sent}\nОшибок доставки: ${failed}\nВыбрано получателей: ${users.length}`,
         )
         fastify.log.info(`[Broadcast] completed: sent=${sent}, failed=${failed}, total=${users.length}`)
       } catch (error: unknown) {
