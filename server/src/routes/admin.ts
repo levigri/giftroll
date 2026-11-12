@@ -43,11 +43,20 @@ function parseTelegramId(value: string): bigint | null {
   }
 }
 
+async function getDevUserIds(): Promise<bigint[]> {
+  const devUsers = await prisma.user.findMany({
+    where: { firstName: { equals: 'Dev User', mode: 'insensitive' } },
+    select: { id: true },
+  })
+  return [...new Set([DEV_TELEGRAM_ID, ...devUsers.map((user) => user.id)])]
+}
+
 export const adminRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Querystring: { q?: string; sort?: string } }>(
     '/api/admin/users/search',
     { preHandler: adminPreHandler },
     async (request) => {
+      const excludedIds = await getDevUserIds()
       const query = request.query.q?.trim().replace(/^@/, '') ?? ''
       const sort = request.query.sort === 'balance_asc' || request.query.sort === 'username_asc'
         ? request.query.sort
@@ -62,7 +71,8 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
       const users = await prisma.user.findMany({
         where: {
           balance: { gte: 50 },
-          id: { not: DEV_TELEGRAM_ID },
+          id: { notIn: excludedIds },
+          NOT: { firstName: { equals: 'Dev User', mode: 'insensitive' } },
           ...(conditions.length > 0 ? { OR: conditions } : {}),
         },
         select: {
@@ -72,6 +82,12 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
           balance: true,
           isBetaMode: true,
           createdAt: true,
+          inventory: {
+            where: { status: { in: ['PENDING', 'WITHDRAWAL_REQUESTED'] } },
+            select: { prizeName: true, prizeEmoji: true },
+            orderBy: { createdAt: 'desc' },
+            take: 3,
+          },
         },
         orderBy: sort === 'balance_asc'
           ? [{ balance: 'asc' }, { username: 'asc' }]
@@ -81,7 +97,25 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
         take: 500,
       })
 
-      return users.map((user) => ({ ...user, id: user.id.toString(), createdAt: user.createdAt.toISOString() }))
+      const inventoryCounts = users.length > 0
+        ? await prisma.inventoryItem.groupBy({
+          by: ['userId'],
+          where: { userId: { in: users.map((user) => user.id) }, status: { in: ['PENDING', 'WITHDRAWAL_REQUESTED'] } },
+          _count: { _all: true },
+        })
+        : []
+      const inventoryCountsByUserId = new Map(inventoryCounts.map((entry) => [entry.userId.toString(), entry._count._all]))
+
+      return users.map((user) => ({
+        id: user.id.toString(),
+        username: user.username,
+        firstName: user.firstName,
+        balance: user.balance,
+        isBetaMode: user.isBetaMode,
+        createdAt: user.createdAt.toISOString(),
+        inventoryCount: inventoryCountsByUserId.get(user.id.toString()) ?? 0,
+        inventory: user.inventory,
+      }))
     },
   )
 
@@ -114,6 +148,9 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
         },
       })
       if (!user) return reply.code(404).send({ error: 'Пользователь не найден', code: 'USER_NOT_FOUND' })
+      if (user.firstName.trim().toLowerCase() === 'dev user') {
+        return reply.code(404).send({ error: 'Пользователь не найден', code: 'USER_NOT_FOUND' })
+      }
 
       const [inventory, deposits, transactions, caseOpens, upgraderAttempts] = await Promise.all([
         prisma.inventoryItem.findMany({
@@ -200,8 +237,9 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
   )
 
   fastify.get('/api/admin/transactions', { preHandler: adminPreHandler }, async () => {
+    const excludedIds = await getDevUserIds()
     const transactions = await prisma.transaction.findMany({
-      where: { type: 'DEPOSIT', amount: { gt: 0 }, userId: { not: DEV_TELEGRAM_ID } },
+      where: { type: 'DEPOSIT', amount: { gt: 0 }, userId: { notIn: excludedIds } },
       orderBy: { createdAt: 'desc' },
       take: 100,
       include: {
@@ -222,9 +260,10 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
   })
 
   fastify.get('/api/admin/history', { preHandler: adminPreHandler }, async () => {
+    const excludedIds = await getDevUserIds()
     const [deposits, rounds, caseOpens, upgraderAttempts] = await Promise.all([
       prisma.deposit.findMany({
-        where: { status: 'completed', userId: { not: DEV_TELEGRAM_ID } },
+        where: { status: 'completed', userId: { notIn: excludedIds } },
         orderBy: { completedAt: 'desc' },
         take: 150,
       }),
@@ -232,16 +271,16 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
         where: { status: 'finished' },
         orderBy: { finishedAt: 'desc' },
         take: 100,
-        include: { participants: { where: { isBot: false, userId: { not: DEV_TELEGRAM_ID } } } },
+        include: { participants: { where: { isBot: false, userId: { notIn: excludedIds } } } },
       }),
       prisma.caseOpen.findMany({
-        where: { userId: { not: DEV_TELEGRAM_ID } },
+        where: { userId: { notIn: excludedIds } },
         orderBy: { createdAt: 'desc' },
         take: 100,
         include: { user: { select: { id: true, username: true, firstName: true } } },
       }),
       prisma.upgraderAttempt.findMany({
-        where: { userId: { not: DEV_TELEGRAM_ID } },
+        where: { userId: { notIn: excludedIds } },
         orderBy: { createdAt: 'desc' },
         take: 100,
         include: { user: { select: { id: true, username: true, firstName: true } } },

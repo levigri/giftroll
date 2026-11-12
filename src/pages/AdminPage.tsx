@@ -284,9 +284,14 @@ export default function AdminPage() {
                     onClick={() => void selectUser(user)}
                     className="flex w-full items-center justify-between gap-3 py-3 text-left transition hover:bg-white/[0.03]"
                   >
-                    <span className="min-w-0">
+                    <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-extrabold text-white">{displayName(user)}</span>
                       <span className="mt-1 block text-xs text-gray-500">ID {user.id} · {formatDate(user.createdAt)}</span>
+                      <span className="mt-1 block truncate text-[11px] text-violet-200/80">
+                        {user.inventoryCount === 0
+                          ? 'Инвентарь пуст'
+                          : `NFT: ${user.inventory.map((item) => `${item.prizeEmoji} ${item.prizeName}`).join(' · ')}${user.inventoryCount > user.inventory.length ? ` · +${user.inventoryCount - user.inventory.length}` : ''}`}
+                      </span>
                     </span>
                     <span className="shrink-0 text-sm font-extrabold text-amber-300">{user.balance} ⭐</span>
                   </button>

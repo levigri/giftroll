@@ -57,6 +57,8 @@ export interface AdminUserSummary {
   balance: number
   isBetaMode: boolean
   createdAt: string
+  inventoryCount: number
+  inventory: Array<{ prizeName: string; prizeEmoji: string }>
 }
 
 export interface AdminDeposit {
