@@ -142,7 +142,14 @@ export const telegramRoutes: FastifyPluginAsync = async (fastify) => {
         const users = recipientLimit === null ? allUsers : allUsers.slice(0, recipientLimit)
         for (const user of users) {
           try {
-            await bot.api.sendMessage(user.id.toString(), text)
+            await bot.api.sendMessage(user.id.toString(), text, {
+              reply_markup: {
+                inline_keyboard: [[{
+                  text: '🎮 Запустить GiftRoll',
+                  web_app: { url: 'https://giftroll-six.vercel.app/?v=2' },
+                }]],
+              },
+            })
             sent += 1
           } catch (error: unknown) {
             failed += 1
