@@ -43,22 +43,26 @@ function parseTelegramId(value: string): bigint | null {
 }
 
 export const adminRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.get<{ Querystring: { q?: string } }>(
+  fastify.get<{ Querystring: { q?: string; sort?: string } }>(
     '/api/admin/users/search',
     { preHandler: adminPreHandler },
     async (request) => {
       const query = request.query.q?.trim().replace(/^@/, '') ?? ''
-      if (!query) return []
-
-      const conditions: Array<{
-        username?: { contains: string; mode: 'insensitive' }
-        id?: bigint
-      }> = [{ username: { contains: query, mode: 'insensitive' } }]
-      const numericId = parseTelegramId(query)
-      if (numericId !== null) conditions.push({ id: numericId })
+      const sort = request.query.sort === 'balance_asc' || request.query.sort === 'username_asc'
+        ? request.query.sort
+        : 'balance_desc'
+      const conditions: Array<{ username?: { contains: string; mode: 'insensitive' }; id?: bigint }> = []
+      if (query) {
+        conditions.push({ username: { contains: query, mode: 'insensitive' } })
+        const numericId = parseTelegramId(query)
+        if (numericId !== null) conditions.push({ id: numericId })
+      }
 
       const users = await prisma.user.findMany({
-        where: { OR: conditions },
+        where: {
+          balance: { gte: 50 },
+          ...(conditions.length > 0 ? { OR: conditions } : {}),
+        },
         select: {
           id: true,
           username: true,
@@ -67,8 +71,12 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
           isBetaMode: true,
           createdAt: true,
         },
-        orderBy: { createdAt: 'desc' },
-        take: 30,
+        orderBy: sort === 'balance_asc'
+          ? [{ balance: 'asc' }, { username: 'asc' }]
+          : sort === 'username_asc'
+            ? [{ username: { sort: 'asc', nulls: 'last' } }, { firstName: 'asc' }]
+            : [{ balance: 'desc' }, { username: { sort: 'asc', nulls: 'last' } }],
+        take: 500,
       })
 
       return users.map((user) => ({ ...user, id: user.id.toString(), createdAt: user.createdAt.toISOString() }))
@@ -121,7 +129,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
           orderBy: { createdAt: 'desc' },
         }),
         prisma.transaction.findMany({
-          where: { userId: id },
+          where: { userId: id, type: 'DEPOSIT', amount: { gt: 0 } },
           select: { id: true, type: true, amount: true, details: true, createdAt: true },
           orderBy: { createdAt: 'desc' },
           take: 50,
@@ -188,6 +196,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.get('/api/admin/transactions', { preHandler: adminPreHandler }, async () => {
     const transactions = await prisma.transaction.findMany({
+      where: { type: 'DEPOSIT', amount: { gt: 0 } },
       orderBy: { createdAt: 'desc' },
       take: 100,
       include: {
@@ -208,7 +217,18 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
   })
 
   fastify.get('/api/admin/history', { preHandler: adminPreHandler }, async () => {
-    const [caseOpens, upgraderAttempts] = await Promise.all([
+    const [deposits, rounds, caseOpens, upgraderAttempts] = await Promise.all([
+      prisma.deposit.findMany({
+        where: { status: 'completed' },
+        orderBy: { completedAt: 'desc' },
+        take: 150,
+      }),
+      prisma.pvpRound.findMany({
+        where: { status: 'finished' },
+        orderBy: { finishedAt: 'desc' },
+        take: 100,
+        include: { participants: { where: { isBot: false } } },
+      }),
       prisma.caseOpen.findMany({
         orderBy: { createdAt: 'desc' },
         take: 100,
@@ -221,7 +241,58 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
       }),
     ])
 
-    const caseActivities = caseOpens.map((entry) => {
+    const relatedUserIds = [...new Set([
+      ...rounds.flatMap((round) => round.participants.map((participant) => participant.userId)),
+      ...deposits.map((deposit) => deposit.userId),
+    ])]
+    const relatedUsers = await prisma.user.findMany({
+      where: { id: { in: relatedUserIds } },
+      select: { id: true, username: true, firstName: true },
+    })
+    const relatedUsersById = new Map(relatedUsers.map((user) => [user.id.toString(), user]))
+
+    const depositEntries = deposits.flatMap((deposit) => {
+      const user = relatedUsersById.get(deposit.userId.toString())
+      if (!user) return []
+      return [{
+        id: deposit.id,
+        userId: user.id.toString(),
+        username: user.username,
+        firstName: user.firstName,
+        amount: deposit.amount,
+        currency: deposit.currency,
+        createdAt: (deposit.completedAt ?? deposit.createdAt).toISOString(),
+      }]
+    })
+
+    const pvpEntries = rounds.flatMap((round) => round.participants.map((participant) => {
+      const user = relatedUsersById.get(participant.userId.toString())
+      const didWin = round.winnerId === participant.userId
+      const refunded = round.winnerId === null
+      const payout = didWin
+        ? round.totalStars - round.rakeStars
+        : refunded ? participant.stars : 0
+      return {
+        id: `${round.id}-${participant.id}`,
+        roundId: round.id,
+        userId: participant.userId.toString(),
+        username: user?.username ?? participant.username,
+        firstName: user?.firstName ?? (participant.isBot ? 'Бот' : 'Игрок'),
+        betAmount: participant.stars,
+        payoutAmount: payout,
+        totalPot: round.totalStars,
+        rakeStars: round.rakeStars,
+        result: refunded
+          ? `ВОЗВРАТ · возвращено ${participant.stars} ⭐`
+          : didWin
+            ? `ПОБЕДА · выплата ${payout} ⭐ · комиссия ${round.rakeStars} ⭐`
+            : `ПРОИГРЫШ · ставка ${participant.stars} ⭐`,
+        outcome: refunded ? 'REFUND' as const : didWin ? 'WIN' as const : 'LOSS' as const,
+        createdAt: (round.finishedAt ?? round.createdAt).toISOString(),
+      }
+    }))
+
+    const caseEntries = caseOpens.map((entry) => {
       const caseItem = allCases.find((item) => item.id === entry.caseId)
       const prize = caseItem?.prizes.find((item) => item.id === entry.prizeId)
       const prizeName = prize?.name ?? entry.prizeId
@@ -235,6 +306,11 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
         username: entry.user.username,
         firstName: entry.user.firstName,
         title: `Кейс «${caseItem?.name ?? entry.caseId}» открыт`,
+        casePrice: entry.isBetaMode ? 0 : caseItem?.price ?? 0,
+        prizeName,
+        prizeEmoji: prize?.emoji ?? '🎁',
+        prizeType: entry.prizeType,
+        prizePrice: entry.prizePrice,
         result: entry.isBetaMode ? `БЕТА · выпало бы: ${prizeLabel}` : `ВЫИГРАНО · ${prizeLabel}`,
         won: true,
         isBetaMode: entry.isBetaMode,
@@ -242,7 +318,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
       }
     })
 
-    const upgraderActivities = upgraderAttempts.map((attempt) => ({
+    const upgradeEntries = upgraderAttempts.map((attempt) => ({
       id: `upgrade-${attempt.id}`,
       kind: 'UPGRADE' as const,
       userId: attempt.user.id.toString(),
@@ -259,9 +335,12 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
       createdAt: attempt.createdAt.toISOString(),
     }))
 
-    return [...caseActivities, ...upgraderActivities]
-      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
-      .slice(0, 150)
+    return {
+      deposits: depositEntries,
+      pvp: pvpEntries.sort((left, right) => right.createdAt.localeCompare(left.createdAt)).slice(0, 200),
+      cases: caseEntries,
+      upgrades: upgradeEntries,
+    }
   })
 
   fastify.get('/api/admin/tasks', { preHandler: adminPreHandler }, async () => {

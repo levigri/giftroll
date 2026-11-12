@@ -1,5 +1,5 @@
 import type {
-  AdminActivity,
+  AdminHistoryResponse,
   AdminTask,
   AdminTransaction,
   AdminUserDetails,
@@ -109,8 +109,11 @@ export async function getMe(): Promise<MeResponse> {
   return request<MeResponse>('/api/me')
 }
 
-export async function adminSearchUsers(q: string): Promise<AdminUserSummary[]> {
-  return request<AdminUserSummary[]>(`/api/admin/users/search?q=${encodeURIComponent(q)}`)
+export async function adminSearchUsers(
+  q: string,
+  sort: 'balance_desc' | 'balance_asc' | 'username_asc' = 'balance_desc',
+): Promise<AdminUserSummary[]> {
+  return request<AdminUserSummary[]>(`/api/admin/users/search?q=${encodeURIComponent(q)}&sort=${sort}`)
 }
 
 export async function adminGetUser(id: string): Promise<AdminUserDetails> {
@@ -121,8 +124,8 @@ export async function adminGetRecentTransactions(): Promise<AdminTransaction[]> 
   return request<AdminTransaction[]>('/api/admin/transactions')
 }
 
-export async function adminGetHistory(): Promise<AdminActivity[]> {
-  return request<AdminActivity[]>('/api/admin/history')
+export async function adminGetHistory(): Promise<AdminHistoryResponse> {
+  return request<AdminHistoryResponse>('/api/admin/history')
 }
 
 export async function adminGetTasks(): Promise<AdminTask[]> {

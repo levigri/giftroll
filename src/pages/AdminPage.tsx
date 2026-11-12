@@ -3,14 +3,18 @@ import { Activity, ArrowLeft, CalendarDays, Coins, LoaderCircle, Package, Plus, 
 import {
   adminCreateChannelTask,
   adminGetHistory,
-  adminGetRecentTransactions,
   adminGetTasks,
   adminGetUser,
   adminSearchUsers,
   adminUpdateTask,
   ApiError,
 } from '../api/client'
-import type { AdminActivity, AdminTask, AdminTransaction, AdminUserDetails, AdminUserSummary } from '../api/types'
+import type {
+  AdminHistoryResponse,
+  AdminTask,
+  AdminUserDetails,
+  AdminUserSummary,
+} from '../api/types'
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleString('ru-RU', {
@@ -32,12 +36,12 @@ function amountClass(amount: number): string {
 
 export default function AdminPage() {
   const [section, setSection] = useState<'players' | 'history' | 'tasks'>('players')
-  const [historyView, setHistoryView] = useState<'wins' | 'spending' | 'transactions'>('wins')
+  const [historyView, setHistoryView] = useState<'deposits' | 'pvp' | 'cases' | 'upgrades'>('deposits')
   const [query, setQuery] = useState('')
+  const [userSort, setUserSort] = useState<'balance_desc' | 'balance_asc' | 'username_asc'>('balance_desc')
   const [users, setUsers] = useState<AdminUserSummary[]>([])
   const [selectedUser, setSelectedUser] = useState<AdminUserDetails | null>(null)
-  const [recentTransactions, setRecentTransactions] = useState<AdminTransaction[]>([])
-  const [history, setHistory] = useState<AdminActivity[]>([])
+  const [history, setHistory] = useState<AdminHistoryResponse>({ deposits: [], pvp: [], cases: [], upgrades: [] })
   const [managedTasks, setManagedTasks] = useState<AdminTask[]>([])
   const [rewardDrafts, setRewardDrafts] = useState<Record<string, string>>({})
   const [limitDrafts, setLimitDrafts] = useState<Record<string, string>>({})
@@ -53,10 +57,9 @@ export default function AdminPage() {
 
   useEffect(() => {
     let active = true
-    void Promise.all([adminGetRecentTransactions(), adminGetHistory(), adminGetTasks()])
-      .then(([items, activity, tasks]) => {
+    void Promise.all([adminGetHistory(), adminGetTasks()])
+      .then(([activity, tasks]) => {
         if (!active) return
-        setRecentTransactions(items)
         setHistory(activity)
         setManagedTasks(tasks)
         setRewardDrafts(Object.fromEntries(tasks.map((task) => [task.id, String(task.reward)])))
@@ -73,15 +76,9 @@ export default function AdminPage() {
   useEffect(() => {
     const value = query.trim()
     const sequence = ++searchSequence.current
-    if (!value) {
-      setUsers([])
-      setSearching(false)
-      return
-    }
-
     setSearching(true)
     const timer = window.setTimeout(() => {
-      void adminSearchUsers(value)
+      void adminSearchUsers(value, userSort)
         .then((items) => {
           if (sequence === searchSequence.current) {
             setUsers(items)
@@ -103,7 +100,7 @@ export default function AdminPage() {
       window.clearTimeout(timer)
       searchSequence.current += 1
     }
-  }, [query])
+  }, [query, userSort])
 
   const selectUser = async (user: AdminUserSummary) => {
     setLoadingUser(true)
@@ -192,21 +189,6 @@ export default function AdminPage() {
     }
   }
 
-  const renderTransaction = (transaction: AdminTransaction) => (
-    <li key={transaction.id} className="flex items-start justify-between gap-3 border-b border-white/5 py-3 last:border-0">
-      <div className="min-w-0">
-        <p className="m-0 truncate text-sm font-bold text-white">
-          {displayName(transaction)} <span className="font-medium text-gray-500">· {transaction.type}</span>
-        </p>
-        <p className="mb-0 mt-1 line-clamp-2 text-xs text-gray-400">{transaction.details || 'Без описания'}</p>
-        <p className="mb-0 mt-1 text-[11px] text-gray-600">ID {transaction.userId} · {formatDate(transaction.createdAt)}</p>
-      </div>
-      <span className={`shrink-0 text-sm font-extrabold ${amountClass(transaction.amount)}`}>
-        {transaction.amount > 0 ? '+' : ''}{transaction.amount} ⭐
-      </span>
-    </li>
-  )
-
   return (
     <section className="flex flex-col gap-4 pb-4">
       <header className="flex items-center gap-3 px-1 pt-1">
@@ -250,17 +232,31 @@ export default function AdminPage() {
       </div>
 
       {section === 'players' && !selectedUser && (
-        <div className="glass-card flex items-center gap-3 p-3">
-          <Search size={18} className="shrink-0 text-gray-500" />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Telegram ID или username"
-            className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-gray-600"
-            autoComplete="off"
-            inputMode="search"
-          />
-          {searching && <LoaderCircle size={17} className="animate-spin text-amber-300" />}
+        <div className="flex flex-col gap-2">
+          <div className="glass-card flex items-center gap-3 p-3">
+            <Search size={18} className="shrink-0 text-gray-500" />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Telegram ID или username"
+              className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-gray-600"
+              autoComplete="off"
+              inputMode="search"
+            />
+            {searching && <LoaderCircle size={17} className="animate-spin text-amber-300" />}
+          </div>
+          <label className="glass-card flex items-center justify-between gap-3 px-3 py-2.5 text-xs font-bold text-gray-400">
+            Сортировка
+            <select
+              value={userSort}
+              onChange={(event) => setUserSort(event.target.value as typeof userSort)}
+              className="max-w-[62%] rounded-lg border border-white/10 bg-[#15161b] px-2 py-1.5 text-xs font-bold text-white outline-none"
+            >
+              <option value="balance_desc">Баланс: больше → меньше</option>
+              <option value="balance_asc">Баланс: меньше → больше</option>
+              <option value="username_asc">Ник: А → Я</option>
+            </select>
+          </label>
         </div>
       )}
 
@@ -272,11 +268,13 @@ export default function AdminPage() {
         </div>
       )}
 
-      {section === 'players' && !selectedUser && query.trim() && !searching && (
+      {section === 'players' && !selectedUser && !searching && (
         <section className="glass-card p-3">
-          <h2 className="mb-2 mt-0 text-sm font-extrabold text-gray-300">Результаты поиска</h2>
+          <h2 className="mb-2 mt-0 text-sm font-extrabold text-gray-300">
+            {query.trim() ? 'Результаты поиска' : `Игроки с балансом от 50 ⭐`} <span className="font-semibold text-gray-500">· {users.length}</span>
+          </h2>
           {users.length === 0 ? (
-            <p className="m-0 py-3 text-center text-sm text-gray-500">Игроки не найдены</p>
+            <p className="m-0 py-3 text-center text-sm text-gray-500">Подходящих игроков не найдено</p>
           ) : (
             <ul className="m-0 list-none divide-y divide-white/5 p-0">
               {users.map((user) => (
@@ -357,8 +355,8 @@ export default function AdminPage() {
           </section>
 
           <section className="glass-card p-4">
-            <h2 className="mb-2 mt-0 flex items-center gap-2 text-base font-extrabold text-white"><Activity size={17} className="text-sky-300" />Транзакции ({selectedUser.transactions.length})</h2>
-            {selectedUser.transactions.length === 0 ? <p className="m-0 text-sm text-gray-500">Операций нет</p> : (
+            <h2 className="mb-2 mt-0 flex items-center gap-2 text-base font-extrabold text-white"><Coins size={17} className="text-emerald-300" />Транзакции · пополнения ({selectedUser.transactions.length})</h2>
+            {selectedUser.transactions.length === 0 ? <p className="m-0 text-sm text-gray-500">Пополнений нет</p> : (
               <ul className="m-0 list-none divide-y divide-white/5 p-0">
                 {selectedUser.transactions.map((transaction) => (
                   <li key={transaction.id} className="flex items-start justify-between gap-3 py-3 last:pb-0">
@@ -451,18 +449,19 @@ export default function AdminPage() {
 
       {section === 'history' && (
         <>
-          <div className="grid grid-cols-3 gap-1 rounded-2xl border border-white/10 bg-black/20 p-1">
+          <div className="grid grid-cols-4 gap-1 rounded-2xl border border-white/10 bg-black/20 p-1">
             {([
-              ['wins', 'Выигрыши'],
-              ['spending', 'Траты'],
-              ['transactions', 'Транзакции'],
+              ['deposits', 'Пополнения'],
+              ['pvp', 'PvP'],
+              ['cases', 'Кейсы'],
+              ['upgrades', 'Апгрейд'],
             ] as const).map(([id, label]) => (
               <button
                 key={id}
                 type="button"
                 onClick={() => setHistoryView(id)}
-                className={`rounded-xl px-1.5 py-2.5 text-[11px] font-extrabold transition ${
-                  historyView === id ? 'bg-white/10 text-amber-300' : 'text-gray-500 hover:text-white'
+                className={`rounded-xl px-1 py-2.5 text-[10px] font-extrabold transition ${
+                  historyView === id ? 'bg-white/10 text-amber-300 shadow-inner' : 'text-gray-500 hover:text-white'
                 }`}
               >
                 {label}
@@ -470,26 +469,39 @@ export default function AdminPage() {
             ))}
           </div>
 
-          {historyView === 'wins' && <section className="glass-card p-4">
-            <h2 className="mb-2 mt-0 flex items-center gap-2 text-base font-extrabold text-white"><Activity size={17} className="text-violet-300" />Результаты кейсов и апгрейдера</h2>
-            {history.filter((item) => item.won).length === 0 ? <p className="m-0 text-sm text-gray-500">Выигрышей пока нет</p> : (
+          {historyView === 'deposits' && <section className="glass-card p-4">
+            <h2 className="mb-2 mt-0 flex items-center gap-2 text-base font-extrabold text-white"><Coins size={17} className="text-emerald-300" />Пополнения ({history.deposits.length})</h2>
+            {history.deposits.length === 0 ? <p className="m-0 text-sm text-gray-500">Успешных пополнений пока нет</p> : (
               <ul className="m-0 list-none divide-y divide-white/5 p-0">
-                {history.filter((item) => item.won).map((item) => (
+                {history.deposits.map((item) => (
+                  <li key={item.id} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                    <div className="min-w-0">
+                      <p className="m-0 truncate text-sm font-extrabold text-white">{item.username ? `@${item.username}` : item.firstName}</p>
+                      <p className="mb-0 mt-1 text-xs text-gray-500">ID {item.userId} · {item.currency} · {formatDate(item.createdAt)}</p>
+                    </div>
+                    <span className="shrink-0 text-sm font-extrabold text-emerald-300">+{item.amount} ⭐</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>}
+
+          {historyView === 'pvp' && <section className="glass-card p-4">
+            <h2 className="mb-2 mt-0 flex items-center gap-2 text-base font-extrabold text-white"><Activity size={17} className="text-sky-300" />Результаты PvP ({history.pvp.length})</h2>
+            {history.pvp.length === 0 ? <p className="m-0 text-sm text-gray-500">Завершённых PvP-раундов пока нет</p> : (
+              <ul className="m-0 list-none divide-y divide-white/5 p-0">
+                {history.pvp.map((item) => (
                   <li key={item.id} className="py-3 first:pt-0 last:pb-0">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="m-0 truncate text-sm font-extrabold text-white">
-                          {item.username ? `@${item.username}` : item.firstName} <span className="font-semibold text-gray-400">· ID {item.userId}</span>
-                        </p>
-                        <p className="mb-0 mt-1 text-xs text-gray-400">{item.title}</p>
+                        <p className="m-0 truncate text-sm font-extrabold text-white">{item.username ? `@${item.username}` : item.firstName} <span className="font-semibold text-gray-500">· ID {item.userId}</span></p>
+                        <p className="mb-0 mt-1 text-xs text-gray-400">Раунд {item.roundId} · ставка {item.betAmount} ⭐ · банк {item.totalPot} ⭐</p>
                       </div>
-                      <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-extrabold ${item.isBetaMode ? 'bg-violet-400/10 text-violet-300' : item.won ? 'bg-emerald-400/10 text-emerald-300' : 'bg-rose-400/10 text-rose-300'}`}>
-                        {item.isBetaMode ? 'БЕТА · ТЕСТ' : item.won ? 'ВЫИГРЫШ' : 'ПРОИГРЫШ'}
+                      <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-extrabold ${item.outcome === 'WIN' ? 'bg-emerald-400/10 text-emerald-300' : item.outcome === 'REFUND' ? 'bg-amber-400/10 text-amber-300' : 'bg-rose-400/10 text-rose-300'}`}>
+                        {item.outcome === 'WIN' ? 'ПОБЕДА' : item.outcome === 'REFUND' ? 'ВОЗВРАТ' : 'ПРОИГРЫШ'}
                       </span>
                     </div>
-                    <p className={`mb-0 mt-2 text-sm font-bold ${item.isBetaMode ? 'text-violet-200' : item.won ? 'text-emerald-200' : 'text-rose-200'}`}>
-                      {item.result}
-                    </p>
+                    <p className={`mb-0 mt-2 text-sm font-bold ${item.outcome === 'WIN' ? 'text-emerald-200' : item.outcome === 'REFUND' ? 'text-amber-200' : 'text-rose-200'}`}>{item.result}</p>
                     <p className="mb-0 mt-1 text-[11px] text-gray-600">{formatDate(item.createdAt)}</p>
                   </li>
                 ))}
@@ -497,17 +509,45 @@ export default function AdminPage() {
             )}
           </section>}
 
-          {historyView === 'spending' && <section className="glass-card p-4">
-            <h2 className="mb-2 mt-0 text-base font-extrabold text-white">Траты</h2>
-            {recentTransactions.filter((transaction) => transaction.amount < 0).length === 0 ? <p className="m-0 text-sm text-gray-500">Трат пока нет</p> : (
-              <ul className="m-0 list-none p-0">{recentTransactions.filter((transaction) => transaction.amount < 0).map(renderTransaction)}</ul>
+          {historyView === 'cases' && <section className="glass-card p-4">
+            <h2 className="mb-2 mt-0 flex items-center gap-2 text-base font-extrabold text-white"><Package size={17} className="text-amber-300" />Открытия кейсов ({history.cases.length})</h2>
+            {history.cases.length === 0 ? <p className="m-0 text-sm text-gray-500">Открытий пока нет</p> : (
+              <ul className="m-0 list-none divide-y divide-white/5 p-0">
+                {history.cases.map((item) => (
+                  <li key={item.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.05] text-xl">{item.prizeEmoji}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-extrabold text-white">{item.username ? `@${item.username}` : item.firstName} <span className="font-medium text-gray-500">· {item.title}</span></span>
+                      <span className="mt-1 block text-xs text-gray-400">Потрачено: {item.isBetaMode ? '0 ⭐ · БЕТА' : `${item.casePrice} ⭐`}</span>
+                      <span className={`mt-1 block text-xs font-bold ${item.isBetaMode ? 'text-violet-300' : 'text-emerald-200'}`}>{item.isBetaMode ? 'БЕТА · тестовый результат, приз не начислен' : `Выпало: ${item.prizeType === 'BALANCE' ? `+${item.prizePrice} ⭐` : `${item.prizeEmoji} ${item.prizeName} · ${item.prizePrice} ⭐`}`}</span>
+                      <span className="mt-1 block text-[11px] text-gray-600">ID {item.userId} · {formatDate(item.createdAt)}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
             )}
           </section>}
 
-          {historyView === 'transactions' && <section className="glass-card p-4">
-            <h2 className="mb-2 mt-0 text-base font-extrabold text-white">Все последние транзакции</h2>
-            {recentTransactions.length === 0 ? <p className="m-0 text-sm text-gray-500">Транзакций пока нет</p> : (
-              <ul className="m-0 list-none p-0">{recentTransactions.map(renderTransaction)}</ul>
+          {historyView === 'upgrades' && <section className="glass-card p-4">
+            <h2 className="mb-2 mt-0 flex items-center gap-2 text-base font-extrabold text-white"><Activity size={17} className="text-violet-300" />Апгрейдер ({history.upgrades.length})</h2>
+            {history.upgrades.length === 0 ? <p className="m-0 text-sm text-gray-500">Попыток апгрейда пока нет</p> : (
+              <ul className="m-0 list-none divide-y divide-white/5 p-0">
+                {history.upgrades.map((item) => (
+                  <li key={item.id} className="py-3 first:pt-0 last:pb-0">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="m-0 truncate text-sm font-extrabold text-white">{item.username ? `@${item.username}` : item.firstName} <span className="font-semibold text-gray-500">· цель {item.targetNftEmoji} {item.targetNftName}</span></p>
+                        <p className="mb-0 mt-1 text-xs text-gray-400">Потрачено: {item.isBetaMode ? '0 ⭐ · БЕТА' : `${item.betAmount} ⭐`} · шанс {item.chance.toFixed(2)}%</p>
+                      </div>
+                      <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-extrabold ${item.isBetaMode ? 'bg-violet-400/10 text-violet-300' : item.won ? 'bg-emerald-400/10 text-emerald-300' : 'bg-rose-400/10 text-rose-300'}`}>
+                        {item.isBetaMode ? `БЕТА · ${item.won ? 'ПОБЕДА' : 'ПРОИГРЫШ'}` : item.won ? 'ПОБЕДА' : 'ПРОИГРЫШ'}
+                      </span>
+                    </div>
+                    <p className={`mb-0 mt-2 text-sm font-bold ${item.isBetaMode ? 'text-violet-200' : item.won ? 'text-emerald-200' : 'text-rose-200'}`}>{item.isBetaMode ? item.result : item.won ? `Выигран NFT ${item.targetNftEmoji} ${item.targetNftName} (${item.targetNftPrice} ⭐), выплата ${item.winAmount} ⭐.` : `Проигрыш: ставка ${item.betAmount} ⭐ сгорела.`}</p>
+                    <p className="mb-0 mt-1 text-[11px] text-gray-600">ID {item.userId} · {formatDate(item.createdAt)}</p>
+                  </li>
+                ))}
+              </ul>
             )}
           </section>}
         </>

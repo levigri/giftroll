@@ -120,6 +120,57 @@ export interface AdminActivity {
   createdAt: string
 }
 
+export interface AdminDepositActivity {
+  id: string
+  userId: string
+  username: string | null
+  firstName: string
+  amount: number
+  currency: string
+  createdAt: string
+}
+
+export interface AdminPvpActivity {
+  id: string
+  roundId: string
+  userId: string
+  username: string | null
+  firstName: string
+  betAmount: number
+  payoutAmount: number
+  totalPot: number
+  rakeStars: number
+  result: string
+  outcome: 'WIN' | 'LOSS' | 'REFUND'
+  createdAt: string
+}
+
+export interface AdminCaseActivity extends AdminActivity {
+  kind: 'CASE_OPEN'
+  casePrice: number
+  prizeName: string
+  prizeEmoji: string
+  prizeType: 'BALANCE' | 'NFT'
+  prizePrice: number
+}
+
+export interface AdminUpgradeActivity extends AdminActivity {
+  kind: 'UPGRADE'
+  betAmount: number
+  targetNftName: string
+  targetNftEmoji: string
+  targetNftPrice: number
+  winAmount: number
+  chance: number
+}
+
+export interface AdminHistoryResponse {
+  deposits: AdminDepositActivity[]
+  pvp: AdminPvpActivity[]
+  cases: AdminCaseActivity[]
+  upgrades: AdminUpgradeActivity[]
+}
+
 export interface AdminTask {
   id: string
   title: string
