@@ -70,10 +70,15 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
 
       const users = await prisma.user.findMany({
         where: {
-          balance: { gte: 50 },
           id: { notIn: excludedIds },
           NOT: { firstName: { equals: 'Dev User', mode: 'insensitive' } },
-          ...(conditions.length > 0 ? { OR: conditions } : {}),
+          AND: [
+            { OR: [
+              { balance: { gte: 50 } },
+              { inventory: { some: { status: { in: ['PENDING', 'WITHDRAWAL_REQUESTED'] } } } },
+            ] },
+            ...(conditions.length > 0 ? [{ OR: conditions }] : []),
+          ],
         },
         select: {
           id: true,
@@ -84,38 +89,55 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
           createdAt: true,
           inventory: {
             where: { status: { in: ['PENDING', 'WITHDRAWAL_REQUESTED'] } },
-            select: { prizeName: true, prizeEmoji: true },
+            select: { prizeName: true, prizeEmoji: true, prizePrice: true },
             orderBy: { createdAt: 'desc' },
             take: 3,
           },
         },
-        orderBy: sort === 'balance_asc'
-          ? [{ balance: 'asc' }, { username: 'asc' }]
-          : sort === 'username_asc'
-            ? [{ username: { sort: 'asc', nulls: 'last' } }, { firstName: 'asc' }]
-            : [{ balance: 'desc' }, { username: { sort: 'asc', nulls: 'last' } }],
-        take: 500,
+        take: 5000,
       })
 
-      const inventoryCounts = users.length > 0
+      const inventoryAggregates = users.length > 0
         ? await prisma.inventoryItem.groupBy({
           by: ['userId'],
           where: { userId: { in: users.map((user) => user.id) }, status: { in: ['PENDING', 'WITHDRAWAL_REQUESTED'] } },
           _count: { _all: true },
+          _sum: { prizePrice: true },
         })
         : []
-      const inventoryCountsByUserId = new Map(inventoryCounts.map((entry) => [entry.userId.toString(), entry._count._all]))
+      const inventoryByUserId = new Map(inventoryAggregates.map((entry) => [entry.userId.toString(), {
+        count: entry._count._all,
+        value: entry._sum.prizePrice ?? 0,
+      }]))
 
-      return users.map((user) => ({
+      const results = users.map((user) => {
+        const inventorySummary = inventoryByUserId.get(user.id.toString())
+        const inventoryValue = inventorySummary?.value ?? 0
+        return {
         id: user.id.toString(),
         username: user.username,
         firstName: user.firstName,
         balance: user.balance,
+        inventoryValue,
+        totalBalance: user.balance + inventoryValue,
         isBetaMode: user.isBetaMode,
         createdAt: user.createdAt.toISOString(),
-        inventoryCount: inventoryCountsByUserId.get(user.id.toString()) ?? 0,
+        inventoryCount: inventorySummary?.count ?? 0,
         inventory: user.inventory,
-      }))
+        }
+      })
+
+      results.sort((left, right) => {
+        if (sort === 'username_asc') {
+          return (left.username ?? left.firstName).localeCompare(right.username ?? right.firstName, 'ru')
+            || right.totalBalance - left.totalBalance
+        }
+        return sort === 'balance_asc'
+          ? left.totalBalance - right.totalBalance
+          : right.totalBalance - left.totalBalance
+      })
+
+      return results.slice(0, 500)
     },
   )
 

@@ -55,10 +55,12 @@ export interface AdminUserSummary {
   username: string | null
   firstName: string
   balance: number
+  inventoryValue?: number
+  totalBalance?: number
   isBetaMode: boolean
   createdAt: string
   inventoryCount?: number
-  inventory?: Array<{ prizeName: string; prizeEmoji: string }>
+  inventory?: Array<{ prizeName: string; prizeEmoji: string; prizePrice?: number }>
 }
 
 export interface AdminDeposit {

@@ -252,8 +252,8 @@ export default function AdminPage() {
               onChange={(event) => setUserSort(event.target.value as typeof userSort)}
               className="max-w-[62%] rounded-lg border border-white/10 bg-[#15161b] px-2 py-1.5 text-xs font-bold text-white outline-none"
             >
-              <option value="balance_desc">Баланс: больше → меньше</option>
-              <option value="balance_asc">Баланс: меньше → больше</option>
+              <option value="balance_desc">Общий баланс: больше → меньше</option>
+              <option value="balance_asc">Общий баланс: меньше → больше</option>
               <option value="username_asc">Ник: А → Я</option>
             </select>
           </label>
@@ -271,7 +271,7 @@ export default function AdminPage() {
       {section === 'players' && !selectedUser && !searching && (
         <section className="glass-card p-3">
           <h2 className="mb-2 mt-0 text-sm font-extrabold text-gray-300">
-            {query.trim() ? 'Результаты поиска' : `Игроки с балансом от 50 ⭐`} <span className="font-semibold text-gray-500">· {users.length}</span>
+            {query.trim() ? 'Результаты поиска' : `Баланс от 50 ⭐ или есть NFT`} <span className="font-semibold text-gray-500">· {users.length}</span>
           </h2>
           {users.length === 0 ? (
             <p className="m-0 py-3 text-center text-sm text-gray-500">Подходящих игроков не найдено</p>
@@ -295,7 +295,10 @@ export default function AdminPage() {
                           : `NFT: ${inventory.map((item) => `${item.prizeEmoji} ${item.prizeName}`).join(' · ')}${inventoryCount > inventory.length ? ` · +${inventoryCount - inventory.length}` : ''}`}
                       </span>
                     </span>
-                    <span className="shrink-0 text-sm font-extrabold text-amber-300">{user.balance} ⭐</span>
+                    <span className="shrink-0 text-right">
+                      <span className="block text-sm font-extrabold text-amber-300">{user.totalBalance ?? user.balance} ⭐</span>
+                      <span className="mt-0.5 block text-[10px] text-gray-500">{user.balance} ⭐ + NFT {user.inventoryValue ?? 0} ⭐</span>
+                    </span>
                   </button>
                 </li>
               })}
