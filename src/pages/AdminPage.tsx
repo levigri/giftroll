@@ -277,8 +277,10 @@ export default function AdminPage() {
             <p className="m-0 py-3 text-center text-sm text-gray-500">Подходящих игроков не найдено</p>
           ) : (
             <ul className="m-0 list-none divide-y divide-white/5 p-0">
-              {users.map((user) => (
-                <li key={user.id}>
+              {users.map((user) => {
+                const inventory = user.inventory ?? []
+                const inventoryCount = user.inventoryCount ?? inventory.length
+                return <li key={user.id}>
                   <button
                     type="button"
                     onClick={() => void selectUser(user)}
@@ -288,15 +290,15 @@ export default function AdminPage() {
                       <span className="block truncate text-sm font-extrabold text-white">{displayName(user)}</span>
                       <span className="mt-1 block text-xs text-gray-500">ID {user.id} · {formatDate(user.createdAt)}</span>
                       <span className="mt-1 block truncate text-[11px] text-violet-200/80">
-                        {user.inventoryCount === 0
+                        {inventoryCount === 0
                           ? 'Инвентарь пуст'
-                          : `NFT: ${user.inventory.map((item) => `${item.prizeEmoji} ${item.prizeName}`).join(' · ')}${user.inventoryCount > user.inventory.length ? ` · +${user.inventoryCount - user.inventory.length}` : ''}`}
+                          : `NFT: ${inventory.map((item) => `${item.prizeEmoji} ${item.prizeName}`).join(' · ')}${inventoryCount > inventory.length ? ` · +${inventoryCount - inventory.length}` : ''}`}
                       </span>
                     </span>
                     <span className="shrink-0 text-sm font-extrabold text-amber-300">{user.balance} ⭐</span>
                   </button>
                 </li>
-              ))}
+              })}
             </ul>
           )}
         </section>
