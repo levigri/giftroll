@@ -81,7 +81,7 @@ export default function AdminPage() {
       void adminSearchUsers(value, userSort)
         .then((items) => {
           if (sequence === searchSequence.current) {
-            setUsers(items)
+            setUsers(items.filter((user) => user.firstName.trim().toLowerCase() !== 'dev user' && user.id !== '11111111'))
             setError(null)
           }
         })
