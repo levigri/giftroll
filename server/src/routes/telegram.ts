@@ -105,6 +105,7 @@ export const telegramRoutes: FastifyPluginAsync = async (fastify) => {
       broadcastState = null
       await ctx.answerCallbackQuery({ text: 'Рассылка отменена' })
       await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } }).catch(() => undefined)
+      await ctx.editMessageText('Рассылка отменена.').catch(() => undefined)
       return
     }
 
@@ -116,16 +117,18 @@ export const telegramRoutes: FastifyPluginAsync = async (fastify) => {
     const { text, recipientLimit } = broadcastState
     broadcastState = null
     broadcastRunning = true
-    await ctx.answerCallbackQuery({ text: 'Рассылка запущена' })
-    void ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } }).catch(() => undefined)
-    void bot.api.sendMessage(
-      env.ADMIN_ID!.toString(),
-      `Рассылка запущена. Подготовлю ${recipientLimit === null ? 'всех пользователей' : `${recipientLimit} получателей`} и пришлю отчёт.`,
-    ).catch((error: unknown) => fastify.log.warn(error, '[Broadcast] could not send start notice'))
+    await ctx.answerCallbackQuery({ text: 'Запускаю рассылку' }).catch((error: unknown) => {
+      fastify.log.warn(error, '[Broadcast] callback acknowledgement failed')
+    })
+    await ctx.editMessageText('⏳ Рассылка запускается…\nПодготовлю получателей и обновлю это сообщение результатом.').catch((error: unknown) => {
+      fastify.log.warn(error, '[Broadcast] could not update confirmation message')
+    })
+    const statusMessage = ctx.callbackQuery.message
 
     void (async () => {
       let sent = 0
       let failed = 0
+      let firstDeliveryError: string | null = null
       try {
         const allUsers = await prisma.user.findMany({ select: { id: true } })
         // Перемешиваем список, чтобы при ограниченной рассылке не выбирать каждый раз
@@ -144,24 +147,52 @@ export const telegramRoutes: FastifyPluginAsync = async (fastify) => {
           } catch (error: unknown) {
             failed += 1
             const message = error instanceof Error ? error.message : String(error)
+            firstDeliveryError ??= message
             fastify.log.warn(`[Broadcast] delivery failed for user ${user.id}: ${message}`)
           }
           await delay(50)
+
+          const processed = sent + failed
+          if (statusMessage && processed % 100 === 0 && processed < users.length) {
+            await bot.api.editMessageText(
+              statusMessage.chat.id,
+              statusMessage.message_id,
+              `⏳ Рассылка выполняется…\nОбработано: ${processed}/${users.length}\nДоставлено: ${sent}\nОшибок доставки: ${failed}`,
+            ).catch((error: unknown) => fastify.log.warn(error, '[Broadcast] progress update failed'))
+          }
         }
 
-        await bot.api.sendMessage(
-          env.ADMIN_ID!.toString(),
-          `✅ Рассылка завершена.\nОтправлено: ${sent}\nОшибок доставки: ${failed}\nВыбрано получателей: ${users.length}`,
-        )
+        const summary = `✅ Рассылка завершена.\nДоставлено: ${sent}\nОшибок доставки: ${failed}\nВыбрано получателей: ${users.length}${firstDeliveryError ? `\nПример ошибки: ${firstDeliveryError.slice(0, 250)}` : ''}`
+        if (statusMessage) {
+          await bot.api.editMessageText(statusMessage.chat.id, statusMessage.message_id, summary).catch(async (error: unknown) => {
+            fastify.log.warn(error, '[Broadcast] could not update final status')
+            await bot.api.sendMessage(env.ADMIN_ID!.toString(), summary).catch((sendError: unknown) => {
+              fastify.log.error(sendError, '[Broadcast] could not send final report')
+            })
+          })
+        } else {
+          await bot.api.sendMessage(env.ADMIN_ID!.toString(), summary)
+        }
         fastify.log.info(`[Broadcast] completed: sent=${sent}, failed=${failed}, total=${users.length}`)
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error)
         fastify.log.error(`[Broadcast] aborted: ${message}`)
-        await bot.api.sendMessage(env.ADMIN_ID!.toString(), `Рассылка прервана из-за ошибки: ${message}`).catch(() => undefined)
+        const failure = `❌ Рассылка остановлена.\nДоставлено: ${sent}\nОшибок доставки: ${failed}\nПричина: ${message.slice(0, 500)}`
+        if (statusMessage) {
+          await bot.api.editMessageText(statusMessage.chat.id, statusMessage.message_id, failure).catch(() => undefined)
+        }
+        await bot.api.sendMessage(env.ADMIN_ID!.toString(), failure).catch(() => undefined)
       } finally {
         broadcastRunning = false
       }
     })()
+  })
+
+  // Always stop Telegram's button spinner, including callbacks from stale keyboards.
+  bot.on('callback_query:data', async (ctx) => {
+    await ctx.answerCallbackQuery().catch((error: unknown) => {
+      fastify.log.warn(error, '[Telegram] callback acknowledgement failed')
+    })
   })
 
   bot.command('start', async (ctx) => {
