@@ -537,7 +537,7 @@ export default function AdminPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="m-0 truncate text-sm font-extrabold text-white">{item.username ? `@${item.username}` : item.firstName} <span className="font-semibold text-gray-500">· цель {item.targetNftEmoji} {item.targetNftName}</span></p>
-                        <p className="mb-0 mt-1 text-xs text-gray-400">Потрачено: {item.isBetaMode ? '0 ⭐ · БЕТА' : `${item.betAmount} ⭐`} · шанс {item.chance.toFixed(2)}%</p>
+                        <p className="mb-0 mt-1 text-xs text-gray-400">Потрачено: {item.isBetaMode ? '0 ⭐ · БЕТА' : `${item.betAmount} ⭐`} · шанс {Number.isFinite(item.chance) ? `${item.chance.toFixed(2)}%` : '—'}</p>
                       </div>
                       <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-extrabold ${item.isBetaMode ? 'bg-violet-400/10 text-violet-300' : item.won ? 'bg-emerald-400/10 text-emerald-300' : 'bg-rose-400/10 text-rose-300'}`}>
                         {item.isBetaMode ? `БЕТА · ${item.won ? 'ПОБЕДА' : 'ПРОИГРЫШ'}` : item.won ? 'ПОБЕДА' : 'ПРОИГРЫШ'}

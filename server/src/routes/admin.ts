@@ -32,6 +32,7 @@ async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promi
 }
 
 const adminPreHandler = [authenticateTelegram, requireAdmin]
+const DEV_TELEGRAM_ID = 11111111n
 
 function parseTelegramId(value: string): bigint | null {
   if (!/^\d+$/.test(value)) return null
@@ -61,6 +62,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
       const users = await prisma.user.findMany({
         where: {
           balance: { gte: 50 },
+          id: { not: DEV_TELEGRAM_ID },
           ...(conditions.length > 0 ? { OR: conditions } : {}),
         },
         select: {
@@ -90,6 +92,9 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
       const id = parseTelegramId(request.params.id)
       if (id === null) {
         return reply.code(400).send({ error: 'Некорректный Telegram ID', code: 'INVALID_USER_ID' })
+      }
+      if (id === DEV_TELEGRAM_ID) {
+        return reply.code(404).send({ error: 'Пользователь не найден', code: 'USER_NOT_FOUND' })
       }
 
       const user = await prisma.user.findUnique({
@@ -196,7 +201,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.get('/api/admin/transactions', { preHandler: adminPreHandler }, async () => {
     const transactions = await prisma.transaction.findMany({
-      where: { type: 'DEPOSIT', amount: { gt: 0 } },
+      where: { type: 'DEPOSIT', amount: { gt: 0 }, userId: { not: DEV_TELEGRAM_ID } },
       orderBy: { createdAt: 'desc' },
       take: 100,
       include: {
@@ -219,7 +224,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/api/admin/history', { preHandler: adminPreHandler }, async () => {
     const [deposits, rounds, caseOpens, upgraderAttempts] = await Promise.all([
       prisma.deposit.findMany({
-        where: { status: 'completed' },
+        where: { status: 'completed', userId: { not: DEV_TELEGRAM_ID } },
         orderBy: { completedAt: 'desc' },
         take: 150,
       }),
@@ -227,14 +232,16 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
         where: { status: 'finished' },
         orderBy: { finishedAt: 'desc' },
         take: 100,
-        include: { participants: { where: { isBot: false } } },
+        include: { participants: { where: { isBot: false, userId: { not: DEV_TELEGRAM_ID } } } },
       }),
       prisma.caseOpen.findMany({
+        where: { userId: { not: DEV_TELEGRAM_ID } },
         orderBy: { createdAt: 'desc' },
         take: 100,
         include: { user: { select: { id: true, username: true, firstName: true } } },
       }),
       prisma.upgraderAttempt.findMany({
+        where: { userId: { not: DEV_TELEGRAM_ID } },
         orderBy: { createdAt: 'desc' },
         take: 100,
         include: { user: { select: { id: true, username: true, firstName: true } } },
@@ -325,6 +332,12 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
       username: attempt.user.username,
       firstName: attempt.user.firstName,
       title: `Апгрейд · цель ${attempt.targetNftEmoji} ${attempt.targetNftName}`,
+      betAmount: attempt.betAmount,
+      targetNftName: attempt.targetNftName,
+      targetNftEmoji: attempt.targetNftEmoji,
+      targetNftPrice: attempt.targetNftPrice,
+      winAmount: attempt.winAmount,
+      chance: attempt.chance,
       result: attempt.win
         ? attempt.isBetaMode
           ? `БЕТА · выпал бы NFT за ${attempt.targetNftPrice} ⭐`
