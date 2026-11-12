@@ -874,6 +874,8 @@ export async function setWebhook(publicUrl: string): Promise<boolean> {
   return callTelegramApi<boolean>('setWebhook', {
     url: `${base}/api/telegram/webhook`,
     secret_token: env.WEBHOOK_SECRET,
-    allowed_updates: ['message', 'pre_checkout_query'],
+    // Inline keyboard presses are callback_query updates; Telegram will not
+    // deliver broadcast confirmation clicks unless they are explicitly enabled.
+    allowed_updates: ['message', 'callback_query', 'pre_checkout_query'],
   })
 }
