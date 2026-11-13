@@ -156,8 +156,8 @@ export default function UpgraderPage({
     try {
       const res = await getInventory()
       setInventory(res.items)
-      // Проданные/выведенные NFT не должны оставаться в выбранной ставке.
-      const available = new Set(res.items.map((item) => item.id))
+      // Только предметы в статусе PENDING можно выставить как ставку.
+      const available = new Set(res.items.filter((item) => item.status === 'PENDING').map((item) => item.id))
       setNftIds((current) => current.filter((id) => available.has(id)))
       return res.items
     } catch (err: unknown) {
@@ -389,6 +389,9 @@ export default function UpgraderPage({
   }
 
   const toggleNft = (id: string): void => {
+    const item = inventory.find((candidate) => candidate.id === id)
+    if (!item || item.status !== 'PENDING') return
+
     tapFeedback('light')
     setNftIds((current) =>
       current.includes(id) ? current.filter((itemId) => itemId !== id) : [...current, id],
@@ -1124,20 +1127,21 @@ export default function UpgraderPage({
             ) : (
               <div className="upgrader-picker__list">
                 {inventory.map((item) => {
-                  const selected = nftIds.includes(item.id)
-                  const claimed = item.status === 'CLAIMED'
+                  const unavailable = item.status !== 'PENDING'
+                  const selected = !unavailable && nftIds.includes(item.id)
+                  const withdrawalRequested = item.status === 'WITHDRAWAL_REQUESTED'
 
                   return (
                     <label
                       key={item.id}
                       className={`upgrader-picker__row ${
                         selected ? 'upgrader-picker__row--selected' : ''
-                      } ${claimed ? 'upgrader-picker__row--disabled' : ''}`}
+                      } ${unavailable ? 'upgrader-picker__row--disabled' : ''}`}
                     >
                       <input
                         type="checkbox"
                         checked={selected}
-                        disabled={busy || claimed}
+                        disabled={busy || unavailable}
                         onChange={() => toggleNft(item.id)}
                       />
                       <AssetImage
@@ -1147,8 +1151,16 @@ export default function UpgraderPage({
                       />
                       <span className="upgrader-picker__name">{item.prizeName}</span>
                       <span className="upgrader-picker__price inline-flex items-center gap-0.5">
-                        {marketPriceFor(item.prizeName, item.prizePrice, marketPrices)}
-                        <Star size={11} fill="currentColor" />
+                        {withdrawalRequested ? (
+                          <span className="text-amber-300">На выводе</span>
+                        ) : unavailable ? (
+                          <span className="text-gray-500">Недоступен</span>
+                        ) : (
+                          <>
+                            {marketPriceFor(item.prizeName, item.prizePrice, marketPrices)}
+                            <Star size={11} fill="currentColor" />
+                          </>
+                        )}
                       </span>
                     </label>
                   )

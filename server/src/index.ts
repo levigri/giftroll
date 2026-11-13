@@ -131,6 +131,7 @@ const fastify = Fastify({
 // Настройка middleware
 await fastify.register(cors, {
   origin: true,
+  methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 })
 await fastify.register(formbody)
 await fastify.register(websocket)
