@@ -1,6 +1,6 @@
 import type { InventoryItem } from '@prisma/client'
 import { prisma } from '../db/prisma.js'
-import { depositBonusCase, findCase, isCaseAvailable, type CaseItem, type Prize } from '../data/cases.js'
+import { depositBonusCase, findCase, type CaseItem, type Prize } from '../data/cases.js'
 import { pickDailyBonusPrize, pickPrize } from '../utils/prize.js'
 import { dailyBonusPrizes, type DailyBonusPrize } from '../data/dailyBonus.js'
 import { getUsername, logDrop, type DropItemType } from './drops.js'
@@ -39,10 +39,6 @@ export async function openCase(
   if (!caseItem) {
     throw new GameError('CASE_NOT_FOUND', 'Кейс не найден', 404)
   }
-  if (!isCaseAvailable(caseId)) {
-    throw new GameError('CASE_UNAVAILABLE', 'Этот кейс сейчас недоступен', 403)
-  }
-
   const result = await prisma.$transaction(
     async (tx) => {
       // Блокируем запись пользователя для защиты от race condition
@@ -208,10 +204,6 @@ export async function openMultiCase(
   if (!caseItem) {
     throw new GameError('CASE_NOT_FOUND', 'Кейс не найден', 404)
   }
-  if (!isCaseAvailable(caseId)) {
-    throw new GameError('CASE_UNAVAILABLE', 'Этот кейс сейчас недоступен', 403)
-  }
-
   const nominalSpent = caseItem.price * count
 
   const result = await prisma.$transaction(

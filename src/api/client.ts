@@ -28,7 +28,10 @@ import type {
 } from './types'
 import { getInitData, getStoredRefCode } from '../telegram'
 
-const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '')
+// Keep Vite's local /api proxy in development, but never let production API
+// requests fall through to Vercel's SPA rewrite when VITE_API_URL is unset.
+const configuredApiBase = import.meta.env.VITE_API_URL?.trim()
+const API_BASE = (configuredApiBase || (import.meta.env.PROD ? 'https://giftroll.onrender.com' : '')).replace(/\/+$/, '')
 
 export class ApiError extends Error {
   constructor(

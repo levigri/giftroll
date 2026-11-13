@@ -3,7 +3,7 @@ import { env } from '../src/config/env.js'
 import { prisma } from '../src/db/prisma.js'
 
 const text =
-  '🔥 Новый лимитированный кейс «Супер Дроп»!\n\nСкидка 50%! Внутри только топовые NFT и звезды.\nУспей забрать свой подарок!'
+  '🎁 Заходи в GiftRoll!\n\nОткрывай кейсы, собирай NFT и звезды.\nЗапускай приложение и играй!'
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))

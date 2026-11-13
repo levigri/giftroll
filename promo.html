@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0B0C10" />
-    <title>GiftRoll — рекламный экран</title>
+    <meta name="theme-color" content="#090b14" />
+    <title>GiftRoll — Super Drop</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -16,176 +16,320 @@
       body {
         margin: 0;
         overflow-x: hidden;
-        background: #0B0C10;
+        background:
+          radial-gradient(ellipse at 50% 0%, rgba(73, 86, 151, .16), transparent 48%),
+          #080a11;
         color: #fff;
         font-family: 'Manrope', sans-serif;
       }
-      .promo-scrollbar { scrollbar-width: none; }
-      .promo-scrollbar::-webkit-scrollbar { display: none; }
-      .roulette-window::before, .roulette-window::after {
-        position: absolute; z-index: 2; top: 0; bottom: 0; width: 38px;
-        content: ''; pointer-events: none;
+      .hide-scrollbar { scrollbar-width: none; }
+      .hide-scrollbar::-webkit-scrollbar { display: none; }
+      .reel-scene {
+        position: relative;
+        isolation: isolate;
+        overflow: hidden;
+        aspect-ratio: 16 / 9;
+        min-height: 240px;
+        max-height: 620px;
+        border: 4px solid #4d5b86;
+        border-radius: clamp(22px, 4vw, 42px);
+        background:
+          radial-gradient(ellipse at 50% 104%, rgba(255, 184, 61, .18), transparent 21%),
+          radial-gradient(ellipse at 50% 52%, rgba(65, 83, 145, .15), transparent 55%),
+          #171a29;
+        box-shadow: 0 22px 75px rgba(0, 0, 0, .48), inset 0 0 50px rgba(89, 104, 164, .06);
       }
-      .roulette-window::before { left: 0; background: linear-gradient(90deg, #111217, transparent); }
-      .roulette-window::after { right: 0; background: linear-gradient(270deg, #111217, transparent); }
-      .roulette-pointer {
-        position: absolute; z-index: 4; top: 0; bottom: 0; left: 50%; width: 2px;
-        transform: translateX(-50%); background: linear-gradient(180deg, transparent, #FFD700 16%, #FFD700 84%, transparent);
-        box-shadow: 0 0 12px rgba(255, 215, 0, .8); pointer-events: none;
+      .reel-scene::before, .reel-scene::after {
+        position: absolute;
+        z-index: 5;
+        top: 0;
+        bottom: 0;
+        width: 13%;
+        content: '';
+        pointer-events: none;
       }
-      .roulette-pointer::before, .roulette-pointer::after {
-        position: absolute; left: 50%; content: ''; transform: translateX(-50%);
-        border-left: 6px solid transparent; border-right: 6px solid transparent;
+      .reel-scene::before { left: 0; background: linear-gradient(90deg, #171a29 0%, rgba(23,26,41,.8) 30%, transparent 100%); }
+      .reel-scene::after { right: 0; background: linear-gradient(270deg, #171a29 0%, rgba(23,26,41,.8) 30%, transparent 100%); }
+      .reel-lane {
+        position: absolute;
+        z-index: 2;
+        top: 50%;
+        right: 0;
+        left: 0;
+        height: 54%;
+        min-height: 100px;
+        transform: translateY(-50%);
+        overflow: hidden;
       }
-      .roulette-pointer::before { top: 0; border-top: 8px solid #FFD700; }
-      .roulette-pointer::after { bottom: 0; border-bottom: 8px solid #FFD700; }
-      .prize-image { filter: drop-shadow(0 7px 9px rgba(0,0,0,.42)); }
-      .modal-enter { animation: modal-in .22s ease-out both; }
-      @keyframes modal-in { from { opacity: 0; transform: scale(.94) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
-      @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; } }
+      .reel-track {
+        position: absolute;
+        top: 50%;
+        left: 0;
+        display: flex;
+        width: max-content;
+        align-items: center;
+        gap: clamp(8px, 1.1vw, 15px);
+        transform: translateY(-50%);
+        filter: blur(1.1px);
+        will-change: transform, filter;
+      }
+      .reel-card {
+        display: flex;
+        width: clamp(76px, 12vw, 145px);
+        height: clamp(96px, 15vw, 176px);
+        flex: 0 0 auto;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: clamp(3px, .6vw, 8px);
+        overflow: hidden;
+        padding: 7px;
+        border: 1px solid rgba(137, 157, 213, .15);
+        border-radius: clamp(13px, 2vw, 22px);
+        background: linear-gradient(145deg, rgba(63, 76, 119, .52), rgba(29, 34, 55, .78));
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.045), 0 10px 32px rgba(0,0,0,.13);
+      }
+      .reel-card img {
+        width: 78%;
+        height: 66%;
+        object-fit: contain;
+        filter: drop-shadow(0 8px 12px rgba(0,0,0,.4));
+      }
+      .reel-card__name {
+        max-width: 100%;
+        overflow: hidden;
+        color: rgba(238, 241, 255, .8);
+        font-size: clamp(8px, .82vw, 11px);
+        font-weight: 800;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .reel-pointer {
+        position: absolute;
+        z-index: 7;
+        top: 9%;
+        bottom: 9%;
+        left: 50%;
+        width: 2px;
+        transform: translateX(-50%);
+        border-left: 2px dashed rgba(255, 214, 108, .28);
+        pointer-events: none;
+      }
+      .reel-pointer::before, .reel-pointer::after {
+        position: absolute;
+        left: 50%;
+        width: 0;
+        height: 0;
+        content: '';
+        transform: translateX(-50%);
+        filter: drop-shadow(0 2px 5px rgba(255, 190, 70, .2));
+      }
+      .reel-pointer::before { top: 0; border-top: 20px solid #e8b84f; border-right: 14px solid transparent; border-left: 14px solid transparent; }
+      .reel-pointer::after { bottom: 0; border-right: 14px solid transparent; border-bottom: 20px solid #e8b84f; border-left: 14px solid transparent; }
+      .reel-watermark {
+        position: absolute;
+        z-index: 1;
+        right: 4%;
+        bottom: 10%;
+        left: 4%;
+        overflow: hidden;
+        color: rgba(204, 211, 234, .12);
+        font-size: clamp(31px, 9.8vw, 112px);
+        font-weight: 800;
+        letter-spacing: -.055em;
+        line-height: .9;
+        text-align: center;
+        text-overflow: clip;
+        white-space: nowrap;
+        pointer-events: none;
+        user-select: none;
+      }
+      .reel-glow {
+        position: absolute;
+        z-index: 1;
+        bottom: 4%;
+        left: 50%;
+        width: 48%;
+        height: 9px;
+        transform: translateX(-50%);
+        border-radius: 999px;
+        background: #ffc453;
+        filter: blur(17px);
+        opacity: .68;
+        pointer-events: none;
+      }
+      .result-enter { animation: result-in .24s ease-out both; }
+      @keyframes result-in { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+      @keyframes shine { to { background-position: 200% center; } }
+      .gold-text {
+        background: linear-gradient(100deg, #ffcf5c, #fff1bd, #ffad36, #ffcf5c);
+        background-size: 200% auto;
+        color: transparent;
+        background-clip: text;
+        animation: shine 5s linear infinite;
+      }
+      @media (max-width: 520px) {
+        .reel-scene { min-height: 220px; border-width: 3px; }
+        .reel-lane { height: 60%; }
+        .reel-card { width: 76px; height: 106px; }
+        .reel-watermark { bottom: 12%; font-size: clamp(32px, 10vw, 46px); }
+        .reel-pointer::before { border-top-width: 15px; border-right-width: 11px; border-left-width: 11px; }
+        .reel-pointer::after { border-right-width: 11px; border-bottom-width: 15px; border-left-width: 11px; }
+      }
+      @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
     </style>
   </head>
-  <body class="min-h-screen overflow-x-hidden">
-    <main class="mx-auto flex min-h-screen w-full max-w-[430px] flex-col gap-4 px-4 pb-7 pt-4 sm:pt-6">
-      <header class="flex items-center justify-between rounded-[22px] border border-white/10 bg-white/[0.045] px-3 py-3 shadow-[0_12px_35px_rgba(0,0,0,0.2)] backdrop-blur-md">
+  <body>
+    <main class="mx-auto flex min-h-screen w-full max-w-[1120px] flex-col justify-center gap-5 px-4 py-5 sm:gap-6 sm:px-7">
+      <header class="flex items-center justify-between gap-3 px-1">
         <div class="flex min-w-0 items-center gap-3">
-          <div class="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-white/10 bg-gradient-to-br from-[#8A2BE2] via-[#5b31ae] to-[#20243b] text-lg font-extrabold shadow-[0_0_18px_rgba(138,43,226,0.22)]">G</div>
+          <img src="public/icon.png" alt="GiftRoll" class="h-11 w-11 rounded-2xl object-cover shadow-[0_0_22px_rgba(124,97,255,.22)]" />
           <div class="min-w-0">
-            <div class="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.16em] text-gray-400"><span class="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,.8)]"></span>GiftRoll</div>
-            <div class="mt-0.5 truncate text-sm font-extrabold">Игрок</div>
+            <div class="text-[10px] font-extrabold uppercase tracking-[.2em] text-indigo-200/60">GIFTS · CASES · BIG WINS</div>
+            <div class="mt-0.5 text-lg font-extrabold tracking-tight">GiftRoll</div>
           </div>
         </div>
-        <div class="flex shrink-0 items-center gap-2 rounded-2xl border border-[#FFD700]/30 bg-gradient-to-r from-[#FFD700]/15 to-[#FFA500]/10 px-3 py-2 shadow-[0_0_20px_rgba(255,215,0,0.12)]">
-          <span class="text-[#FFD700]">★</span><span class="text-sm font-extrabold tabular-nums">10 000</span>
+        <div class="flex shrink-0 items-center gap-2 rounded-2xl border border-[#FFD15A]/20 bg-[#FFD15A]/[.07] px-3.5 py-2.5">
+          <span class="text-[#FFD15A]">★</span><span class="text-sm font-extrabold tabular-nums">10 000</span>
         </div>
       </header>
 
-      <section class="relative overflow-hidden rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_50%_3%,rgba(138,43,226,.2),transparent_42%),linear-gradient(160deg,rgba(255,255,255,.055),rgba(255,255,255,.018))] p-4 shadow-[0_18px_50px_rgba(0,0,0,.26)] backdrop-blur-md">
-        <div class="absolute -right-14 -top-20 h-48 w-48 rounded-full bg-violet-600/10 blur-3xl"></div>
-        <div class="relative flex items-center justify-between gap-3">
+      <section class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_270px] lg:items-center">
+        <div class="reel-scene" aria-label="Рулетка GiftRoll">
+          <div class="absolute left-5 top-4 z-10 flex items-center gap-2 rounded-full border border-white/10 bg-[#090b14]/35 px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-[.16em] text-indigo-100/60 backdrop-blur-sm sm:left-7 sm:top-6 sm:text-[10px]">
+            <span class="h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_10px_rgba(110,231,183,.8)]"></span> GiftRoll Live
+          </div>
+          <div class="reel-watermark">@Giftrollgamebot</div>
+          <div class="reel-glow"></div>
+          <div class="reel-lane">
+            <div id="rouletteTrack" class="reel-track"></div>
+          </div>
+          <div class="reel-pointer"></div>
+        </div>
+
+        <aside class="flex flex-col gap-3 rounded-[24px] border border-white/[.08] bg-white/[.035] p-4 backdrop-blur-md sm:p-5">
           <div>
-            <div class="mb-1 flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.17em] text-[#B9A2FF]"><span>✦</span> Коллекционный кейс</div>
-            <h1 class="text-[26px] font-extrabold leading-tight tracking-[-0.04em]">Легенда</h1>
-            <p class="mt-1 text-xs text-gray-400">Редкие подарки Telegram в одном кейсе</p>
+            <div class="mb-1.5 text-[10px] font-extrabold uppercase tracking-[.2em] text-indigo-200/55">LIMITED CASE</div>
+            <h1 class="m-0 text-[27px] font-extrabold leading-none tracking-[-.05em]">Супер <span class="gold-text">Дроп</span></h1>
+            <p class="mb-0 mt-2 text-xs leading-relaxed text-gray-400">Крути рулетку и забирай подарки Telegram.</p>
           </div>
-          <div class="relative grid h-[94px] w-[94px] shrink-0 place-items-center rounded-[26px] border border-white/10 bg-white/[0.045]">
-            <div class="absolute inset-2 rounded-[20px] bg-violet-500/15 blur-xl"></div>
-            <img class="prize-image relative h-[78px] w-[78px] object-contain" src="https://api.changes.tg/original/IceCream.png?size=256" alt="Ice Cream" onerror="this.onerror=null;this.src='https://img.icons8.com/3d-fluency/512/gift.png'" />
+          <div class="flex items-center justify-between rounded-2xl border border-white/[.07] bg-black/20 px-3 py-2.5">
+            <span class="text-[10px] font-extrabold uppercase tracking-wider text-gray-500">Крупный приз</span>
+            <span class="text-xs font-extrabold text-[#FFD15A]">Plush Pepe · 560 000 ⭐</span>
           </div>
-        </div>
-        <div class="relative mt-4 flex items-center justify-between rounded-2xl border border-white/[0.07] bg-black/20 px-3 py-2.5">
-          <span class="text-[11px] font-bold uppercase tracking-wider text-gray-500">Возможный выигрыш</span>
-          <span class="flex items-center gap-1.5 text-xs font-extrabold text-[#FFD700]"><span>✦</span> Plush Pepe · 560 000</span>
-        </div>
-        <button id="openButton" type="button" class="relative mt-3 w-full rounded-2xl bg-gradient-to-r from-[#FFD700] to-[#FFA500] px-4 py-3.5 text-sm font-extrabold text-black shadow-[0_0_24px_rgba(255,215,0,0.45)] transition duration-200 hover:brightness-110 active:scale-[.98] disabled:cursor-wait disabled:opacity-75">
-          Открыть за 100 ⭐
-        </button>
+          <button id="openButton" type="button" class="w-full rounded-2xl bg-gradient-to-r from-[#FFD15A] to-[#FFA83A] px-4 py-3.5 text-sm font-extrabold text-[#15100a] shadow-[0_8px_28px_rgba(255,188,70,.2)] transition hover:brightness-110 active:scale-[.98] disabled:cursor-wait disabled:opacity-70">
+            КРУТИТЬ · 1 000 ⭐
+          </button>
+          <p class="m-0 text-center text-[10px] font-semibold text-gray-600">Демо-ролл · результат для рекламного видео</p>
+        </aside>
       </section>
 
-      <section class="overflow-hidden rounded-[26px] border border-white/10 bg-white/[0.035] p-3.5 backdrop-blur-md">
-        <div class="mb-3 flex items-center justify-between px-0.5">
-          <div>
-            <h2 class="text-sm font-extrabold">Рулетка</h2>
-            <p id="rouletteCaption" class="mt-0.5 text-[10px] text-gray-500">Смотри, что может выпасть</p>
-          </div>
-          <span class="rounded-full border border-[#FFD700]/20 bg-[#FFD700]/[0.07] px-2.5 py-1 text-[10px] font-extrabold text-[#FFD700]">×1</span>
+      <section class="flex flex-col gap-3 rounded-[24px] border border-white/[.07] bg-white/[.025] p-3.5 sm:p-4">
+        <div class="flex items-center justify-between px-1">
+          <h2 class="m-0 text-xs font-extrabold">ПОДАРКИ В РУЛЕТКЕ</h2>
+          <span class="text-[10px] font-semibold text-gray-500">Подарки Telegram · ×1</span>
         </div>
-        <div id="rouletteWindow" class="roulette-window relative h-[124px] overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0b0c10]/75">
-          <div id="rouletteTrack" class="absolute left-0 top-1/2 flex w-max -translate-y-1/2 items-center gap-2"></div>
-          <div class="roulette-pointer"></div>
-        </div>
-        <div class="mt-3 flex items-center justify-between px-0.5 text-[10px] font-semibold text-gray-500">
-          <span>50 подарков в ленте</span><span class="flex items-center gap-1"><span class="h-1.5 w-1.5 rounded-full bg-[#FFD700]"></span> указатель выигрыша</span>
-        </div>
+        <div id="prizeRail" class="hide-scrollbar flex gap-2 overflow-x-auto pb-1"></div>
       </section>
-
-      <section class="rounded-[24px] border border-white/[0.08] bg-white/[0.025] p-3.5">
-        <div class="mb-3 flex items-center justify-between">
-          <h2 class="text-xs font-extrabold">В этом кейсе</h2>
-          <span class="text-[10px] font-semibold text-gray-500">Подборка подарков</span>
-        </div>
-        <div id="prizeGrid" class="promo-scrollbar grid max-h-[190px] grid-cols-4 gap-2 overflow-y-auto pr-0.5"></div>
-      </section>
-
-      <footer class="mt-auto flex items-center justify-center gap-1.5 pt-1 text-[10px] font-semibold tracking-wide text-gray-600"><span class="text-[#FFD700]">✦</span> GIFTS · CASES · BIG WINS</footer>
+      <footer class="pb-1 text-center text-[10px] font-bold tracking-[.18em] text-gray-700">GIFTROLL · OPEN YOUR NEXT DROP</footer>
     </main>
 
-    <div id="resultModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/75 px-5 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
-      <div class="modal-enter relative w-full max-w-[360px] overflow-hidden rounded-[30px] border border-[#FFD700]/25 bg-[#17181e] p-5 text-center shadow-[0_0_55px_rgba(255,215,0,.16)]">
-        <div class="absolute left-1/2 top-0 h-32 w-56 -translate-x-1/2 rounded-full bg-[#FFD700]/10 blur-3xl"></div>
-        <div class="relative mx-auto mb-3 grid h-[142px] w-[142px] place-items-center rounded-[34px] border border-[#FFD700]/15 bg-gradient-to-br from-[#FFD700]/10 to-violet-500/10">
-          <img class="prize-image h-[122px] w-[122px] object-contain" src="https://api.changes.tg/original/PlushPepe.png?size=256" alt="Plush Pepe" onerror="this.onerror=null;this.src='https://img.icons8.com/3d-fluency/512/gift.png'" />
+    <div id="resultModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80 px-5 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+      <div class="result-enter relative w-full max-w-[380px] overflow-hidden rounded-[30px] border border-[#FFD15A]/25 bg-[#171a29] p-6 text-center shadow-[0_0_60px_rgba(255,190,70,.15)]">
+        <div class="absolute left-1/2 top-0 h-36 w-64 -translate-x-1/2 rounded-full bg-[#FFD15A]/10 blur-3xl"></div>
+        <div class="relative mx-auto mb-3 grid h-36 w-36 place-items-center rounded-[30px] border border-white/10 bg-white/[.04]">
+          <img id="winnerImage" class="h-[84%] w-[84%] object-contain drop-shadow-[0_12px_18px_rgba(0,0,0,.4)]" src="" alt="" />
         </div>
-        <div class="relative mb-1 text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#FFD700]">Редкий дроп</div>
-        <h2 id="resultTitle" class="relative text-[25px] font-extrabold tracking-[-0.04em]">Вы выиграли!</h2>
-        <p class="relative mt-1 text-sm font-bold text-gray-300">Plush Pepe</p>
-        <div class="relative mx-auto mt-3 inline-flex items-center gap-1.5 rounded-full border border-[#FFD700]/20 bg-[#FFD700]/[0.07] px-3 py-1.5 text-xs font-extrabold text-[#FFD700]">★ 560 000</div>
-        <button id="claimButton" type="button" class="relative mt-5 w-full rounded-2xl bg-gradient-to-r from-[#FFD700] to-[#FFA500] py-3.5 text-sm font-extrabold text-black shadow-[0_0_24px_rgba(255,215,0,0.35)] transition hover:brightness-110 active:scale-[.98]">Забрать</button>
+        <div class="relative mb-1 text-[10px] font-extrabold uppercase tracking-[.2em] text-[#FFD15A]">Выпал редкий подарок</div>
+        <h2 id="resultTitle" class="relative m-0 text-[26px] font-extrabold tracking-[-.04em]">Вы выиграли!</h2>
+        <p id="winnerName" class="relative mb-0 mt-1 text-sm font-bold text-gray-300"></p>
+        <div id="winnerPrice" class="relative mx-auto mt-3 inline-flex items-center gap-1.5 rounded-full border border-[#FFD15A]/20 bg-[#FFD15A]/[.07] px-3.5 py-1.5 text-sm font-extrabold text-[#FFD15A]"></div>
+        <button id="claimButton" type="button" class="relative mt-5 w-full rounded-2xl bg-gradient-to-r from-[#FFD15A] to-[#FFA83A] py-3.5 text-sm font-extrabold text-[#15100a] transition hover:brightness-110 active:scale-[.98]">Забрать</button>
       </div>
     </div>
 
     <script>
       const items = [
-        { name: 'Ice Cream', image: 'IceCream', price: '450' },
+        { name: 'Xmas Stocking', image: 'XmasStocking', price: '350' },
+        { name: 'Ice Cream', image: 'IceCream', price: '364' },
+        { name: 'Pet Snake', image: 'PetSnake', price: '377' },
+        { name: 'Lol Pop', image: 'LolPop', price: '480' },
+        { name: 'Fresh Socks', image: 'FreshSocks', price: '400' },
+        { name: 'Snow Mittens', image: 'SnowMittens', price: '500' },
+        { name: 'Love Potion', image: 'LovePotion', price: '1 480' },
+        { name: 'Genie Lamp', image: 'GenieLamp', price: '3 460' },
+        { name: 'Plush Pepe', image: 'PlushPepe', price: '560 000' },
         { name: "Durov's Cap", image: 'DurovsCap', price: '39 900' },
         { name: 'Heart Locket', image: 'HeartLocket', price: '125 000' },
         { name: 'Pool Float', image: 'PoolFloat', price: '450' },
-        { name: 'Eternal Rose', image: 'EternalRose', price: '1 250' },
-        { name: 'Lol Pop', image: 'LolPop', price: '480' },
-        { name: 'Diamond Ring', image: 'DiamondRing', price: '3 150' },
-        { name: 'Plush Pepe', image: 'PlushPepe', price: '560 000' },
-        { name: 'Toy Bear', image: 'ToyBear', price: '3 610' },
-        { name: 'Top Hat', image: 'TopHat', price: '1 040' },
       ]
       const WINNER_INDEX = 37
-      const CARD_WIDTH = 88
-      const CARD_GAP = 8
       const track = document.getElementById('rouletteTrack')
-      const grid = document.getElementById('prizeGrid')
+      const prizeRail = document.getElementById('prizeRail')
       const openButton = document.getElementById('openButton')
       const modal = document.getElementById('resultModal')
       const claimButton = document.getElementById('claimButton')
-      const caption = document.getElementById('rouletteCaption')
+      const winner = items.find((item) => item.name === 'Plush Pepe')
       let isSpinning = false
 
       function imageUrl(item) {
         return `https://api.changes.tg/original/${item.image}.png?size=256`
       }
 
-      function imageFallback(image) {
-        image.onerror = null
-        image.src = 'https://img.icons8.com/3d-fluency/512/gift.png'
+      function setSafeImage(image, item) {
+        image.src = imageUrl(item)
+        image.alt = item.name
+        image.onerror = () => {
+          image.onerror = null
+          image.src = 'public/icon.png'
+          image.classList.add('opacity-50')
+        }
       }
 
-      function makeCard(item, compact = false) {
+      function createReelCard(item) {
         const card = document.createElement('div')
-        card.className = compact
-          ? 'flex min-w-0 flex-col items-center rounded-xl border border-white/10 bg-white/5 px-1.5 py-2'
-          : 'flex h-[102px] w-[88px] shrink-0 flex-col items-center justify-center rounded-xl border border-white/10 bg-white/5 px-1.5 py-2'
-        const img = document.createElement('img')
-        img.className = compact ? 'prize-image h-10 w-10 object-contain' : 'prize-image h-14 w-14 object-contain'
-        img.src = imageUrl(item)
-        img.alt = item.name
-        img.loading = 'eager'
-        img.onerror = () => imageFallback(img)
+        card.className = 'reel-card'
+        const image = document.createElement('img')
+        setSafeImage(image, item)
         const name = document.createElement('span')
-        name.className = 'mt-1 w-full truncate text-center text-[9px] font-bold text-gray-300'
+        name.className = 'reel-card__name'
         name.textContent = item.name
-        const price = document.createElement('span')
-        price.className = 'mt-0.5 flex items-center gap-1 text-[9px] font-extrabold text-gray-500'
-        price.innerHTML = `<span class="text-[#FFD700]">★</span>${item.price}`
-        card.append(img, name, price)
+        card.append(image, name)
         return card
       }
 
       const strip = Array.from({ length: 50 }, (_, index) =>
-        index === WINNER_INDEX ? items[7] : items[(index * 7 + Math.floor(index / 3)) % items.length],
+        index === WINNER_INDEX ? winner : items[(index * 7 + Math.floor(index / 3)) % (items.length - 1)],
       )
-      strip.forEach((item) => track.appendChild(makeCard(item)))
-      ;[...new Map(items.map((item) => [item.name, item])).values()].forEach((item) => grid.appendChild(makeCard(item, true)))
+      strip.forEach((item) => track.appendChild(createReelCard(item)))
+      items.forEach((item) => {
+        const card = document.createElement('div')
+        card.className = 'flex min-w-[80px] flex-1 flex-col items-center rounded-2xl border border-white/[.08] bg-white/[.035] px-2 py-2 sm:min-w-[96px]'
+        const image = document.createElement('img')
+        image.className = 'h-12 w-12 object-contain drop-shadow-[0_6px_8px_rgba(0,0,0,.35)]'
+        setSafeImage(image, item)
+        const name = document.createElement('span')
+        name.className = 'mt-1 w-full truncate text-center text-[9px] font-extrabold text-gray-300'
+        name.textContent = item.name
+        const price = document.createElement('span')
+        price.className = 'mt-0.5 text-[9px] font-extrabold text-[#FFD15A]'
+        price.textContent = `${item.price} ⭐`
+        card.append(image, name, price)
+        prizeRail.appendChild(card)
+      })
 
-      function resetRoulette() {
+      function openResult() {
+        document.getElementById('winnerImage').src = imageUrl(winner)
+        document.getElementById('winnerImage').alt = winner.name
+        document.getElementById('winnerName').textContent = winner.name
+        document.getElementById('winnerPrice').textContent = `★ ${winner.price}`
+        modal.classList.remove('hidden')
+        modal.classList.add('flex')
+      }
+
+      function resetReel() {
         track.style.transition = 'none'
+        track.style.filter = 'blur(1.1px)'
         track.style.transform = 'translateX(0px) translateY(-50%)'
         void track.offsetWidth
       }
@@ -194,24 +338,23 @@
         if (isSpinning) return
         isSpinning = true
         openButton.disabled = true
-        openButton.textContent = 'Крутим…'
-        caption.textContent = 'Подарок уже на ленте…'
-        resetRoulette()
+        openButton.textContent = 'РУЛЕТКА КРУТИТСЯ…'
+        resetReel()
 
         requestAnimationFrame(() => {
-          const viewport = document.getElementById('rouletteWindow')
+          const viewport = document.querySelector('.reel-lane')
+          const winnerCard = track.children[WINNER_INDEX]
           const viewportWidth = viewport.clientWidth
-          const baseCenter = WINNER_INDEX * (CARD_WIDTH + CARD_GAP) + CARD_WIDTH / 2
-          const randomOffset = (Math.random() * 2 - 1) * CARD_WIDTH * 0.3
-          const offset = viewportWidth / 2 - baseCenter + randomOffset
-          track.style.transition = 'transform 4.5s cubic-bezier(0.12, 0.8, 0.15, 1)'
+          const winnerCenter = winnerCard.offsetLeft + winnerCard.clientWidth / 2
+          const randomOffset = (Math.random() * 2 - 1) * winnerCard.clientWidth * .28
+          const offset = viewportWidth / 2 - winnerCenter + randomOffset
+          track.style.filter = 'blur(1.5px)'
+          track.style.transition = 'transform 4.7s cubic-bezier(0.12, 0.8, 0.15, 1), filter .8s ease 3.9s'
           track.style.transform = `translateX(${offset}px) translateY(-50%)`
+          window.setTimeout(() => { track.style.filter = 'blur(0px)' }, 3950)
         })
 
-        window.setTimeout(() => {
-          modal.classList.remove('hidden')
-          modal.classList.add('flex')
-        }, 4500)
+        window.setTimeout(openResult, 4800)
       })
 
       function closeResult() {
@@ -219,15 +362,12 @@
         modal.classList.remove('flex')
         isSpinning = false
         openButton.disabled = false
-        openButton.textContent = 'Открыть за 1000 ⭐'
-        caption.textContent = 'Смотри, что может выпасть'
-        resetRoulette()
+        openButton.textContent = 'КРУТИТЬ · 1 000 ⭐'
+        resetReel()
       }
 
       claimButton.addEventListener('click', closeResult)
-      modal.addEventListener('click', (event) => {
-        if (event.target === modal) closeResult()
-      })
+      modal.addEventListener('click', (event) => { if (event.target === modal) closeResult() })
       document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape' && !modal.classList.contains('hidden')) closeResult()
       })

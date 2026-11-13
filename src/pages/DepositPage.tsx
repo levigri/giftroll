@@ -14,6 +14,7 @@ import { errorFeedback, successFeedback, tapFeedback } from '../telegram'
 
 /** Готовые суммы пополнения. */
 const AMOUNTS = [50, 100, 250, 500, 1000, 2500]
+const STARS_BONUS_PERCENT = 10
 /**
  * TON mainnet-адрес кошелька-получателя (дубль серверного TON_RECEIVER_ADDRESS).
  * Основной источник — поле receiverAddress из /api/deposit/grams/invoice,
@@ -179,6 +180,8 @@ function DepositPageContent({
   const wallet = useTonWallet()
 
   const amountValid = Number.isInteger(amount) && amount >= MIN_AMOUNT && amount <= MAX_AMOUNT
+  const starsBonus = Math.floor((amount * STARS_BONUS_PERCENT) / 100)
+  const starsCredited = amount + starsBonus
 
   /** Игрок вводит сколько звёзд хочет получить — это и есть сумма депозита. */
   const gramsStarsNum = Number(gramsStars.replace(/[\s\u00a0]/g, ''))
@@ -294,7 +297,8 @@ function DepositPageContent({
           webApp.openInvoice(invoiceLink, (status) => {
             if (status === 'paid') {
               successFeedback()
-              showToast(`Успешно пополнено на ${paidAmount} ⭐`)
+              const bonus = Math.floor((paidAmount * STARS_BONUS_PERCENT) / 100)
+              showToast(`Начислено ${paidAmount + bonus} ⭐ (бонус +${bonus} ⭐)`)
               void onRefreshMe?.()
             } else if (status === 'cancelled') {
               showToast('Оплата отменена', 'error')
@@ -482,7 +486,7 @@ function DepositPageContent({
           }`}
           onClick={() => setTab('stars')}
         >
-          <span className="inline-flex items-center gap-1"><Star size={13} fill="currentColor" /> Stars</span>
+          <span className="inline-flex items-center gap-1"><Star size={13} fill="currentColor" /> Stars <span className="font-extrabold text-emerald-400">+10%</span></span>
         </button>
         <button
           type="button"
@@ -566,6 +570,13 @@ function DepositPageContent({
             />
           </label>
 
+          {amountValid && (
+            <p className="m-0 rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-center text-xs text-emerald-300">
+              На баланс: <strong>{starsCredited.toLocaleString('ru-RU')} ⭐</strong>
+              <span className="ml-1">(бонус +{starsBonus.toLocaleString('ru-RU')} ⭐)</span>
+            </p>
+          )}
+
           <button
             type="button"
             className="gold-btn flex items-center justify-center gap-1.5 py-3.5 text-base"
@@ -576,15 +587,14 @@ function DepositPageContent({
               'Создаём счёт…'
             ) : (
               <>
-                Пополнить на {amountValid ? amount.toLocaleString('ru-RU') : '—'}
+                Оплатить {amountValid ? amount.toLocaleString('ru-RU') : '—'}
                 <Star size={16} fill="currentColor" />
               </>
             )}
           </button>
 
           <p className="m-0 px-1 text-center text-[12px] leading-relaxed text-gray-400">
-            Оплата проходит через Telegram Stars. Звёзды зачисляются на баланс сразу после оплаты и
-            отыгрываются в игре.
+            Оплата проходит через Telegram Stars. На баланс зачисляется сумма платежа и бонус +10%.
           </p>
         </>
       )}

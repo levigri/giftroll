@@ -11,6 +11,7 @@ import { notifyUser } from './bot.js'
 export const MIN_DEPOSIT_STARS = 10
 export const MAX_DEPOSIT_STARS = 100_000
 export const DEPOSIT_LOCK_MS = 21 * 24 * 60 * 60 * 1000
+export const STARS_DEPOSIT_BONUS_PERCENT = 10
 
 /** Депозит от этой суммы (в ⭐) выдаёт право на бонусный кейс. */
 export const FREE_CASE_DEPOSIT_STARS = 200
@@ -630,6 +631,9 @@ export async function handleWebhook(update: TelegramUpdate): Promise<void> {
     )
   }
 
+  const bonusStars = Math.floor((deposit.amount * STARS_DEPOSIT_BONUS_PERCENT) / 100)
+  const creditedStars = deposit.amount + bonusStars
+
   await prisma.$transaction(
     async (tx) => {
       const completedAt = new Date()
@@ -650,7 +654,8 @@ export async function handleWebhook(update: TelegramUpdate): Promise<void> {
       await tx.user.update({
         where: { id: deposit.userId },
         data: {
-          balance: { increment: deposit.amount },
+          balance: { increment: creditedStars },
+          // Referral wagering stays capped to the amount actually paid.
           depositUnspent: { increment: deposit.amount },
         },
       })
@@ -662,8 +667,10 @@ export async function handleWebhook(update: TelegramUpdate): Promise<void> {
       await logTransaction(
         deposit.userId,
         'DEPOSIT',
-        deposit.amount,
-        'Пополнение (Stars)',
+        creditedStars,
+        bonusStars > 0
+          ? `Пополнение (Stars): ${deposit.amount} ⭐ + ${bonusStars} ⭐ бонус`
+          : 'Пополнение (Stars)',
         tx,
       )
     },
@@ -671,7 +678,10 @@ export async function handleWebhook(update: TelegramUpdate): Promise<void> {
   )
 
   // Уведомление в бота: звёзды зачислены.
-  void notifyUser(deposit.userId, `✅ Баланс успешно пополнен на ${deposit.amount} ⭐!`)
+  void notifyUser(
+    deposit.userId,
+    `✅ Оплачено ${deposit.amount} ⭐, начислено ${creditedStars} ⭐${bonusStars > 0 ? ` (бонус +${bonusStars} ⭐)` : ''}!`,
+  )
 }
 
 async function handleNftWithdrawalPayment(

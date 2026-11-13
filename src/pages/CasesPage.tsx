@@ -79,35 +79,8 @@ export default function CasesPage({
   const [promoError, setPromoError] = useState<string | null>(null)
   const [promoBusy, setPromoBusy] = useState(false)
   const [promoPrize, setPromoPrize] = useState<DailyBonusPrize | null>(null)
-  const [caseTimeNow, setCaseTimeNow] = useState(() => Date.now())
-
-  useEffect(() => {
-    const limitedCase = cases.find((caseItem) => caseItem.id === 'case-limited')
-    if (!limitedCase?.availableAt || !limitedCase.availableUntil) return
-
-    const availableAt = Date.parse(limitedCase.availableAt)
-    const availableUntil = Date.parse(limitedCase.availableUntil)
-    const nextBoundary = caseTimeNow < availableAt
-      ? availableAt
-      : caseTimeNow < availableUntil
-        ? availableUntil
-        : null
-    if (nextBoundary === null) return
-
-    const timeoutId = window.setTimeout(
-      () => setCaseTimeNow(Date.now()),
-      Math.max(0, nextBoundary - caseTimeNow + 50),
-    )
-    return () => window.clearTimeout(timeoutId)
-  }, [cases, caseTimeNow])
 
   const hottestPrice = cases.reduce((max, item) => Math.max(max, item.price), 0)
-  const limitedCase = cases.find((caseItem) => caseItem.id === 'case-limited')
-  const limitedCaseIsExpired = Boolean(limitedCase?.availableUntil && caseTimeNow > Date.parse(limitedCase.availableUntil))
-  const limitedCasePrize = limitedCase ? getBestPrize(limitedCase.prizes) : undefined
-  const limitedCaseImage = limitedCasePrize
-    ? prizeImage(limitedCasePrize.name, limitedCasePrize.emoji, limitedCasePrize.type)
-    : FALLBACK_PRIZE_IMAGE
   const countdown = useCountdown(bonus.dailyAvailableAt, !bonus.dailyAvailable)
   const isBonusAvailable = me?.hasClaimedDepositBonus === false
 
@@ -163,54 +136,6 @@ export default function CasesPage({
           <div className="py-16 text-center font-bold text-gray-400">Загрузка кейсов...</div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            {limitedCase && !limitedCaseIsExpired && (
-              <article
-                role="button"
-                tabIndex={0}
-                onClick={() => {
-                  tapFeedback('light')
-                  onOpenCase(limitedCase)
-                }}
-                onKeyDown={(event) => {
-                  if (event.key !== 'Enter' && event.key !== ' ') return
-                  event.preventDefault()
-                  tapFeedback('light')
-                  onOpenCase(limitedCase)
-                }}
-                className="glass-card glass-card--hover group relative flex cursor-pointer flex-col items-center gap-2 overflow-hidden border-[#FFD700]/50 p-3.5 text-center shadow-[0_0_24px_rgba(255,215,0,0.15)] transition hover:scale-[1.02] active:scale-[0.98]"
-              >
-                <span className="absolute left-2 top-2 z-10 rounded-full border border-red-500/40 bg-red-500/20 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-red-300">-50%</span>
-                <div className="relative mt-1 flex h-24 w-24 items-center justify-center">
-                  <img
-                    src={limitedCaseImage}
-                    alt={limitedCasePrize?.name ?? limitedCase.name}
-                    referrerPolicy="no-referrer"
-                    className="h-24 w-24 object-contain transition-transform duration-300 group-hover:scale-105"
-                    style={{ filter: 'drop-shadow(0 0 20px rgba(138, 43, 226, 0.6))' }}
-                    onError={(event) => {
-                      const image = event.currentTarget
-                      if (image.dataset.fallback !== '1') {
-                        image.dataset.fallback = '1'
-                        image.src = FALLBACK_PRIZE_IMAGE
-                      }
-                    }}
-                  />
-                </div>
-                <h3 className="m-0 text-[15px] font-extrabold text-white">{limitedCase.name}</h3>
-                <div className="flex flex-col items-center gap-0.5">
-                  <span className="text-[11px] font-bold text-gray-500 line-through">700 ⭐</span>
-                  <div className="flex items-center gap-1 text-sm font-extrabold text-[#FFD700]">
-                    {limitedCase.price}<Star size={13} fill="currentColor" />
-                  </div>
-                </div>
-                <div className="mt-1 flex w-full items-center justify-center">
-                  <span className="rounded-full border border-amber-300/25 bg-amber-300/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-amber-200">
-                    Лимит
-                  </span>
-                </div>
-              </article>
-            )}
-
             {/* Бесплатный кейс (ежедневный бонус) — живёт в общем списке кейсов. */}
             <article
               role="button"
@@ -371,11 +296,6 @@ export default function CasesPage({
             </article>
 
             {cases.map((caseItem) => {
-              const isLockedByTime = caseItem.id === 'case-limited' && caseItem.availableAt && caseItem.availableUntil &&
-                (caseTimeNow < new Date(caseItem.availableAt).getTime() || caseTimeNow > new Date(caseItem.availableUntil).getTime())
-              if (isLockedByTime || caseItem.id === 'case-limited') return null
-
-              const isLimitedCase = caseItem.id === 'case-limited'
               const isHot = caseItem.price === hottestPrice && hottestPrice > 0
               const bestPrize = getBestPrize(caseItem.prizes)
               const bestPrizeImg = bestPrize
@@ -399,17 +319,9 @@ export default function CasesPage({
                     }
                   }}
                   className={`glass-card glass-card--hover group relative flex cursor-pointer flex-col items-center gap-2 overflow-hidden p-3.5 text-center transition hover:scale-[1.02] active:scale-[0.98] ${
-                    isLimitedCase
-                      ? 'border-[#FFD700]/50 shadow-[0_0_24px_rgba(255,215,0,0.15)]'
-                      : isHot ? 'border-[#FFD700]/40 shadow-[0_0_24px_rgba(255,215,0,0.12)]' : ''
+                    isHot ? 'border-[#FFD700]/40 shadow-[0_0_24px_rgba(255,215,0,0.12)]' : ''
                   }`}
                 >
-                  {isLimitedCase && (
-                    <span className="absolute left-2 top-2 z-10 rounded-full border border-red-500/40 bg-red-500/20 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-red-300">
-                      -50%
-                    </span>
-                  )}
-
                   <div className="relative mt-1 flex h-24 w-24 items-center justify-center">
                     <img
                       src={bestPrizeImg}
@@ -431,32 +343,14 @@ export default function CasesPage({
 
                   <h3 className="m-0 text-[15px] font-extrabold text-white">{caseItem.name}</h3>
 
-                  {isLimitedCase ? (
-                    <div className="flex flex-col items-center gap-0.5">
-                      <span className="text-[11px] font-bold text-gray-500 line-through">700 ⭐</span>
-                      <div className="flex items-center gap-1 text-sm font-extrabold text-[#FFD700]">
-                        {caseItem.price}
-                        <Star size={13} fill="currentColor" />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1 text-sm font-extrabold text-[#FFD700]">
-                      {caseItem.price}
-                      <Star size={13} fill="currentColor" />
-                    </div>
-                  )}
+                  <div className="flex items-center gap-1 text-sm font-extrabold text-[#FFD700]">
+                    {caseItem.price}
+                    <Star size={13} fill="currentColor" />
+                  </div>
 
-                  {isLimitedCase ? (
-                    <div className="mt-1 flex w-full items-center justify-center">
-                      <span className="rounded-full border border-amber-300/25 bg-amber-300/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-amber-200">
-                        Лимит
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="mt-1 flex w-full items-center justify-center rounded-xl border border-white/10 bg-white/5 py-1.5 text-xs font-bold text-gray-300 transition group-hover:border-[#FFD700]/50 group-hover:text-white">
-                      Содержимое
-                    </div>
-                  )}
+                  <div className="mt-1 flex w-full items-center justify-center rounded-xl border border-white/10 bg-white/5 py-1.5 text-xs font-bold text-gray-300 transition group-hover:border-[#FFD700]/50 group-hover:text-white">
+                    Содержимое
+                  </div>
                 </article>
               )
             })}
