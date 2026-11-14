@@ -28,7 +28,7 @@ model User {
   lastName  String?
   username  String?
   photoUrl  String?
-  balance   Int      @default(0)
+  balance   Float    @default(0)
   // Сколько ⭐ из пополнений ещё не отыграно: только эти звёзды дают рефереру 10%.
   depositUnspent Int  @default(0)
   // Кто пригласил (Telegram ID). null — пришёл сам.
@@ -265,7 +265,7 @@ model Transaction {
   id        String   @id @default(uuid())
   userId    BigInt
   type      String // 'DEPOSIT' | 'CASE_OPEN' | 'UPGRADE' | 'PVP_BET' | 'PVP_WIN' | 'SELL_NFT' | 'DAILY_BONUS' | 'REFERRAL'
-  amount    Int // положительное — доход, отрицательное — расход
+  amount    Float // положительное — доход, отрицательное — расход
   details   String?
   createdAt DateTime @default(now())
 

@@ -318,31 +318,10 @@ export async function claimDaily(userId: bigint): Promise<{
     throw new GameError('BETA_RESTRICTED', 'Ежедневные награды недоступны в бета-режиме', 403)
   }
 
-  const existing = await prisma.dailyBonus.findUnique({
-    where: { userId },
-  })
-
   const now = new Date()
+  const isSuspiciousAccount = await isBotAccount(userId)
 
-  if (existing && now.getTime() - existing.lastClaimedAt.getTime() < ONE_DAY_MS) {
-    throw new GameError('BONUS_NOT_READY', 'Бонус ещё не доступен', 400)
-  }
-
-  let streak = 1
-  if (existing) {
-    const elapsed = now.getTime() - existing.lastClaimedAt.getTime()
-    if (elapsed > TWO_DAYS_MS) {
-      streak = 1 // Стрик сбросился
-    } else {
-      streak = existing.streak + 1
-    }
-  }
-
-  const prize = await isBotAccount(userId)
-    ? { id: 'db-1', label: '1', emoji: '⭐', amount: 1, chance: 100, type: 'BALANCE' as const }
-    : pickDailyBonusPrize(dailyBonusPrizes)
-
-  const newBalance = await prisma.$transaction(
+  const result = await prisma.$transaction(
     async (tx) => {
       const rows = await tx.$queryRaw<{ id: bigint; balance: number; isBetaMode: boolean }[]>`
         SELECT id, balance, "isBetaMode" FROM users WHERE id = ${userId} FOR UPDATE
@@ -355,6 +334,29 @@ export async function claimDaily(userId: bigint): Promise<{
       if (userRow.isBetaMode) {
         throw new GameError('BETA_RESTRICTED', 'Ежедневные награды недоступны в бета-режиме', 403)
       }
+
+      const existing = await tx.dailyBonus.findUnique({ where: { userId } })
+      if (existing && now.getTime() - existing.lastClaimedAt.getTime() < ONE_DAY_MS) {
+        throw new GameError('BONUS_NOT_READY', 'Бонус ещё не доступен', 400)
+      }
+
+      const completedDeposits = await tx.deposit.count({
+        where: { userId, status: 'completed' },
+      })
+
+      let streak = 1
+      if (existing) {
+        const elapsed = now.getTime() - existing.lastClaimedAt.getTime()
+        streak = elapsed > TWO_DAYS_MS ? 1 : existing.streak + 1
+      }
+
+      // Первый ежедневный бонус остаётся по обычной логике. Пока игрок не пополнял баланс,
+      // каждый следующий ежедневный бонус гарантированно составляет 0.5 ⭐.
+      const prize = existing && completedDeposits === 0
+        ? { id: 'db-half', label: '0.5', emoji: '⭐', amount: 0.5, chance: 100, type: 'BALANCE' as const }
+        : isSuspiciousAccount
+          ? { id: 'db-1', label: '1', emoji: '⭐', amount: 1, chance: 100, type: 'BALANCE' as const }
+          : pickDailyBonusPrize(dailyBonusPrizes)
 
       const nextBalance = userRow.balance + prize.amount
 
@@ -379,23 +381,23 @@ export async function claimDaily(userId: bigint): Promise<{
       // История операций: ежедневный бонус.
       await logTransaction(userId, 'DAILY_BONUS', prize.amount, 'Ежедневный бонус', tx)
 
-      return nextBalance
+      return { newBalance: nextBalance, streak, prize }
     },
     { timeout: 10000 },
   )
 
-  console.log(`[DAILY] user=${userId} prize=${prize.id} amount=${prize.amount} streak=${streak}`)
+  console.log(`[DAILY] user=${userId} prize=${result.prize.id} amount=${result.prize.amount} streak=${result.streak}`)
 
   return {
     prize: {
-      id: prize.id,
-      label: prize.label,
-      emoji: prize.emoji,
-      amount: prize.amount,
-      type: prize.type,
+      id: result.prize.id,
+      label: result.prize.label,
+      emoji: result.prize.emoji,
+      amount: result.prize.amount,
+      type: result.prize.type,
     },
-    newBalance,
-    streak,
+    newBalance: result.newBalance,
+    streak: result.streak,
   }
 }
 

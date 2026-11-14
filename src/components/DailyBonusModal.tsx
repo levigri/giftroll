@@ -25,7 +25,8 @@ export type PoolEntry = DailyBonusPrize & { chance: number }
 
 /** Призы ежедневного бесплатного кейса — зеркало `dailyBonusPrizes` на сервере. */
 const DAILY_POOL: PoolEntry[] = [
-  { id: 'db-1', label: '1', emoji: '⭐', amount: 1, type: 'BALANCE', chance: 60 },
+  { id: 'db-half', label: '0.5', emoji: '⭐', amount: 0.5, type: 'BALANCE', chance: 20 },
+  { id: 'db-1', label: '1', emoji: '⭐', amount: 1, type: 'BALANCE', chance: 40 },
   { id: 'db-5', label: '5', emoji: '⭐', amount: 5, type: 'BALANCE', chance: 30 },
   { id: 'db-10', label: '10', emoji: '⭐', amount: 10, type: 'BALANCE', chance: 7 },
   { id: 'db-25', label: '25', emoji: '⭐', amount: 25, type: 'BALANCE', chance: 2.5 },
