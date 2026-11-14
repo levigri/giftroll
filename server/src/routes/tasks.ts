@@ -30,7 +30,9 @@ async function checkTaskCompletion(
     case 'channel_subscription':
       return { completed: await checkChannelSubscription(userId, task.channelUsername ?? undefined) }
     case 'amateur_case': {
-      const count = await prisma.caseOpen.count({ where: { userId, caseId: 'case-amateur' } })
+      const count = await prisma.caseOpen.count({
+        where: { userId, caseId: 'case-amateur', isBetaMode: false },
+      })
       return { completed: count > 0 }
     }
     case 'first_upgrade': {
@@ -61,7 +63,10 @@ async function checkTaskCompletion(
       const count = await prisma.user.count({
         where: {
           referredBy: userId,
-          OR: [{ caseOpens: { some: {} } }, { dailyBonus: { isNot: null } }],
+          OR: [
+            { caseOpens: { some: { isBetaMode: false } } },
+            { dailyBonus: { isNot: null } },
+          ],
         },
       })
       return { completed: count > 0 }

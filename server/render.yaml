@@ -10,6 +10,8 @@ services:
         value: production
       - key: PORT
         value: 10000
+      - key: WELCOME_BONUS
+        value: 100
       - key: DATABASE_URL
         sync: false
       - key: BOT_TOKEN

@@ -7,7 +7,7 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(3000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   LOG_LEVEL: z.string().default('info'),
-  WELCOME_BONUS: z.coerce.number().default(1000),
+  WELCOME_BONUS: z.coerce.number().default(100),
   WEBHOOK_URL: z.string().optional(),
   SUPPORT_BOT_TOKEN: z.string().optional(),
   SUPPORT_WEBHOOK_SECRET: z.string().optional(),
