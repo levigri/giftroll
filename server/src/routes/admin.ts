@@ -20,6 +20,8 @@ const taskUpdateSchema = z.object({
   active: z.boolean().optional(),
 }).refine((value) => Object.keys(value).length > 0)
 
+const banSchema = z.object({ reason: z.string().trim().min(1).max(160) })
+
 async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const user = request.telegramUser
   if (!user) {
@@ -52,6 +54,103 @@ async function getDevUserIds(): Promise<bigint[]> {
 }
 
 export const adminRoutes: FastifyPluginAsync = async (fastify) => {
+  fastify.get('/api/admin/bans', { preHandler: adminPreHandler }, async () => {
+    const users = await prisma.user.findMany({
+      where: { isBanned: true },
+      select: {
+        id: true,
+        username: true,
+        firstName: true,
+        balance: true,
+        isBanned: true,
+        banReason: true,
+        updatedAt: true,
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 500,
+    })
+
+    return users.map((user) => ({ ...user, id: user.id.toString(), updatedAt: user.updatedAt.toISOString() }))
+  })
+
+  fastify.get<{ Querystring: { q?: string } }>(
+    '/api/admin/users/ban-search',
+    { preHandler: adminPreHandler },
+    async (request) => {
+      const query = request.query.q?.trim().replace(/^@/, '') ?? ''
+      if (!query) return []
+
+      const excludedIds = await getDevUserIds()
+      const numericId = parseTelegramId(query)
+      const users = await prisma.user.findMany({
+        where: {
+          id: { notIn: excludedIds },
+          NOT: { firstName: { equals: 'Dev User', mode: 'insensitive' } },
+          OR: [
+            { username: { contains: query, mode: 'insensitive' } },
+            { firstName: { contains: query, mode: 'insensitive' } },
+            ...(numericId === null ? [] : [{ id: numericId }]),
+          ],
+        },
+        select: {
+          id: true,
+          username: true,
+          firstName: true,
+          balance: true,
+          isBanned: true,
+          banReason: true,
+          updatedAt: true,
+        },
+        orderBy: { updatedAt: 'desc' },
+        take: 30,
+      })
+
+      return users.map((user) => ({ ...user, id: user.id.toString(), updatedAt: user.updatedAt.toISOString() }))
+    },
+  )
+
+  fastify.post<{ Params: { id: string }; Body: unknown }>(
+    '/api/admin/users/:id/ban',
+    { preHandler: adminPreHandler },
+    async (request, reply) => {
+      const id = parseTelegramId(request.params.id)
+      if (id === null) return reply.code(400).send({ error: 'Некорректный Telegram ID', code: 'INVALID_USER_ID' })
+      if (id === env.ADMIN_ID) return reply.code(400).send({ error: 'Нельзя заблокировать администратора', code: 'ADMIN_BAN_FORBIDDEN' })
+
+      const parsed = banSchema.safeParse(request.body)
+      if (!parsed.success) return reply.code(400).send({ error: 'Укажи причину блокировки (до 160 символов)', code: 'VALIDATION_ERROR' })
+
+      const updated = await prisma.user.updateMany({
+        where: { id },
+        data: { isBanned: true, banReason: parsed.data.reason },
+      })
+      if (updated.count === 0) return reply.code(404).send({ error: 'Пользователь не найден', code: 'USER_NOT_FOUND' })
+
+      const user = await prisma.user.findUniqueOrThrow({
+        where: { id },
+        select: { id: true, username: true, firstName: true, balance: true, isBanned: true, banReason: true, updatedAt: true },
+      })
+      return { ...user, id: user.id.toString(), updatedAt: user.updatedAt.toISOString() }
+    },
+  )
+
+  fastify.post<{ Params: { id: string } }>(
+    '/api/admin/users/:id/unban',
+    { preHandler: adminPreHandler },
+    async (request, reply) => {
+      const id = parseTelegramId(request.params.id)
+      if (id === null) return reply.code(400).send({ error: 'Некорректный Telegram ID', code: 'INVALID_USER_ID' })
+      if (id === env.ADMIN_ID) return reply.code(400).send({ error: 'Нельзя менять статус администратора', code: 'ADMIN_BAN_FORBIDDEN' })
+
+      const updated = await prisma.user.updateMany({
+        where: { id },
+        data: { isBanned: false, banReason: null },
+      })
+      if (updated.count === 0) return reply.code(404).send({ error: 'Пользователь не найден', code: 'USER_NOT_FOUND' })
+      return { ok: true, id: id.toString() }
+    },
+  )
+
   fastify.get<{ Querystring: { q?: string; sort?: string } }>(
     '/api/admin/users/search',
     { preHandler: adminPreHandler },

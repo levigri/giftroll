@@ -63,6 +63,16 @@ export interface AdminUserSummary {
   inventory?: Array<{ prizeName: string; prizeEmoji: string; prizePrice?: number }>
 }
 
+export interface AdminBanUser {
+  id: string
+  username: string | null
+  firstName: string
+  balance: number
+  isBanned: boolean
+  banReason: string | null
+  updatedAt: string
+}
+
 export interface AdminDeposit {
   id: string
   amount: number

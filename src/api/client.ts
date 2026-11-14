@@ -1,4 +1,5 @@
 import type {
+  AdminBanUser,
   AdminHistoryResponse,
   AdminTask,
   AdminTransaction,
@@ -121,6 +122,27 @@ export async function adminSearchUsers(
 
 export async function adminGetUser(id: string): Promise<AdminUserDetails> {
   return request<AdminUserDetails>(`/api/admin/users/${encodeURIComponent(id)}`)
+}
+
+export async function adminGetBans(): Promise<AdminBanUser[]> {
+  return request<AdminBanUser[]>('/api/admin/bans')
+}
+
+export async function adminSearchUsersForBan(q: string): Promise<AdminBanUser[]> {
+  return request<AdminBanUser[]>(`/api/admin/users/ban-search?q=${encodeURIComponent(q)}`)
+}
+
+export async function adminBanUser(id: string, reason: string): Promise<AdminBanUser> {
+  return request<AdminBanUser>(`/api/admin/users/${encodeURIComponent(id)}/ban`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  })
+}
+
+export async function adminUnbanUser(id: string): Promise<{ ok: boolean; id: string }> {
+  return request<{ ok: boolean; id: string }>(`/api/admin/users/${encodeURIComponent(id)}/unban`, {
+    method: 'POST',
+  })
 }
 
 export async function adminGetRecentTransactions(): Promise<AdminTransaction[]> {

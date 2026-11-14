@@ -2,15 +2,20 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Activity, ArrowLeft, CalendarDays, Coins, LoaderCircle, Package, Plus, Save, Search, Shield } from 'lucide-react'
 import {
   adminCreateChannelTask,
+  adminBanUser,
+  adminGetBans,
   adminGetHistory,
   adminGetTasks,
   adminGetUser,
   adminSearchUsers,
+  adminSearchUsersForBan,
+  adminUnbanUser,
   adminUpdateTask,
   ApiError,
 } from '../api/client'
 import type {
   AdminHistoryResponse,
+  AdminBanUser,
   AdminTask,
   AdminUserDetails,
   AdminUserSummary,
@@ -35,11 +40,17 @@ function amountClass(amount: number): string {
 }
 
 export default function AdminPage() {
-  const [section, setSection] = useState<'players' | 'history' | 'tasks'>('players')
+  const [section, setSection] = useState<'players' | 'history' | 'tasks' | 'bans'>('players')
   const [historyView, setHistoryView] = useState<'deposits' | 'pvp' | 'cases' | 'upgrades'>('deposits')
   const [query, setQuery] = useState('')
   const [userSort, setUserSort] = useState<'balance_desc' | 'balance_asc' | 'username_asc'>('balance_desc')
   const [users, setUsers] = useState<AdminUserSummary[]>([])
+  const [bannedUsers, setBannedUsers] = useState<AdminBanUser[]>([])
+  const [banSearchResults, setBanSearchResults] = useState<AdminBanUser[]>([])
+  const [banQuery, setBanQuery] = useState('')
+  const [banReasonDraft, setBanReasonDraft] = useState('Мультиаккаунты')
+  const [banSearching, setBanSearching] = useState(false)
+  const [banActionId, setBanActionId] = useState<string | null>(null)
   const [selectedUser, setSelectedUser] = useState<AdminUserDetails | null>(null)
   const [history, setHistory] = useState<AdminHistoryResponse>({ deposits: [], pvp: [], cases: [], upgrades: [] })
   const [managedTasks, setManagedTasks] = useState<AdminTask[]>([])
@@ -54,14 +65,16 @@ export default function AdminPage() {
   const [loadingUser, setLoadingUser] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const searchSequence = useRef(0)
+  const banSearchSequence = useRef(0)
 
   useEffect(() => {
     let active = true
-    void Promise.all([adminGetHistory(), adminGetTasks()])
-      .then(([activity, tasks]) => {
+    void Promise.all([adminGetHistory(), adminGetTasks(), adminGetBans()])
+      .then(([activity, tasks, bans]) => {
         if (!active) return
         setHistory(activity)
         setManagedTasks(tasks)
+        setBannedUsers(bans)
         setRewardDrafts(Object.fromEntries(tasks.map((task) => [task.id, String(task.reward)])))
         setLimitDrafts(Object.fromEntries(tasks.map((task) => [task.id, task.maxCompletions == null ? '' : String(task.maxCompletions)])))
       })
@@ -72,6 +85,39 @@ export default function AdminPage() {
       active = false
     }
   }, [])
+
+  useEffect(() => {
+    if (section !== 'bans') return
+    const value = banQuery.trim()
+    const sequence = ++banSearchSequence.current
+    if (!value) {
+      setBanSearchResults([])
+      setBanSearching(false)
+      return
+    }
+
+    setBanSearching(true)
+    const timer = window.setTimeout(() => {
+      void adminSearchUsersForBan(value)
+        .then((items) => {
+          if (sequence === banSearchSequence.current) setBanSearchResults(items)
+        })
+        .catch((err: unknown) => {
+          if (sequence === banSearchSequence.current) {
+            setError(err instanceof ApiError ? err.message : 'Не удалось найти пользователя')
+            setBanSearchResults([])
+          }
+        })
+        .finally(() => {
+          if (sequence === banSearchSequence.current) setBanSearching(false)
+        })
+    }, 250)
+
+    return () => {
+      window.clearTimeout(timer)
+      banSearchSequence.current += 1
+    }
+  }, [section, banQuery])
 
   useEffect(() => {
     const value = query.trim()
@@ -114,11 +160,40 @@ export default function AdminPage() {
     }
   }
 
-  const changeSection = (next: 'players' | 'history' | 'tasks') => {
+  const changeSection = (next: 'players' | 'history' | 'tasks' | 'bans') => {
     setSection(next)
     setSelectedUser(null)
     setQuery('')
     setError(null)
+  }
+
+  const toggleUserBan = async (user: AdminBanUser) => {
+    const reason = banReasonDraft.trim()
+    if (!user.isBanned && !reason) {
+      setError('Укажи причину блокировки')
+      return
+    }
+
+    setBanActionId(user.id)
+    setError(null)
+    setTaskNotice(null)
+    try {
+      if (user.isBanned) {
+        await adminUnbanUser(user.id)
+        setBannedUsers((current) => current.filter((item) => item.id !== user.id))
+        setBanSearchResults((current) => current.map((item) => item.id === user.id ? { ...item, isBanned: false, banReason: null } : item))
+        setTaskNotice(`Блокировка снята: ${displayName(user)}`)
+      } else {
+        const banned = await adminBanUser(user.id, reason)
+        setBannedUsers((current) => [banned, ...current.filter((item) => item.id !== banned.id)])
+        setBanSearchResults((current) => current.map((item) => item.id === banned.id ? banned : item))
+        setTaskNotice(`Заблокирован ${displayName(banned)} · ${reason}`)
+      }
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Не удалось изменить блокировку')
+    } finally {
+      setBanActionId(null)
+    }
   }
 
   const saveTask = async (task: AdminTask) => {
@@ -212,11 +287,12 @@ export default function AdminPage() {
         </div>
       </header>
 
-      <div className="grid grid-cols-3 gap-1 rounded-2xl border border-white/10 bg-black/20 p-1">
+      <div className="grid grid-cols-4 gap-1 rounded-2xl border border-white/10 bg-black/20 p-1">
         {([
           ['players', 'Игроки'],
           ['history', 'История'],
           ['tasks', 'Задания'],
+          ['bans', 'Баны'],
         ] as const).map(([id, label]) => (
           <button
             key={id}
@@ -261,6 +337,102 @@ export default function AdminPage() {
       )}
 
       {error && <div role="alert" className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">{error}</div>}
+
+      {section === 'bans' && (
+        <div className="flex flex-col gap-3">
+          <section className="glass-card flex flex-col gap-3 p-3">
+            <div>
+              <h2 className="m-0 text-sm font-extrabold text-white">Заблокировать игрока</h2>
+              <p className="mb-0 mt-1 text-xs text-gray-500">Поиск по Telegram ID, username или имени</p>
+            </div>
+            <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/20 px-3 py-2.5">
+              <Search size={16} className="shrink-0 text-gray-500" />
+              <input
+                value={banQuery}
+                onChange={(event) => setBanQuery(event.target.value)}
+                placeholder="Например, 123456789 или username"
+                className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-gray-600"
+                autoComplete="off"
+                inputMode="search"
+              />
+              {banSearching && <LoaderCircle size={16} className="animate-spin text-amber-300" />}
+            </div>
+            <label className="flex flex-col gap-1 text-xs font-bold text-gray-400">
+              Причина блокировки
+              <input
+                value={banReasonDraft}
+                onChange={(event) => setBanReasonDraft(event.target.value)}
+                maxLength={160}
+                placeholder="Например, мультиаккаунты"
+                className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-white outline-none placeholder:text-gray-600 focus:border-amber-300/40"
+              />
+            </label>
+          </section>
+
+          {taskNotice && <div role="status" className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-sm font-bold text-emerald-300">{taskNotice}</div>}
+
+          {banQuery.trim() && !banSearching && (
+            <section className="glass-card p-3">
+              <h2 className="mb-2 mt-0 text-sm font-extrabold text-gray-300">Найденные аккаунты · {banSearchResults.length}</h2>
+              {banSearchResults.length === 0 ? (
+                <p className="m-0 py-2 text-center text-sm text-gray-500">Пользователи не найдены</p>
+              ) : (
+                <ul className="m-0 list-none divide-y divide-white/5 p-0">
+                  {banSearchResults.map((user) => (
+                    <li key={user.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${user.isBanned ? 'bg-rose-400/10 text-rose-300' : 'bg-white/[0.05] text-gray-400'}`}>
+                        <Shield size={16} />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-extrabold text-white">{displayName(user)}</span>
+                        <span className="mt-0.5 block truncate text-[11px] text-gray-500">ID {user.id} · {user.balance} ⭐{user.isBanned ? ` · ${user.banReason ?? 'Заблокирован'}` : ''}</span>
+                      </span>
+                      <button
+                        type="button"
+                        disabled={banActionId === user.id}
+                        onClick={() => void toggleUserBan(user)}
+                        className={`shrink-0 rounded-xl border px-3 py-2 text-xs font-extrabold transition disabled:opacity-50 ${user.isBanned ? 'border-emerald-300/20 bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/15' : 'border-rose-300/20 bg-rose-400/10 text-rose-200 hover:bg-rose-400/15'}`}
+                      >
+                        {banActionId === user.id ? <LoaderCircle size={14} className="animate-spin" /> : user.isBanned ? 'Разбанить' : 'Забанить'}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
+
+          <section className="glass-card p-3">
+            <h2 className="mb-2 mt-0 text-sm font-extrabold text-gray-300">
+              Заблокированные аккаунты <span className="font-semibold text-gray-500">· {bannedUsers.length}</span>
+            </h2>
+            {bannedUsers.length === 0 ? (
+              <p className="m-0 py-2 text-center text-sm text-gray-500">Заблокированных аккаунтов нет</p>
+            ) : (
+              <ul className="m-0 list-none divide-y divide-white/5 p-0">
+                {bannedUsers.map((user) => (
+                  <li key={user.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-400/10 text-rose-300"><Shield size={16} /></span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-extrabold text-white">{displayName(user)}</span>
+                      <span className="mt-0.5 block truncate text-[11px] text-gray-500">ID {user.id} · Причина: {user.banReason ?? 'не указана'}</span>
+                      <span className="mt-0.5 block text-[10px] text-gray-600">Обновлён {formatDate(user.updatedAt)}</span>
+                    </span>
+                    <button
+                      type="button"
+                      disabled={banActionId === user.id}
+                      onClick={() => void toggleUserBan(user)}
+                      className="shrink-0 rounded-xl border border-emerald-300/20 bg-emerald-400/10 px-3 py-2 text-xs font-extrabold text-emerald-300 transition hover:bg-emerald-400/15 disabled:opacity-50"
+                    >
+                      {banActionId === user.id ? <LoaderCircle size={14} className="animate-spin" /> : 'Разбанить'}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
+      )}
 
       {section === 'players' && loadingUser && (
         <div className="glass-card flex items-center justify-center gap-2 p-6 text-sm text-gray-400">
