@@ -224,7 +224,7 @@ export default function RouletteModal({
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 py-2">
           <div
-            className="flex shrink-0 flex-col gap-2"
+            className="relative flex shrink-0 flex-col gap-2"
             style={{ minHeight: count * (cellSize + 12) + (count - 1) * 8 }}
           >
             {strips.map((strip, stripIndex) => (
@@ -290,6 +290,25 @@ export default function RouletteModal({
                 <div className="pointer-events-none absolute bottom-0 left-1/2 z-10 h-0 w-0 -translate-x-1/2 border-x-[7px] border-b-[10px] border-x-transparent border-b-[#FFD700]" />
               </div>
             ))}
+            {phase === 'idle' && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-black/25 backdrop-blur-md">
+                <button
+                  type="button"
+                  className="gold-btn min-w-48 px-6 py-3.5 text-sm shadow-[0_0_28px_rgba(255,190,35,0.35)]"
+                  onClick={() => void handleOpen()}
+                >
+                  {notEnough ? (
+                    'Недостаточно звёзд'
+                  ) : isBetaMode ? (
+                    'Открыть за 0 ⭐ (Бета)'
+                  ) : (
+                    <span className="inline-flex items-center justify-center gap-1.5">
+                      Открыть за {totalPrice} <Star size={15} fill="currentColor" />
+                    </span>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto">
@@ -344,29 +363,31 @@ export default function RouletteModal({
         </div>
 
         <footer className="border-t border-white/10 bg-[#0B0C10] px-4 pb-[calc(16px+env(safe-area-inset-bottom))] pt-3">
-          {(phase === 'idle' || phase === 'result') && (
-            <div className="flex flex-col gap-2.5">
-              <div className="flex gap-1.5" role="group" aria-label="Сколько кейсов открыть">
-                {availableCounts.map((value) => {
-                  const active = value === count
-                  return (
-                    <button
-                      key={value}
-                      type="button"
-                      aria-pressed={active}
-                      className={`flex-1 rounded-xl py-2 text-sm font-extrabold transition ${
-                        active
-                          ? 'border border-[#FFD700] bg-gradient-to-r from-[#FFD700] to-[#FFA500] text-black shadow-[0_2px_12px_rgba(255,215,0,0.35)]'
-                          : 'border border-white/10 text-gray-400 hover:border-white/20 hover:text-white'
-                      }`}
-                      onClick={() => handleCount(value)}
-                    >
-                      ×{value}
-                    </button>
-                  )
-                })}
-              </div>
+          {phase !== 'spinning' && (
+            <div className="mb-2.5 flex gap-1.5" role="group" aria-label="Сколько кейсов открыть">
+              {availableCounts.map((value) => {
+                const active = value === count
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={active}
+                    className={`flex-1 rounded-xl py-2 text-sm font-extrabold transition ${
+                      active
+                        ? 'border border-[#FFD700] bg-gradient-to-r from-[#FFD700] to-[#FFA500] text-black shadow-[0_2px_12px_rgba(255,215,0,0.35)]'
+                        : 'border border-white/10 text-gray-400 hover:border-white/20 hover:text-white'
+                    }`}
+                    onClick={() => handleCount(value)}
+                  >
+                    ×{value}
+                  </button>
+                )
+              })}
+            </div>
+          )}
 
+          {phase === 'result' && (
+            <div className="flex flex-col gap-2.5">
               <button
                 type="button"
                 className="gold-btn flex w-full items-center justify-center gap-1.5 py-3.5 text-base"
@@ -379,7 +400,7 @@ export default function RouletteModal({
                   'Открыть за 0 ⭐ (Бета)'
                 ) : (
                   <>
-                    {phase === 'result' ? 'Открыть ещё за ' : 'Открыть за '}{totalPrice}
+                    Открыть ещё за {totalPrice}
                     <Star size={15} fill="currentColor" />
                   </>
                 )}

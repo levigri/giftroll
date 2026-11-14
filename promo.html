@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#090b14" />
-    <title>GiftRoll — Super Drop</title>
+    <meta name="theme-color" content="#0B0C10" />
+    <title>GiftRoll — промо-ролл</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -12,287 +12,483 @@
     <style>
       :root { color-scheme: dark; }
       * { box-sizing: border-box; }
-      html, body { min-height: 100%; }
+      html, body { width: 100%; height: 100%; }
       body {
+        position: relative;
+        width: 100vw;
+        height: 100svh;
         margin: 0;
-        overflow-x: hidden;
-        background:
-          radial-gradient(ellipse at 50% 0%, rgba(73, 86, 151, .16), transparent 48%),
-          #080a11;
+        overflow: hidden;
+        background: #080910;
         color: #fff;
         font-family: 'Manrope', sans-serif;
       }
-      .hide-scrollbar { scrollbar-width: none; }
-      .hide-scrollbar::-webkit-scrollbar { display: none; }
-      .reel-scene {
-        position: relative;
-        isolation: isolate;
-        overflow: hidden;
-        aspect-ratio: 16 / 9;
-        min-height: 240px;
-        max-height: 620px;
-        border: 4px solid #4d5b86;
-        border-radius: clamp(22px, 4vw, 42px);
-        background:
-          radial-gradient(ellipse at 50% 104%, rgba(255, 184, 61, .18), transparent 21%),
-          radial-gradient(ellipse at 50% 52%, rgba(65, 83, 145, .15), transparent 55%),
-          #171a29;
-        box-shadow: 0 22px 75px rgba(0, 0, 0, .48), inset 0 0 50px rgba(89, 104, 164, .06);
-      }
-      .reel-scene::before, .reel-scene::after {
+      .ad-frame {
         position: absolute;
-        z-index: 5;
-        top: 0;
-        bottom: 0;
-        width: 13%;
+        top: 50%;
+        left: 50%;
+        isolation: isolate;
+        container-type: inline-size;
+        width: 2560px;
+        height: 1440px;
+        transform: translate(-50%, -50%) scale(var(--fit-scale, 1));
+        transform-origin: center;
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,.1);
+        border-radius: 72px;
+        background:
+          radial-gradient(ellipse at 51% 8%, rgba(114,71,186,.17), transparent 37%),
+          radial-gradient(ellipse at 50% 112%, rgba(255,194,76,.12), transparent 34%),
+          linear-gradient(145deg, #171521, #0d0e16 55%, #121018);
+        box-shadow: 0 26px 84px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.04);
+      }
+      .ad-frame::before {
+        position: absolute;
+        z-index: -1;
+        inset: 0;
+        background: radial-gradient(ellipse at 50% 54%, rgba(108,75,185,.08), transparent 58%);
         content: '';
         pointer-events: none;
       }
-      .reel-scene::before { left: 0; background: linear-gradient(90deg, #171a29 0%, rgba(23,26,41,.8) 30%, transparent 100%); }
-      .reel-scene::after { right: 0; background: linear-gradient(270deg, #171a29 0%, rgba(23,26,41,.8) 30%, transparent 100%); }
-      .reel-lane {
+      .brandbar {
         position: absolute;
-        z-index: 2;
-        top: 50%;
-        right: 0;
-        left: 0;
-        height: 54%;
-        min-height: 100px;
-        transform: translateY(-50%);
-        overflow: hidden;
+        z-index: 8;
+        top: 4.3%;
+        right: 4.2%;
+        left: 4.2%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
       }
-      .reel-track {
+      .brandbar__name {
+        display: inline-flex;
+        align-items: center;
+        gap: 1cqw;
+        color: rgba(255,255,255,.82);
+        font-size: 1.45cqw;
+        font-weight: 800;
+        letter-spacing: .14em;
+        text-transform: uppercase;
+      }
+      .brandbar__dot {
+        width: .7cqw;
+        height: .7cqw;
+        border-radius: 50%;
+        background: #59e3b4;
+        box-shadow: 0 0 10px rgba(89,227,180,.8);
+      }
+      .brandbar__wallet {
+        padding: .8cqw 1.3cqw;
+        border: 1px solid rgba(255,215,0,.2);
+        border-radius: 999px;
+        background: rgba(255,215,0,.07);
+        color: #ffdc62;
+        font-size: 1.35cqw;
+        font-weight: 800;
+        white-space: nowrap;
+      }
+      .roulette-window {
+        position: absolute;
+        top: 17%;
+        right: 2.2%;
+        left: 2.2%;
+        height: 38%;
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,.08);
+        border-radius: 2.6cqw;
+        background: rgba(5,6,12,.52);
+        box-shadow: inset 0 0 42px rgba(0,0,0,.32);
+      }
+      .roulette-window::before, .roulette-window::after {
+        position: absolute;
+        z-index: 4;
+        top: 0;
+        bottom: 0;
+        width: 12%;
+        content: '';
+        pointer-events: none;
+      }
+      .roulette-window::before { left: 0; background: linear-gradient(90deg, #12131d, rgba(18,19,29,.72) 32%, transparent); }
+      .roulette-window::after { right: 0; background: linear-gradient(270deg, #12131d, rgba(18,19,29,.72) 32%, transparent); }
+      .roulette-idle-veil {
+        position: absolute;
+        z-index: 5;
+        inset: 0;
+        background: rgba(7,8,14,.22);
+        -webkit-backdrop-filter: blur(12px) brightness(.62) saturate(.65);
+        backdrop-filter: blur(12px) brightness(.62) saturate(.65);
+        transition: opacity .45s ease, visibility .45s ease, backdrop-filter .45s ease;
+      }
+      .roulette-window.is-spinning .roulette-idle-veil,
+      .roulette-window.is-won .roulette-idle-veil {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        -webkit-backdrop-filter: blur(0) brightness(1) saturate(1);
+        backdrop-filter: blur(0) brightness(1) saturate(1);
+      }
+      .roulette-track {
         position: absolute;
         top: 50%;
         left: 0;
         display: flex;
         width: max-content;
         align-items: center;
-        gap: clamp(8px, 1.1vw, 15px);
+        gap: 1cqw;
         transform: translateY(-50%);
-        filter: blur(1.1px);
-        will-change: transform, filter;
+        will-change: transform;
       }
-      .reel-card {
+      .roulette-card {
+        position: relative;
         display: flex;
-        width: clamp(76px, 12vw, 145px);
-        height: clamp(96px, 15vw, 176px);
+        width: 9.1cqw;
+        height: 14.2cqw;
         flex: 0 0 auto;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: clamp(3px, .6vw, 8px);
+        gap: .45cqw;
         overflow: hidden;
-        padding: 7px;
-        border: 1px solid rgba(137, 157, 213, .15);
-        border-radius: clamp(13px, 2vw, 22px);
-        background: linear-gradient(145deg, rgba(63, 76, 119, .52), rgba(29, 34, 55, .78));
-        box-shadow: inset 0 1px 0 rgba(255,255,255,.045), 0 10px 32px rgba(0,0,0,.13);
+        padding: .7cqw;
+        border: 1px solid rgba(174,183,215,.12);
+        border-radius: 1.8cqw;
+        background: linear-gradient(145deg, rgba(59,66,98,.65), rgba(27,29,43,.88));
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.035), 0 8px 20px rgba(0,0,0,.14);
       }
-      .reel-card img {
-        width: 78%;
-        height: 66%;
+      .roulette-card img {
+        width: 76%;
+        height: 68%;
         object-fit: contain;
-        filter: drop-shadow(0 8px 12px rgba(0,0,0,.4));
+        filter: drop-shadow(0 5px 8px rgba(0,0,0,.38));
       }
-      .reel-card__name {
+      .roulette-card__name {
         max-width: 100%;
         overflow: hidden;
-        color: rgba(238, 241, 255, .8);
-        font-size: clamp(8px, .82vw, 11px);
+        color: rgba(240,241,250,.78);
+        font-size: .9cqw;
         font-weight: 800;
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-      .reel-pointer {
+      .roulette-pointer {
         position: absolute;
-        z-index: 7;
-        top: 9%;
-        bottom: 9%;
+        z-index: 6;
+        top: 0;
+        bottom: 0;
         left: 50%;
         width: 2px;
         transform: translateX(-50%);
-        border-left: 2px dashed rgba(255, 214, 108, .28);
+        background: linear-gradient(180deg, transparent, #ffd45d 12%, #ffd45d 88%, transparent);
+        box-shadow: 0 0 12px rgba(255,212,93,.65);
         pointer-events: none;
       }
-      .reel-pointer::before, .reel-pointer::after {
+      .roulette-pointer::before, .roulette-pointer::after {
         position: absolute;
         left: 50%;
         width: 0;
         height: 0;
         content: '';
         transform: translateX(-50%);
-        filter: drop-shadow(0 2px 5px rgba(255, 190, 70, .2));
       }
-      .reel-pointer::before { top: 0; border-top: 20px solid #e8b84f; border-right: 14px solid transparent; border-left: 14px solid transparent; }
-      .reel-pointer::after { bottom: 0; border-right: 14px solid transparent; border-bottom: 20px solid #e8b84f; border-left: 14px solid transparent; }
-      .reel-watermark {
+      .roulette-pointer::before { top: 0; border-top: 1.3cqw solid #ffd45d; border-right: 1cqw solid transparent; border-left: 1cqw solid transparent; }
+      .roulette-pointer::after { bottom: 0; border-right: 1cqw solid transparent; border-bottom: 1.3cqw solid #ffd45d; border-left: 1cqw solid transparent; }
+      .roulette-watermark {
         position: absolute;
         z-index: 1;
-        right: 4%;
-        bottom: 10%;
-        left: 4%;
+        right: 10px;
+        bottom: 5px;
+        left: 10px;
         overflow: hidden;
-        color: rgba(204, 211, 234, .12);
-        font-size: clamp(31px, 9.8vw, 112px);
+        color: rgba(226,219,245,.12);
+        font-size: 2.2cqw;
         font-weight: 800;
-        letter-spacing: -.055em;
-        line-height: .9;
+        letter-spacing: .15em;
         text-align: center;
         text-overflow: clip;
         white-space: nowrap;
         pointer-events: none;
-        user-select: none;
       }
-      .reel-glow {
+      .roulette-winner {
+        z-index: 2;
+        animation: winner-flash .8s cubic-bezier(.2,.85,.25,1.2) both;
+      }
+      @keyframes winner-flash {
+        0% { transform: scale(1); border-color: rgba(255,255,255,.12); box-shadow: none; }
+        45% { transform: scale(1.24); border-color: #ffdf68; box-shadow: 0 0 34px rgba(255,205,68,.8); }
+        100% { transform: scale(1.14); border-color: rgba(255,219,99,.9); box-shadow: 0 0 24px rgba(255,198,56,.48); }
+      }
+      .reveal {
         position: absolute;
-        z-index: 1;
-        bottom: 4%;
-        left: 50%;
-        width: 48%;
-        height: 9px;
-        transform: translateX(-50%);
-        border-radius: 999px;
-        background: #ffc453;
-        filter: blur(17px);
-        opacity: .68;
+        z-index: 7;
+        top: 17%;
+        right: 2.2%;
+        left: 2.2%;
+        height: 38%;
+        display: block;
+        border-radius: 2.6cqw;
+        background: rgba(7,8,14,.28);
+        -webkit-backdrop-filter: blur(0) brightness(1) saturate(1);
+        backdrop-filter: blur(0) brightness(1) saturate(1);
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(12px) scale(.98);
         pointer-events: none;
       }
-      .result-enter { animation: result-in .24s ease-out both; }
-      @keyframes result-in { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
-      @keyframes shine { to { background-position: 200% center; } }
-      .gold-text {
-        background: linear-gradient(100deg, #ffcf5c, #fff1bd, #ffad36, #ffcf5c);
-        background-size: 200% auto;
-        color: transparent;
+      .reveal.is-visible {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0) scale(1);
+        pointer-events: auto;
+        -webkit-backdrop-filter: blur(20px) brightness(.58) saturate(.65);
+        backdrop-filter: blur(20px) brightness(.58) saturate(.65);
+        transition: opacity .45s ease, transform .55s cubic-bezier(.18,.85,.25,1.1), backdrop-filter .65s ease, visibility .45s;
+      }
+      .reveal__image-wrap {
+        position: absolute;
+        top: 50%;
+        left: 43%;
+        display: grid;
+        width: 22%;
+        height: 90%;
+        transform: translate(-50%, -50%);
+        place-items: center;
+      }
+      .reveal__halo {
+        position: absolute;
+        width: 115%;
+        aspect-ratio: 1;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(153,77,255,.28), rgba(131,55,227,.1) 45%, transparent 71%);
+        filter: blur(7px);
+      }
+      .reveal.is-visible .reveal__halo {
+        animation: halo-pulse 1.6s ease-in-out 2;
+      }
+      .reveal__image {
+        position: relative;
+        z-index: 1;
+        display: block;
+        width: min(100%, 20cqw);
+        max-height: 100%;
+        object-fit: contain;
+        mix-blend-mode: screen;
+        -webkit-mask-image: radial-gradient(ellipse 74% 74% at 50% 48%, #000 70%, transparent 100%);
+        mask-image: radial-gradient(ellipse 74% 74% at 50% 48%, #000 70%, transparent 100%);
+        filter: brightness(1.35) contrast(1.1) drop-shadow(0 16px 30px rgba(151,71,255,.55));
+        opacity: 0;
+        transform: scale(.42) rotate(-8deg);
+      }
+      .reveal.is-visible .reveal__image {
+        animation: gift-arrive .75s cubic-bezier(.18,.9,.24,1.2) both;
+      }
+      .reveal__copy {
+        position: absolute;
+        top: 40%;
+        left: calc(43% + 11.5%);
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        min-width: 0;
+        color: #fff;
+        opacity: 0;
+        filter: blur(8px);
+        transform: translateY(-50%);
+        text-align: left;
+        transition: opacity .45s ease .12s, filter .55s ease .12s;
+      }
+      .reveal.is-visible .reveal__copy {
+        opacity: 1;
+        filter: blur(0);
+      }
+      .reveal__brand {
+        min-height: 1em;
+        margin: 0;
+        background: linear-gradient(100deg, #fff 5%, #e7d5ff 40%, #b559ff 75%, #ffd873);
         background-clip: text;
-        animation: shine 5s linear infinite;
+        color: transparent;
+        font-size: 7cqw;
+        font-weight: 800;
+        letter-spacing: -.075em;
+        line-height: 1.05;
+        white-space: nowrap;
       }
-      @media (max-width: 520px) {
-        .reel-scene { min-height: 220px; border-width: 3px; }
-        .reel-lane { height: 60%; }
-        .reel-card { width: 76px; height: 106px; }
-        .reel-watermark { bottom: 12%; font-size: clamp(32px, 10vw, 46px); }
-        .reel-pointer::before { border-top-width: 15px; border-right-width: 11px; border-left-width: 11px; }
-        .reel-pointer::after { border-right-width: 11px; border-bottom-width: 15px; border-left-width: 11px; }
+      .reveal__brand::after {
+        display: inline-block;
+        width: .06em;
+        height: .76em;
+        margin-left: .1em;
+        border-radius: 2px;
+        background: #ffd45d;
+        content: '';
+        vertical-align: -.02em;
+        animation: caret 650ms steps(2, start) infinite;
       }
-      @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+      .reveal__play {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 1.5cqw;
+        padding: 1.1cqw 3cqw;
+        border: 1px solid rgba(255,248,197,.72);
+        border-radius: 999px;
+        background: linear-gradient(110deg, #ffe34f, #ffad18 72%, #ff8a00);
+        box-shadow: 0 0 30px rgba(255,190,35,.38), inset 0 1px 0 rgba(255,255,255,.55);
+        color: #17120a;
+        font-size: 1.8cqw;
+        font-weight: 900;
+        letter-spacing: .03em;
+        text-decoration: none;
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(10px) scale(.96);
+        transition: opacity .28s ease, transform .32s cubic-bezier(.18,.85,.25,1.15), visibility .28s;
+      }
+      .reveal__play.is-ready {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0) scale(1);
+      }
+      .reveal__play:hover { filter: brightness(1.08); }
+      .reveal__play:active { transform: scale(.97); }
+      .case-open {
+        position: absolute;
+        z-index: 9;
+        top: 50%;
+        left: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 18cqw;
+        padding: 1.15cqw 3.2cqw;
+        border: 1px solid rgba(255,248,197,.76);
+        border-radius: 999px;
+        background: linear-gradient(110deg, #ffe34f, #ffad18 72%, #ff8a00);
+        box-shadow: 0 0 34px rgba(255,190,35,.32), inset 0 1px 0 rgba(255,255,255,.5);
+        color: #17120a;
+        font: inherit;
+        font-size: 1.65cqw;
+        font-weight: 900;
+        cursor: pointer;
+        transform: translate(-50%, -50%);
+        transition: opacity .25s ease, transform .25s ease, filter .2s ease;
+      }
+      .case-open:hover { filter: brightness(1.08); }
+      .case-open:active { transform: translate(-50%, -50%) scale(.97); }
+      .case-open.is-hidden {
+        opacity: 0;
+        pointer-events: none;
+        transform: translate(-50%, -50%) scale(.9);
+      }
+      .case-open:disabled { cursor: wait; }
+      .stage-caption {
+        position: absolute;
+        z-index: 3;
+        top: 60%;
+        right: 10%;
+        left: 10%;
+        color: rgba(255,255,255,.32);
+        font-size: 1.25cqw;
+        font-weight: 800;
+        letter-spacing: .18em;
+        text-align: center;
+        text-transform: uppercase;
+        transition: opacity .2s ease;
+        pointer-events: none;
+      }
+      .stage-caption.is-hidden { opacity: 0; }
+      .roulette-window.is-won .roulette-pointer { opacity: 0; }
+      @keyframes halo-pulse { 0%,100% { opacity: .65; transform: scale(.92); } 50% { opacity: 1; transform: scale(1.08); } }
+      @keyframes gift-arrive { from { opacity: 0; transform: scale(.42) rotate(-8deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
+      @keyframes caret { 50% { opacity: 0; } }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+      }
     </style>
   </head>
   <body>
-    <main class="mx-auto flex min-h-screen w-full max-w-[1120px] flex-col justify-center gap-5 px-4 py-5 sm:gap-6 sm:px-7">
-      <header class="flex items-center justify-between gap-3 px-1">
-        <div class="flex min-w-0 items-center gap-3">
-          <img src="public/icon.png" alt="GiftRoll" class="h-11 w-11 rounded-2xl object-cover shadow-[0_0_22px_rgba(124,97,255,.22)]" />
-          <div class="min-w-0">
-            <div class="text-[10px] font-extrabold uppercase tracking-[.2em] text-indigo-200/60">GIFTS · CASES · BIG WINS</div>
-            <div class="mt-0.5 text-lg font-extrabold tracking-tight">GiftRoll</div>
-          </div>
-        </div>
-        <div class="flex shrink-0 items-center gap-2 rounded-2xl border border-[#FFD15A]/20 bg-[#FFD15A]/[.07] px-3.5 py-2.5">
-          <span class="text-[#FFD15A]">★</span><span class="text-sm font-extrabold tabular-nums">10 000</span>
-        </div>
+    <main class="ad-frame" aria-label="GiftRoll promo">
+      <header class="brandbar">
+        <div class="brandbar__name"><span class="brandbar__dot"></span> GiftRoll</div>
+        <div class="brandbar__wallet">★ 10 000</div>
       </header>
 
-      <section class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_270px] lg:items-center">
-        <div class="reel-scene" aria-label="Рулетка GiftRoll">
-          <div class="absolute left-5 top-4 z-10 flex items-center gap-2 rounded-full border border-white/10 bg-[#090b14]/35 px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-[.16em] text-indigo-100/60 backdrop-blur-sm sm:left-7 sm:top-6 sm:text-[10px]">
-            <span class="h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_10px_rgba(110,231,183,.8)]"></span> GiftRoll Live
-          </div>
-          <div class="reel-watermark">@Giftrollgamebot</div>
-          <div class="reel-glow"></div>
-          <div class="reel-lane">
-            <div id="rouletteTrack" class="reel-track"></div>
-          </div>
-          <div class="reel-pointer"></div>
-        </div>
+      <div id="rouletteWindow" class="roulette-window" aria-label="Рулетка">
+        <div id="rouletteTrack" class="roulette-track"></div>
+        <div class="roulette-watermark">@Giftrollgamebot</div>
+        <div class="roulette-pointer"></div>
+        <div class="roulette-idle-veil" aria-hidden="true"></div>
+        <button id="openCaseButton" class="case-open" type="button">Открыть кейс</button>
+      </div>
 
-        <aside class="flex flex-col gap-3 rounded-[24px] border border-white/[.08] bg-white/[.035] p-4 backdrop-blur-md sm:p-5">
-          <div>
-            <div class="mb-1.5 text-[10px] font-extrabold uppercase tracking-[.2em] text-indigo-200/55">LIMITED CASE</div>
-            <h1 class="m-0 text-[27px] font-extrabold leading-none tracking-[-.05em]">Супер <span class="gold-text">Дроп</span></h1>
-            <p class="mb-0 mt-2 text-xs leading-relaxed text-gray-400">Крути рулетку и забирай подарки Telegram.</p>
-          </div>
-          <div class="flex items-center justify-between rounded-2xl border border-white/[.07] bg-black/20 px-3 py-2.5">
-            <span class="text-[10px] font-extrabold uppercase tracking-wider text-gray-500">Крупный приз</span>
-            <span class="text-xs font-extrabold text-[#FFD15A]">Plush Pepe · 560 000 ⭐</span>
-          </div>
-          <button id="openButton" type="button" class="w-full rounded-2xl bg-gradient-to-r from-[#FFD15A] to-[#FFA83A] px-4 py-3.5 text-sm font-extrabold text-[#15100a] shadow-[0_8px_28px_rgba(255,188,70,.2)] transition hover:brightness-110 active:scale-[.98] disabled:cursor-wait disabled:opacity-70">
-            КРУТИТЬ · 1 000 ⭐
-          </button>
-          <p class="m-0 text-center text-[10px] font-semibold text-gray-600">Демо-ролл · результат для рекламного видео</p>
-        </aside>
+      <div id="stageCaption" class="stage-caption">Супер Дроп · 349 ⭐</div>
+
+      <section id="reveal" class="reveal" aria-live="polite">
+        <div class="reveal__image-wrap">
+          <div class="reveal__halo"></div>
+          <img class="reveal__image" src="public/promo-gift.jpg" alt="Подарок GiftRoll" />
+        </div>
+        <div class="reveal__copy">
+          <h1 id="revealBrand" class="reveal__brand"></h1>
+          <a id="revealButton" class="reveal__play" href="https://t.me/Giftrollgamebot" target="_blank" rel="noopener noreferrer">Играть</a>
+        </div>
       </section>
 
-      <section class="flex flex-col gap-3 rounded-[24px] border border-white/[.07] bg-white/[.025] p-3.5 sm:p-4">
-        <div class="flex items-center justify-between px-1">
-          <h2 class="m-0 text-xs font-extrabold">ПОДАРКИ В РУЛЕТКЕ</h2>
-          <span class="text-[10px] font-semibold text-gray-500">Подарки Telegram · ×1</span>
-        </div>
-        <div id="prizeRail" class="hide-scrollbar flex gap-2 overflow-x-auto pb-1"></div>
-      </section>
-      <footer class="pb-1 text-center text-[10px] font-bold tracking-[.18em] text-gray-700">GIFTROLL · OPEN YOUR NEXT DROP</footer>
     </main>
 
-    <div id="resultModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80 px-5 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
-      <div class="result-enter relative w-full max-w-[380px] overflow-hidden rounded-[30px] border border-[#FFD15A]/25 bg-[#171a29] p-6 text-center shadow-[0_0_60px_rgba(255,190,70,.15)]">
-        <div class="absolute left-1/2 top-0 h-36 w-64 -translate-x-1/2 rounded-full bg-[#FFD15A]/10 blur-3xl"></div>
-        <div class="relative mx-auto mb-3 grid h-36 w-36 place-items-center rounded-[30px] border border-white/10 bg-white/[.04]">
-          <img id="winnerImage" class="h-[84%] w-[84%] object-contain drop-shadow-[0_12px_18px_rgba(0,0,0,.4)]" src="" alt="" />
-        </div>
-        <div class="relative mb-1 text-[10px] font-extrabold uppercase tracking-[.2em] text-[#FFD15A]">Выпал редкий подарок</div>
-        <h2 id="resultTitle" class="relative m-0 text-[26px] font-extrabold tracking-[-.04em]">Вы выиграли!</h2>
-        <p id="winnerName" class="relative mb-0 mt-1 text-sm font-bold text-gray-300"></p>
-        <div id="winnerPrice" class="relative mx-auto mt-3 inline-flex items-center gap-1.5 rounded-full border border-[#FFD15A]/20 bg-[#FFD15A]/[.07] px-3.5 py-1.5 text-sm font-extrabold text-[#FFD15A]"></div>
-        <button id="claimButton" type="button" class="relative mt-5 w-full rounded-2xl bg-gradient-to-r from-[#FFD15A] to-[#FFA83A] py-3.5 text-sm font-extrabold text-[#15100a] transition hover:brightness-110 active:scale-[.98]">Забрать</button>
-      </div>
-    </div>
-
+    <!-- Музыку можно добавить позже: public/promo-music.mp3 -->
     <script>
+      function fitCanvas() {
+        const scale = Math.min(1, window.innerWidth / 2560, window.innerHeight / 1440)
+        document.documentElement.style.setProperty('--fit-scale', String(scale))
+      }
+      fitCanvas()
+      window.addEventListener('resize', fitCanvas)
+
       const items = [
-        { name: 'Xmas Stocking', image: 'XmasStocking', price: '350' },
-        { name: 'Ice Cream', image: 'IceCream', price: '364' },
-        { name: 'Pet Snake', image: 'PetSnake', price: '377' },
-        { name: 'Lol Pop', image: 'LolPop', price: '480' },
-        { name: 'Fresh Socks', image: 'FreshSocks', price: '400' },
-        { name: 'Snow Mittens', image: 'SnowMittens', price: '500' },
-        { name: 'Love Potion', image: 'LovePotion', price: '1 480' },
-        { name: 'Genie Lamp', image: 'GenieLamp', price: '3 460' },
-        { name: 'Plush Pepe', image: 'PlushPepe', price: '560 000' },
-        { name: "Durov's Cap", image: 'DurovsCap', price: '39 900' },
-        { name: 'Heart Locket', image: 'HeartLocket', price: '125 000' },
-        { name: 'Pool Float', image: 'PoolFloat', price: '450' },
+        { name: 'Xmas Stocking', image: 'XmasStocking' },
+        { name: 'Ice Cream', image: 'IceCream' },
+        { name: 'Pet Snake', image: 'PetSnake' },
+        { name: 'Lol Pop', image: 'LolPop' },
+        { name: 'Fresh Socks', image: 'FreshSocks' },
+        { name: 'Snow Mittens', image: 'SnowMittens' },
+        { name: 'Love Potion', image: 'LovePotion' },
+        { name: 'Genie Lamp', image: 'GenieLamp' },
+        { name: 'Plush Pepe', image: 'PlushPepe' },
+        { name: 'DurovsCap', image: 'DurovsCap' },
+        { name: 'Heart Locket', image: 'HeartLocket' },
+        { name: 'Pool Float', image: 'PoolFloat' },
       ]
       const WINNER_INDEX = 37
+      const SPIN_DURATION_MS = 4700
       const track = document.getElementById('rouletteTrack')
-      const prizeRail = document.getElementById('prizeRail')
-      const openButton = document.getElementById('openButton')
-      const modal = document.getElementById('resultModal')
-      const claimButton = document.getElementById('claimButton')
+      const viewport = document.getElementById('rouletteWindow')
+      const reveal = document.getElementById('reveal')
+      const stageCaption = document.getElementById('stageCaption')
+      const revealBrand = document.getElementById('revealBrand')
+      const revealButton = document.getElementById('revealButton')
+      const openCaseButton = document.getElementById('openCaseButton')
       const winner = items.find((item) => item.name === 'Plush Pepe')
-      let isSpinning = false
+      let opening = false
 
       function imageUrl(item) {
-        return `https://api.changes.tg/original/${item.image}.png?size=256`
+        return 'https://api.changes.tg/original/' + item.image + '.png?size=256'
       }
 
-      function setSafeImage(image, item) {
+      function makeCard(item) {
+        const card = document.createElement('div')
+        card.className = 'roulette-card'
+        const image = document.createElement('img')
         image.src = imageUrl(item)
         image.alt = item.name
+        image.loading = 'eager'
         image.onerror = () => {
           image.onerror = null
           image.src = 'public/icon.png'
-          image.classList.add('opacity-50')
+          image.style.opacity = '.55'
         }
-      }
-
-      function createReelCard(item) {
-        const card = document.createElement('div')
-        card.className = 'reel-card'
-        const image = document.createElement('img')
-        setSafeImage(image, item)
         const name = document.createElement('span')
-        name.className = 'reel-card__name'
+        name.className = 'roulette-card__name'
         name.textContent = item.name
         card.append(image, name)
         return card
@@ -301,76 +497,67 @@
       const strip = Array.from({ length: 50 }, (_, index) =>
         index === WINNER_INDEX ? winner : items[(index * 7 + Math.floor(index / 3)) % (items.length - 1)],
       )
-      strip.forEach((item) => track.appendChild(createReelCard(item)))
-      items.forEach((item) => {
-        const card = document.createElement('div')
-        card.className = 'flex min-w-[80px] flex-1 flex-col items-center rounded-2xl border border-white/[.08] bg-white/[.035] px-2 py-2 sm:min-w-[96px]'
-        const image = document.createElement('img')
-        image.className = 'h-12 w-12 object-contain drop-shadow-[0_6px_8px_rgba(0,0,0,.35)]'
-        setSafeImage(image, item)
-        const name = document.createElement('span')
-        name.className = 'mt-1 w-full truncate text-center text-[9px] font-extrabold text-gray-300'
-        name.textContent = item.name
-        const price = document.createElement('span')
-        price.className = 'mt-0.5 text-[9px] font-extrabold text-[#FFD15A]'
-        price.textContent = `${item.price} ⭐`
-        card.append(image, name, price)
-        prizeRail.appendChild(card)
-      })
+      strip.forEach((item) => track.appendChild(makeCard(item)))
 
-      function openResult() {
-        document.getElementById('winnerImage').src = imageUrl(winner)
-        document.getElementById('winnerImage').alt = winner.name
-        document.getElementById('winnerName').textContent = winner.name
-        document.getElementById('winnerPrice').textContent = `★ ${winner.price}`
-        modal.classList.remove('hidden')
-        modal.classList.add('flex')
+      function typeText(target, text, delay, done) {
+        let index = 0
+        target.textContent = ''
+        function next() {
+          if (index >= text.length) {
+            if (done) done()
+            return
+          }
+          target.textContent += text[index]
+          index += 1
+          window.setTimeout(next, delay)
+        }
+        next()
       }
 
-      function resetReel() {
+      function resetScene() {
+        reveal.classList.remove('is-visible')
+        revealButton.classList.remove('is-ready')
+        viewport.classList.remove('is-spinning')
+        viewport.classList.remove('is-won')
+        revealBrand.textContent = ''
+        stageCaption.classList.remove('is-hidden')
+        track.children[WINNER_INDEX].classList.remove('roulette-winner')
         track.style.transition = 'none'
-        track.style.filter = 'blur(1.1px)'
         track.style.transform = 'translateX(0px) translateY(-50%)'
         void track.offsetWidth
       }
 
-      openButton.addEventListener('click', () => {
-        if (isSpinning) return
-        isSpinning = true
-        openButton.disabled = true
-        openButton.textContent = 'РУЛЕТКА КРУТИТСЯ…'
-        resetReel()
-
-        requestAnimationFrame(() => {
-          const viewport = document.querySelector('.reel-lane')
+      function runSpin() {
+        if (opening) return
+        opening = true
+        resetScene()
+        openCaseButton.disabled = true
+        openCaseButton.classList.add('is-hidden')
+        viewport.classList.add('is-spinning')
+        stageCaption.textContent = 'Открываем кейс · крутим рулетку'
+        window.requestAnimationFrame(() => {
           const winnerCard = track.children[WINNER_INDEX]
-          const viewportWidth = viewport.clientWidth
-          const winnerCenter = winnerCard.offsetLeft + winnerCard.clientWidth / 2
-          const randomOffset = (Math.random() * 2 - 1) * winnerCard.clientWidth * .28
-          const offset = viewportWidth / 2 - winnerCenter + randomOffset
-          track.style.filter = 'blur(1.5px)'
-          track.style.transition = 'transform 4.7s cubic-bezier(0.12, 0.8, 0.15, 1), filter .8s ease 3.9s'
-          track.style.transform = `translateX(${offset}px) translateY(-50%)`
-          window.setTimeout(() => { track.style.filter = 'blur(0px)' }, 3950)
+          const baseCenter = winnerCard.offsetLeft + winnerCard.clientWidth / 2
+          const randomOffset = (Math.random() * 2 - 1) * winnerCard.clientWidth * .22
+          const offset = viewport.clientWidth / 2 - baseCenter + randomOffset
+          track.style.transition = 'transform ' + SPIN_DURATION_MS + 'ms cubic-bezier(.12,.8,.15,1)'
+          track.style.transform = 'translateX(' + offset + 'px) translateY(-50%)'
         })
 
-        window.setTimeout(openResult, 4800)
-      })
-
-      function closeResult() {
-        modal.classList.add('hidden')
-        modal.classList.remove('flex')
-        isSpinning = false
-        openButton.disabled = false
-        openButton.textContent = 'КРУТИТЬ · 1 000 ⭐'
-        resetReel()
+        window.setTimeout(() => {
+          track.children[WINNER_INDEX].classList.add('roulette-winner')
+          stageCaption.classList.add('is-hidden')
+          viewport.classList.add('is-won')
+          window.setTimeout(() => {
+            reveal.classList.add('is-visible')
+            typeText(revealBrand, 'GiftRoll', 82, () => {
+              revealButton.classList.add('is-ready')
+            })
+          }, 650)
+        }, SPIN_DURATION_MS)
       }
 
-      claimButton.addEventListener('click', closeResult)
-      modal.addEventListener('click', (event) => { if (event.target === modal) closeResult() })
-      document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && !modal.classList.contains('hidden')) closeResult()
-      })
+      openCaseButton.addEventListener('click', runSpin)
     </script>
   </body>
 </html>
