@@ -153,6 +153,7 @@ function App() {
   const [cases, setCases] = useState<CaseItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [banReason, setBanReason] = useState<string | null>(null)
 
   const [activeCase, setActiveCase] = useState<CaseItem | null>(null)
   const [showInventory, setShowInventory] = useState(false)
@@ -271,6 +272,10 @@ function App() {
       setCases(casesData.cases)
       setError(null)
     } catch (err: unknown) {
+      if (err instanceof ApiError && err.code === 'USER_BANNED') {
+        setBanReason(err.message.replace(/^Вы забанены\.\s*Причина:\s*/i, '') || 'Нарушение правил')
+        return
+      }
       setError(formatErrorMessage(err))
     } finally {
       setLoading(false)
@@ -479,6 +484,22 @@ function App() {
 
   const connected = !!wallet
   const walletLabel = wallet ? shortAddress(wallet.account.address) : null
+
+  if (banReason) {
+    return (
+      <main className="fixed inset-0 z-[2000] flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#0B0C10] px-6 text-white">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_35%,rgba(239,68,68,0.16),transparent_58%)]" />
+        <section className="relative w-full max-w-md rounded-3xl border border-red-400/20 bg-[#151419]/95 p-8 text-center shadow-[0_20px_80px_rgba(0,0,0,0.55)]">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-red-400/20 bg-red-500/10 text-red-300">
+            <Shield size={32} />
+          </div>
+          <h1 className="m-0 text-3xl font-extrabold tracking-tight">Вы забанены</h1>
+          <p className="mb-1 mt-5 text-xs font-bold uppercase tracking-[0.18em] text-gray-500">Причина блокировки</p>
+          <p className="m-0 text-lg font-bold text-red-200">{banReason}</p>
+        </section>
+      </main>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-[#0B0C10] font-sans text-white">

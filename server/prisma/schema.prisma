@@ -21,6 +21,8 @@ enum InventoryStatus {
 
 model User {
   id        BigInt   @id // Telegram User ID
+  isBanned  Boolean  @default(false)
+  banReason String?
   isBetaMode Boolean @default(false)
   firstName String
   lastName  String?

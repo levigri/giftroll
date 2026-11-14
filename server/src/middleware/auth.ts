@@ -12,6 +12,17 @@ function headerValue(request: FastifyRequest, name: string): string | undefined 
   return trimmed ? trimmed : undefined
 }
 
+function denyBannedUser(user: User, reply: FastifyReply): boolean {
+  if (!user.isBanned) return false
+  const reason = user.banReason?.trim() || 'Нарушение правил'
+  reply.code(403).send({
+    error: `Вы забанены. Причина: ${reason}`,
+    code: 'USER_BANNED',
+    reason,
+  })
+  return true
+}
+
 /**
  * Upsert пользователя + привязка реферера при первом создании.
  * Реферальный код читается только для нового аккаунта: перепривязка невозможна.
@@ -71,6 +82,7 @@ export async function authenticateTelegram(
           id: BigInt(trimmed),
           firstName: 'Dev User',
         })
+        if (denyBannedUser(user, reply)) return
         request.telegramUser = user
         request.log.warn(`[AUTH] dev-bypass id=${trimmed}`)
         return
@@ -105,6 +117,7 @@ export async function authenticateTelegram(
 
     // 4. Upsert пользователя в БД (+ реферер, если аккаунт создаётся впервые)
     const user = await upsertWithReferral(request, parsed.user)
+    if (denyBannedUser(user, reply)) return
     request.telegramUser = user
 
     request.log.info(
