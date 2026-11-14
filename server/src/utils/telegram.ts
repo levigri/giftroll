@@ -72,7 +72,7 @@ export async function upsertUserFromTelegram(tg: {
       lastName: tg.lastName ?? null,
       username: tg.username ?? null,
       photoUrl: tg.photoUrl ?? null,
-      balance: env.WELCOME_BONUS,
+      balance: 0,
     },
   })
 }
