@@ -1,11 +1,11 @@
 import type { DailyBonusPrize } from './dailyBonus.js'
 
 export const promoCasePrizes: DailyBonusPrize[] = [
-  { id: 'p-1', label: '1', emoji: '⭐', amount: 1, chance: 60, type: 'BALANCE' },
-  { id: 'p-5', label: '5', emoji: '⭐', amount: 5, chance: 30, type: 'BALANCE' },
-  { id: 'p-10', label: '10', emoji: '⭐', amount: 10, chance: 6.95, type: 'BALANCE' },
-  { id: 'p-20', label: '20', emoji: '⭐', amount: 20, chance: 2.5, type: 'BALANCE' },
-  { id: 'p-50', label: '50', emoji: '⭐', amount: 50, chance: 0.5, type: 'BALANCE' },
+  { id: 'p-1', label: '1', emoji: '⭐', amount: 1, chance: 75, type: 'BALANCE' },
+  { id: 'p-5', label: '5', emoji: '⭐', amount: 5, chance: 20, type: 'BALANCE' },
+  { id: 'p-10', label: '10', emoji: '⭐', amount: 10, chance: 4, type: 'BALANCE' },
+  { id: 'p-20', label: '20', emoji: '⭐', amount: 20, chance: 0.8, type: 'BALANCE' },
+  { id: 'p-50', label: '50', emoji: '⭐', amount: 50, chance: 0.15, type: 'BALANCE' },
   { id: 'p-nft', label: 'Ice Cream', emoji: '🍦', amount: 0, chance: 0.05, type: 'NFT' },
   { id: 'p-clover', label: 'Clover Pin', emoji: '🍀', amount: 0, chance: 0, type: 'NFT' },
   { id: 'p-sakura', label: 'Sakura Flower', emoji: '🌸', amount: 0, chance: 0, type: 'NFT' },
