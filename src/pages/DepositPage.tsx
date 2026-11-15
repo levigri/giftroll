@@ -14,7 +14,9 @@ import { errorFeedback, successFeedback, tapFeedback } from '../telegram'
 
 /** Готовые суммы пополнения. */
 const AMOUNTS = [50, 100, 250, 500, 1000, 2500]
-const STARS_BONUS_PERCENT = 10
+const DEPOSIT_PROMO_END_AT = Date.parse('2026-11-15T16:39:34Z')
+const STARS_PROMO_BONUS_PERCENT = 10
+const GRAMS_PROMO_BONUS_PERCENT = 15
 /**
  * TON mainnet-адрес кошелька-получателя (дубль серверного TON_RECEIVER_ADDRESS).
  * Основной источник — поле receiverAddress из /api/deposit/grams/invoice,
@@ -24,7 +26,6 @@ const TON_RECEIVER_ADDRESS = 'UQCrIF5c20wufcyh7AFWgzam5KtgZtXzbT2AuIblNHApbUAg'
 /** Границы совпадают с серверными MIN_DEPOSIT_STARS / MAX_DEPOSIT_STARS. */
 const MIN_AMOUNT = 10
 const MAX_AMOUNT = 100_000
-const GRAM_PROMO_END_AT = Date.parse('2026-11-16T23:59:59Z')
 interface TelegramWebAppBridge {
   openInvoice?: (url: string, callback?: (status: string) => void) => void
   /** Открывает внешнюю ссылку внутри Telegram (например, счёт @CryptoBot). */
@@ -153,7 +154,12 @@ function DepositPageContent({
   const safeBalance = typeof balance === 'number' && !Number.isNaN(balance) ? balance : 0
 
   const [tab, setTab] = useState<Tab>('stars')
-  const [gramsBonusPercent, setGramsBonusPercent] = useState(() => Date.now() < GRAM_PROMO_END_AT ? 15 : 5)
+  const [starsBonusPercent, setStarsBonusPercent] = useState(() =>
+    Date.now() < DEPOSIT_PROMO_END_AT ? STARS_PROMO_BONUS_PERCENT : 0,
+  )
+  const [gramsBonusPercent, setGramsBonusPercent] = useState(() =>
+    Date.now() < DEPOSIT_PROMO_END_AT ? GRAMS_PROMO_BONUS_PERCENT : 5,
+  )
   const [amount, setAmount] = useState(100)
   const [custom, setCustom] = useState('')
   const [busy, setBusy] = useState(false)
@@ -162,7 +168,11 @@ function DepositPageContent({
   /** Сколько звёзд хочет получить игрок во вкладке Gram. */
   const [gramsStars, setGramsStars] = useState('')
   const [gramsBusy, setGramsBusy] = useState(false)
-  const [gramsQuote, setGramsQuote] = useState<{ gramsAmount: number; starsAmount: number } | null>(null)
+  const [gramsQuote, setGramsQuote] = useState<{
+    gramsAmount: number
+    starsAmount: number
+    bonusPercent: number
+  } | null>(null)
   const [gramsQuoteLoading, setGramsQuoteLoading] = useState(false)
   /** До какого времени зафиксирован курс (2 минуты с момента котировки). */
   const [quoteFixedUntil, setQuoteFixedUntil] = useState<number | null>(null)
@@ -180,7 +190,7 @@ function DepositPageContent({
   const wallet = useTonWallet()
 
   const amountValid = Number.isInteger(amount) && amount >= MIN_AMOUNT && amount <= MAX_AMOUNT
-  const starsBonus = Math.floor((amount * STARS_BONUS_PERCENT) / 100)
+  const starsBonus = Math.floor((amount * starsBonusPercent) / 100)
   const starsCredited = amount + starsBonus
 
   /** Игрок вводит сколько звёзд хочет получить — это и есть сумма депозита. */
@@ -198,12 +208,19 @@ function DepositPageContent({
   const cryptoFinalUsd = cryptoBaseUsd * 1.03
 
   useEffect(() => {
-    const promoRemaining = GRAM_PROMO_END_AT - Date.now()
+    const promoRemaining = DEPOSIT_PROMO_END_AT - Date.now()
     if (promoRemaining <= 0) {
+      setStarsBonusPercent(0)
       setGramsBonusPercent(5)
       return
     }
-    const timeoutId = window.setTimeout(() => setGramsBonusPercent(5), promoRemaining)
+    const timeoutId = window.setTimeout(() => {
+      setStarsBonusPercent(0)
+      setGramsBonusPercent(5)
+      setGramsQuote(null)
+      setInvoiceGramsAmount(null)
+      setQuoteFixedUntil(null)
+    }, promoRemaining)
     return () => window.clearTimeout(timeoutId)
   }, [])
 
@@ -255,7 +272,7 @@ function DepositPageContent({
       alive = false
       window.clearTimeout(timeoutId)
     }
-  }, [gramsValid, gramsStarsNum])
+  }, [gramsValid, gramsStarsNum, gramsBonusPercent])
 
   const showToast = (text: string, tone: ToastTone = 'ok') => {
     setToast({ text, tone })
@@ -289,7 +306,7 @@ function DepositPageContent({
     setBusy(true)
 
     try {
-      const { invoiceLink } = await depositCreateInvoice(paidAmount)
+      const { invoiceLink, bonusPercent } = await depositCreateInvoice(paidAmount)
       const webApp = getTelegramWebApp()
 
       if (typeof webApp?.openInvoice === 'function') {
@@ -297,8 +314,12 @@ function DepositPageContent({
           webApp.openInvoice(invoiceLink, (status) => {
             if (status === 'paid') {
               successFeedback()
-              const bonus = Math.floor((paidAmount * STARS_BONUS_PERCENT) / 100)
-              showToast(`Начислено ${paidAmount + bonus} ⭐ (бонус +${bonus} ⭐)`)
+              const bonus = Math.floor((paidAmount * bonusPercent) / 100)
+              showToast(
+                bonusPercent > 0
+                  ? `Начислено ${paidAmount + bonus} ⭐ (бонус +${bonus} ⭐)`
+                  : `Начислено ${paidAmount} ⭐`,
+              )
               void onRefreshMe?.()
             } else if (status === 'cancelled') {
               showToast('Оплата отменена', 'error')
@@ -353,10 +374,11 @@ function DepositPageContent({
         depositId,
         gramsAmount: invoiceGrams,
         starsAmount: creditedStars,
+        bonusPercent: invoiceBonusPercent,
         receiverAddress,
       } = await depositGramsInvoice(payStars, fixedGrams)
       setInvoiceGramsAmount(invoiceGrams)
-      setGramsQuote({ gramsAmount: invoiceGrams, starsAmount: creditedStars })
+      setGramsQuote({ gramsAmount: invoiceGrams, starsAmount: creditedStars, bonusPercent: invoiceBonusPercent })
       const transaction = {
         validUntil: Math.floor(Date.now() / 1000) + 300,
         network: '-239',
@@ -486,7 +508,10 @@ function DepositPageContent({
           }`}
           onClick={() => setTab('stars')}
         >
-          <span className="inline-flex items-center gap-1"><Star size={13} fill="currentColor" /> Stars <span className="font-extrabold text-emerald-400">+10%</span></span>
+          <span className="inline-flex items-center gap-1">
+            <Star size={13} fill="currentColor" /> Stars
+            {starsBonusPercent > 0 && <span className="font-extrabold text-emerald-400">+{starsBonusPercent}%</span>}
+          </span>
         </button>
         <button
           type="button"
@@ -573,7 +598,7 @@ function DepositPageContent({
           {amountValid && (
             <p className="m-0 rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-center text-xs text-emerald-300">
               На баланс: <strong>{starsCredited.toLocaleString('ru-RU')} ⭐</strong>
-              <span className="ml-1">(бонус +{starsBonus.toLocaleString('ru-RU')} ⭐)</span>
+              {starsBonusPercent > 0 && <span className="ml-1">(бонус +{starsBonus.toLocaleString('ru-RU')} ⭐)</span>}
             </p>
           )}
 
@@ -594,7 +619,9 @@ function DepositPageContent({
           </button>
 
           <p className="m-0 px-1 text-center text-[12px] leading-relaxed text-gray-400">
-            Оплата проходит через Telegram Stars. На баланс зачисляется сумма платежа и бонус +10%.
+            {starsBonusPercent > 0
+              ? `Оплата проходит через Telegram Stars. На баланс зачисляется сумма платежа и бонус +${starsBonusPercent}%.`
+              : 'Оплата проходит через Telegram Stars. На баланс зачисляется сумма платежа.'}
           </p>
         </>
       )}
@@ -655,7 +682,7 @@ function DepositPageContent({
                   </p>
                   {gramsQuote && (
                     <p className="m-0 text-center text-xs text-emerald-400">
-                      Зачислим: <strong>{gramsQuote.starsAmount} ⭐</strong> (включая +{gramsBonusPercent}% бонус)
+                      Зачислим: <strong>{gramsQuote.starsAmount} ⭐</strong> (включая +{gramsQuote.bonusPercent}% бонус)
                     </p>
                   )}
                   {gramsQuote && quoteFixedUntil !== null && quoteFixedUntil > Date.now() && (

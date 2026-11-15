@@ -11,7 +11,22 @@ import { notifyUser } from './bot.js'
 export const MIN_DEPOSIT_STARS = 10
 export const MAX_DEPOSIT_STARS = 100_000
 export const DEPOSIT_LOCK_MS = 21 * 24 * 60 * 60 * 1000
-export const STARS_DEPOSIT_BONUS_PERCENT = 10
+/** Акции пополнения автоматически возвращаются к базовым ставкам после этого момента (UTC). */
+const DEPOSIT_PROMO_END_AT = Date.parse('2026-11-15T16:39:34Z')
+const STARS_DEPOSIT_BONUS_PERCENT = 10
+const STARS_BASE_BONUS_PERCENT = 0
+const GRAMS_PROMO_BONUS_PERCENT = 15
+const GRAMS_BASE_BONUS_PERCENT = 5
+
+function getStarsDepositBonusPercent(createdAt: Date): number {
+  return createdAt.getTime() < DEPOSIT_PROMO_END_AT
+    ? STARS_DEPOSIT_BONUS_PERCENT
+    : STARS_BASE_BONUS_PERCENT
+}
+
+function getGramsDepositBonusPercent(now = Date.now()): number {
+  return now < DEPOSIT_PROMO_END_AT ? GRAMS_PROMO_BONUS_PERCENT : GRAMS_BASE_BONUS_PERCENT
+}
 
 /** Депозит от этой суммы (в ⭐) выдаёт право на бонусный кейс. */
 export const FREE_CASE_DEPOSIT_STARS = 200
@@ -185,7 +200,7 @@ function newPayload(userId: bigint): string {
 export async function createInvoice(
   userId: bigint,
   amount: number,
-): Promise<{ invoiceLink: string; depositId: string }> {
+): Promise<{ invoiceLink: string; depositId: string; bonusPercent: number }> {
   if (!Number.isInteger(amount) || amount < MIN_DEPOSIT_STARS || amount > MAX_DEPOSIT_STARS) {
     throw new DepositError(
       'INVALID_AMOUNT',
@@ -214,7 +229,11 @@ export async function createInvoice(
       prices: [{ label: 'Пополнение', amount }],
     })
 
-    return { invoiceLink, depositId: deposit.id }
+    return {
+      invoiceLink,
+      depositId: deposit.id,
+      bonusPercent: getStarsDepositBonusPercent(deposit.createdAt),
+    }
   } catch (error) {
     await prisma.deposit
       .update({ where: { id: deposit.id }, data: { status: 'failed' } })
@@ -235,6 +254,7 @@ export async function createGramsInvoice(
   depositId: string
   gramsAmount: number
   starsAmount: number
+  bonusPercent: number
   receiverAddress: string
 }> {
   if (!env.TON_RECEIVER_ADDRESS) {
@@ -282,6 +302,7 @@ export async function createGramsInvoice(
     depositId: deposit.id,
     gramsAmount,
     starsAmount: quote.starsAmount,
+    bonusPercent: quote.bonusPercent,
     receiverAddress: env.TON_RECEIVER_ADDRESS,
   }
 }
@@ -289,6 +310,7 @@ export async function createGramsInvoice(
 export async function quoteGramsAmount(starsAmount: number): Promise<{
   gramsAmount: number
   starsAmount: number
+  bonusPercent: number
 }> {
   if (
     !Number.isInteger(starsAmount) ||
@@ -302,16 +324,14 @@ export async function quoteGramsAmount(starsAmount: number): Promise<{
     )
   }
 
-  // Акция действует до указанного момента включительно; после него возвращается базовый бонус 5%.
-  const promoEndDate = new Date('2026-11-16T23:59:59Z').getTime()
-  const isPromoActive = Date.now() < promoEndDate
-  const multiplier = isPromoActive ? 1.15 : 1.05
+  const bonusPercent = getGramsDepositBonusPercent()
+  const multiplier = 1 + bonusPercent / 100
   const creditedStarsAmount = Math.round(starsAmount * multiplier)
   const usdAmount = getStarsBasePriceUsd(starsAmount)
   const tonRate = await getGramRate()
   const baseGrams = usdAmount / tonRate
   const gramsAmount = Math.round(baseGrams * 1_000_000) / 1_000_000
-  return { gramsAmount, starsAmount: creditedStarsAmount }
+  return { gramsAmount, starsAmount: creditedStarsAmount, bonusPercent }
 }
 
 export async function confirmGramsDeposit(
@@ -631,7 +651,8 @@ export async function handleWebhook(update: TelegramUpdate): Promise<void> {
     )
   }
 
-  const bonusStars = Math.floor((deposit.amount * STARS_DEPOSIT_BONUS_PERCENT) / 100)
+  const bonusPercent = getStarsDepositBonusPercent(deposit.createdAt)
+  const bonusStars = Math.floor((deposit.amount * bonusPercent) / 100)
   const creditedStars = deposit.amount + bonusStars
 
   await prisma.$transaction(

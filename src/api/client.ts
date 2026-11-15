@@ -324,8 +324,8 @@ export async function upgraderUpgrade(
 /** Создаёт инвойс Telegram Stars на amount ⭐. */
 export async function depositCreateInvoice(
   amount: number,
-): Promise<{ invoiceLink: string; depositId: string }> {
-  return request<{ invoiceLink: string; depositId: string }>('/api/deposit/invoice', {
+): Promise<{ invoiceLink: string; depositId: string; bonusPercent: number }> {
+  return request<{ invoiceLink: string; depositId: string; bonusPercent: number }>('/api/deposit/invoice', {
     method: 'POST',
     body: JSON.stringify({ amount }),
   })
@@ -350,12 +350,14 @@ export async function depositGramsInvoice(
   depositId: string
   gramsAmount: number
   starsAmount: number
+  bonusPercent: number
   receiverAddress: string
 }> {
   return request<{
     depositId: string
     gramsAmount: number
     starsAmount: number
+    bonusPercent: number
     receiverAddress: string
   }>('/api/deposit/grams/invoice', {
     method: 'POST',
@@ -367,10 +369,11 @@ export async function depositGramsInvoice(
 export async function depositGramsQuote(starsAmount: number): Promise<{
   gramsAmount: number
   starsAmount: number
+  bonusPercent: number
   expiresAt: string
 }> {
   const query = new URLSearchParams({ stars: String(starsAmount) })
-  return request<{ gramsAmount: number; starsAmount: number; expiresAt: string }>(
+  return request<{ gramsAmount: number; starsAmount: number; bonusPercent: number; expiresAt: string }>(
     `/api/deposit/grams/quote?${query.toString()}`,
     { method: 'GET' },
   )
