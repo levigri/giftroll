@@ -13,7 +13,8 @@ import { marketPriceFor, useMarketPrices } from '../api/marketPrices'
 import { errorFeedback, successFeedback, tapFeedback } from '../telegram'
 import { prizeImage } from '../utils/assets'
 import AssetImage from '../components/AssetImage'
-import { formatCurrency, roundCurrency, toCurrencyAmount } from '../utils/gameCurrency'
+import { currencyColorClass, formatCurrency, roundCurrency, toCurrencyAmount } from '../utils/gameCurrency'
+import CurrencyIcon from '../components/CurrencyIcon'
 
 type Phase = 'idle' | 'spinning' | 'result'
 
@@ -557,12 +558,15 @@ export default function UpgraderPage({
         <section className="glass-card flex flex-col gap-3 p-4">
           <div className="upgrader__panel-head">
             <span className="upgrader__panel-title">1 · Ставка</span>
-            <span className="upgrader__balance">Баланс: {formatCurrency(balance, currency)}</span>
+            <span className={`upgrader__balance ${currencyColorClass(currency)}`}>Баланс: {formatCurrency(balance, currency)}</span>
           </div>
 
           <div className="upgrader__stars-row">
             <label className="upgrader__stars-input">
-              <span className="text-[10px] font-bold text-[#FFD700]">{currency === 'STARS' ? '⭐' : currency === 'GRAMS' ? 'Gram' : 'USD'}</span>
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold">
+                <CurrencyIcon currency={currency} size={13} />
+                <span className={currencyColorClass(currency)}>{currency === 'STARS' ? 'Stars' : currency === 'GRAMS' ? 'Gram' : 'USD'}</span>
+              </span>
               <input
                 type="number"
                 inputMode={currency === 'STARS' ? 'numeric' : 'decimal'}
@@ -649,7 +653,7 @@ export default function UpgraderPage({
                     className="h-8 w-8"
                   />
                   <span className="upgrader__nft-name">{item.prizeName}</span>
-                  <span className="upgrader__nft-price">{formatCurrency(toCurrencyAmount(marketPriceFor(item.prizeName, item.prizePrice, marketPrices), currency, conversionFactor), currency)}</span>
+                  <span className={`upgrader__nft-price ${currencyColorClass(currency)}`}>{formatCurrency(toCurrencyAmount(marketPriceFor(item.prizeName, item.prizePrice, marketPrices), currency, conversionFactor), currency)}</span>
                   <span className="upgrader__nft-remove" aria-hidden="true">
                     <X size={12} />
                   </span>
@@ -664,7 +668,7 @@ export default function UpgraderPage({
 
           <div className={`upgrader__total ${tooBig ? 'upgrader__total--over' : ''}`}>
             <span>Ставка итого</span>
-            <strong>{formatCurrency(totalBet, currency)}</strong>
+            <strong className={currencyColorClass(currency)}>{formatCurrency(totalBet, currency)}</strong>
           </div>
 
           {tooBig && (
@@ -779,7 +783,7 @@ export default function UpgraderPage({
 
           <div className="upgrader__payout">
             Выплата при победе:{' '}
-            <strong>{formatCurrency(payout, currency)}</strong>
+            <strong className={currencyColorClass(currency)}>{formatCurrency(payout, currency)}</strong>
           </div>
           {nftBetTooSmall && (
             <p className="m-0 rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-300">
@@ -829,17 +833,13 @@ export default function UpgraderPage({
                     <p className="m-0 truncate text-sm font-extrabold text-white">
                       {requestTarget.name}
                     </p>
-                    <p className="m-0 text-xs font-bold text-[#FFD700]">{formatCurrency(requestTarget.price, currency)}</p>
+                    <p className={`m-0 text-xs font-bold ${currencyColorClass(currency)}`}>{formatCurrency(requestTarget.price, currency)}</p>
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="m-0 text-[10px] font-bold uppercase tracking-wider text-gray-400">
                       {targetCovered ? 'Сдача' : 'Звёздами'}
                     </p>
-                    <p
-                      className={`m-0 text-sm font-extrabold ${
-                        targetCovered ? 'text-emerald-400' : 'text-red-400'
-                      }`}
-                    >
+                    <p className={`m-0 text-sm font-extrabold ${targetCovered ? currencyColorClass(currency) : 'text-red-400'}`}>
                       +{formatCurrency(targetCovered ? change : payout, currency)}
                     </p>
                   </div>
@@ -958,7 +958,7 @@ export default function UpgraderPage({
                           {lockReason}
                         </span>
                       ) : (
-                        <span className="text-[10px] font-bold text-gray-400">{formatCurrency(nft.price, currency)}</span>
+                        <span className={`text-[10px] font-bold ${currencyColorClass(currency)}`}>{formatCurrency(nft.price, currency)}</span>
                       )}
                     </button>
                   )
@@ -1016,17 +1016,17 @@ export default function UpgraderPage({
           {requestTarget && targetCovered ? (
             <>
               Вы получите <strong>{requestTarget.name}</strong> +{' '}
-              <strong>{formatCurrency(change, currency)}</strong> сдачи
+              <strong className={currencyColorClass(currency)}>{formatCurrency(change, currency)}</strong> сдачи
             </>
           ) : requestTarget ? (
             <>
               Выплаты не хватит на <strong>{requestTarget.name}</strong>. Вы получите{' '}
-              <strong>{formatCurrency(payout, currency)}</strong>
+              <strong className={currencyColorClass(currency)}>{formatCurrency(payout, currency)}</strong>
             </>
           ) : (
             <>
               Вы получите{' '}
-              <strong>{formatCurrency(payout, currency)}</strong> — на самый дешёвый NFT не хватает
+              <strong className={currencyColorClass(currency)}>{formatCurrency(payout, currency)}</strong> — на самый дешёвый NFT не хватает
             </>
           )}
       </div>
@@ -1063,7 +1063,7 @@ export default function UpgraderPage({
                 className="h-14 w-14"
               />
               <span className="upgrader__prize-name">{result.receivedNft.name}</span>
-              <span className="upgrader__prize-price">
+              <span className={`upgrader__prize-price ${currencyColorClass(currency)}`}>
                 {formatCurrency(result.receivedNft.price, currency)}
               </span>
               <span className="upgrader__prize-change">

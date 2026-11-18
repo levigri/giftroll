@@ -6,7 +6,7 @@ import { OPEN_COUNTS, type OpenCount } from '../pages/CasesPage'
 import { errorFeedback, tapFeedback } from '../telegram'
 import { prizeImage } from '../utils/assets'
 import AssetImage from './AssetImage'
-import { formatCurrency, toCurrencyAmount } from '../utils/gameCurrency'
+import { currencyColorClass, formatCurrency, toCurrencyAmount } from '../utils/gameCurrency'
 
 export interface RouletteModalProps {
   caseItem: CaseItem
@@ -212,8 +212,8 @@ export default function RouletteModal({
               <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Кейс</p>
               <h2 className="truncate text-xl font-extrabold text-white">{caseItem.name}</h2>
               <p className="mt-0.5 flex items-center gap-1 text-xs font-bold text-gray-300">
-                {formatCurrency(caseItem.price, currency)} за штуку
-                {count > 1 && <span className="text-gray-500">· {count} шт = {formatCurrency(totalPrice, currency)}</span>}
+                <span className={currencyColorClass(currency)}>{formatCurrency(caseItem.price, currency)}</span> за штуку
+                {count > 1 && <span className={`text-xs ${currencyColorClass(currency)}`}>· {count} шт = {formatCurrency(totalPrice, currency)}</span>}
               </p>
             </div>
           </div>
@@ -280,7 +280,7 @@ export default function RouletteModal({
                         </div>
                         {prize.type === 'BALANCE' && (
                           <span
-                            className={`font-extrabold leading-none text-[#FFD700] ${balanceFont}`}
+                            className={`font-extrabold leading-none ${currencyColorClass(currency)} ${balanceFont}`}
                           >
                             +{formatCurrency(prize.price, currency)}
                           </span>
@@ -345,7 +345,7 @@ export default function RouletteModal({
                     />
                   </div>
                   {prize.type === 'BALANCE' ? (
-                    <span className="font-extrabold leading-tight text-[10px] text-[#FFD700]">
+                    <span className={`font-extrabold leading-tight text-[10px] ${currencyColorClass(currency)}`}>
                       +{formatCurrency(prize.price, currency)}
                     </span>
                   ) : (
@@ -357,7 +357,7 @@ export default function RouletteModal({
                     </span>
                   )}
                   {prize.type === 'NFT' && (
-                    <span className="text-[10px] font-extrabold leading-none text-[#FFD700]">
+                    <span className={`text-[10px] font-extrabold leading-none ${currencyColorClass(currency)}`}>
                       {formatCurrency(
                         marketPrices[prize.name] && marketPrices[prize.name]! > 0
                           ? toCurrencyAmount(marketPrices[prize.name]!, currency, conversionFactor)

@@ -4,7 +4,7 @@ import {
   useTonConnectUI,
   useTonWallet,
 } from '@tonconnect/ui-react'
-import { ArrowDown, ArrowUp, Backpack, Gamepad2, LifeBuoy, Plus, Shield, Star, Target, User, Users } from 'lucide-react'
+import { ArrowDown, ArrowUp, Backpack, ChevronDown, Gamepad2, LifeBuoy, Plus, Shield, Star, Target, User, Users } from 'lucide-react'
 import type { CaseItem, DailyBonusPrize, GameCurrency, MeResponse, Prize, TransactionEntry } from './api/types'
 import { connectMarketPriceStream } from './api/marketPrices'
 import {
@@ -19,7 +19,7 @@ import {
   openMultiCase as openMultiCaseApi,
   toggleBetaMode,
 } from './api/client'
-import { balanceField, currencyFactor, formatCurrency } from './utils/gameCurrency'
+import { balanceField, currencyColorClass, currencyFactor, formatCurrency, formatCurrencyValue } from './utils/gameCurrency'
 import {
   captureStartParamRef,
   getTelegramUser,
@@ -33,6 +33,7 @@ import InventoryModal from './components/InventoryModal'
 import DailyBonusModal from './components/DailyBonusModal'
 import FreeCaseModal from './components/FreeCaseModal'
 import DailyBonusPromo from './components/DailyBonusPromo'
+import CurrencyIcon from './components/CurrencyIcon'
 import { DEPOSIT_BONUS_CASE } from './data/cases'
 import LiveFeed from './components/LiveFeed'
 import GamesPage from './pages/GamesPage'
@@ -152,6 +153,8 @@ function App() {
 
   const [me, setMe] = useState<MeResponse | null>(null)
   const [gameCurrency, setGameCurrency] = useState<GameCurrency>('STARS')
+  const [gameCurrencyLocked, setGameCurrencyLocked] = useState(false)
+  const [showCurrencyMenu, setShowCurrencyMenu] = useState(false)
   const [depositRates, setDepositRates] = useState({ starsUsd: 1.4, tonUsd: 1.35 })
   const [betaModeSaving, setBetaModeSaving] = useState(false)
   const [cases, setCases] = useState<CaseItem[]>([])
@@ -173,6 +176,10 @@ function App() {
   const [dailyNotice, setDailyNotice] = useState(false)
   /** Промо-модалка с 3D-картинкой о готовом бесплатном кейсе при входе. */
   const [showPromo, setShowPromo] = useState(false)
+
+  useEffect(() => {
+    if (gameCurrencyLocked) setShowCurrencyMenu(false)
+  }, [gameCurrencyLocked])
 
   // Статичный прелоадер из index.html убираем после первого рендера React.
   useEffect(() => {
@@ -571,7 +578,7 @@ function App() {
         </div>
       )}
 
-      <header className="glass-card flex items-center gap-3 px-3 py-2.5">
+      <header className="glass-card relative flex items-center gap-3 px-3 py-2.5">
         {loading && !me ? (
           <div className="text-sm font-bold text-gray-400">Загрузка профиля...</div>
         ) : !me ? (
@@ -596,9 +603,25 @@ function App() {
               <p className="m-0 text-[11px] font-semibold uppercase tracking-wider text-gray-400">GiftRoll</p>
               <p className="m-0 truncate text-[16px] font-extrabold text-white">{userName}</p>
             </div>
-            <div className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 py-1 pl-2.5 pr-1 backdrop-blur-md">
-              <Star size={14} className="text-[#FFD700]" fill="currentColor" />
-              <span className="text-sm font-extrabold tabular-nums text-white">{me.balance.toLocaleString('ru-RU')}</span>
+            <div className="relative ml-auto flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 py-1 pl-1.5 pr-1 backdrop-blur-md">
+              <button
+                type="button"
+                className={`flex min-w-0 items-center gap-1.5 rounded-full border-0 bg-transparent py-0.5 pl-1 text-sm font-extrabold tabular-nums ${currencyColorClass(gameCurrency)} ${gameCurrencyLocked ? 'opacity-70' : ''}`}
+                onClick={() => {
+                  if (!gameCurrencyLocked) setShowCurrencyMenu((visible) => !visible)
+                }}
+                aria-label={`Выбран баланс ${gameCurrency}. Нажмите, чтобы сменить`}
+                aria-expanded={showCurrencyMenu}
+                aria-haspopup="listbox"
+              >
+                <CurrencyIcon currency={gameCurrency} size={16} />
+                <span className="max-w-[92px] truncate">
+                  {gameCurrency === 'CRYPTO' ? '$' : ''}
+                  {formatCurrencyValue(me[balanceField(gameCurrency)], gameCurrency)}
+                  {gameCurrency === 'GRAMS' ? ' Gram' : ''}
+                </span>
+                <ChevronDown size={13} className="shrink-0 opacity-70" />
+              </button>
               <button
                 type="button"
                 className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-r from-[#FFD700] to-[#FFA500] text-[#1a1400] shadow-gold"
@@ -607,6 +630,36 @@ function App() {
               >
                 <Plus size={14} strokeWidth={3} />
               </button>
+              {showCurrencyMenu && (
+                <div
+                  className="absolute right-0 top-[calc(100%+10px)] z-[1200] w-48 rounded-2xl border border-white/10 bg-[#17181e]/95 p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.55)] backdrop-blur-xl"
+                  role="listbox"
+                  aria-label="Выберите игровой баланс"
+                >
+                  {(['STARS', 'GRAMS', 'CRYPTO'] as const).map((currency) => (
+                    <button
+                      key={currency}
+                      type="button"
+                      role="option"
+                      aria-selected={gameCurrency === currency}
+                      onClick={() => {
+                        setGameCurrency(currency)
+                        setShowCurrencyMenu(false)
+                        tapFeedback('light')
+                      }}
+                      className={`flex w-full items-center justify-between gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-extrabold transition ${gameCurrency === currency ? 'bg-white/10' : 'hover:bg-white/5'}`}
+                    >
+                      <span className={`flex items-center gap-2 ${currencyColorClass(currency)}`}>
+                        <CurrencyIcon currency={currency} size={16} />
+                        {currency === 'STARS' ? 'Stars' : currency === 'GRAMS' ? 'Gram' : 'USD'}
+                      </span>
+                        <span className={currencyColorClass(currency)}>
+                        {formatCurrency(me[balanceField(currency)], currency)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </>
         )}
@@ -649,14 +702,10 @@ function App() {
         {tab === 'games' && (
           <GamesPage
             balance={me?.[balanceField(gameCurrency)] ?? 0}
-            balances={{
-              STARS: me?.balance ?? 0,
-              GRAMS: me?.gramBalance ?? 0,
-              CRYPTO: me?.cryptoBalance ?? 0,
-            }}
             gameCurrency={gameCurrency}
             conversionFactor={currencyFactor(gameCurrency, depositRates)}
             onCurrencyChange={setGameCurrency}
+            onCurrencyLockChange={setGameCurrencyLocked}
             onRefreshMe={refreshMe}
             onBalanceChange={(currency, newBalance) =>
               setMe((prev) => (prev ? { ...prev, [balanceField(currency)]: newBalance } : null))

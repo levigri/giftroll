@@ -274,6 +274,10 @@ select {
 }
 
 /* ---------- PvP ---------- */
+.app .currency-tone--stars { color: #ffd700 !important; }
+.app .currency-tone--grams { color: #38bdf8 !important; }
+.app .currency-tone--crypto { color: #34d399 !important; }
+
 .app .pvp__subtitle,
 .app .upgrader__subtitle {
   color: #9ca3af;
@@ -310,6 +314,11 @@ select {
 .app .pvp__player-stars {
   color: #ffd700;
 }
+
+.app .pvp__bank.currency-tone--grams,
+.app .pvp__player-stars.currency-tone--grams { color: #38bdf8; }
+.app .pvp__bank.currency-tone--crypto,
+.app .pvp__player-stars.currency-tone--crypto { color: #34d399; }
 
 .app .pvp__timer-fill {
   background: linear-gradient(90deg, #ffd700, #ffa500);
@@ -363,6 +372,9 @@ select {
   color: #9ca3af;
 }
 
+.app .upgrader__balance.currency-tone--grams { color: #38bdf8; }
+.app .upgrader__balance.currency-tone--crypto { color: #34d399; }
+
 .app .upgrader__stars-input {
   background-color: rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -402,6 +414,9 @@ select {
   color: #ffd700;
 }
 
+.app .upgrader__nft-price.currency-tone--grams { color: #38bdf8; }
+.app .upgrader__nft-price.currency-tone--crypto { color: #34d399; }
+
 .app .upgrader__hint {
   color: #9ca3af;
 }
@@ -420,6 +435,9 @@ select {
 .app .upgrader__total strong {
   color: #ffffff;
 }
+
+.app .upgrader__total strong.currency-tone--grams { color: #38bdf8; }
+.app .upgrader__total strong.currency-tone--crypto { color: #34d399; }
 
 .app .upgrader__quick-chip {
   border-radius: 12px;
@@ -513,6 +531,9 @@ select {
 .app .upgrader__prize-price {
   color: #ffd700;
 }
+
+.app .upgrader__prize-price.currency-tone--grams { color: #38bdf8; }
+.app .upgrader__prize-price.currency-tone--crypto { color: #34d399; }
 
 .app .upgrader__prize-change {
   color: #9ca3af;

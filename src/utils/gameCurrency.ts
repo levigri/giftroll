@@ -32,10 +32,20 @@ export function currencyUnit(currency: GameCurrency): string {
 }
 
 export function formatCurrency(amount: number, currency: GameCurrency): string {
-  const digits = currencyPrecision(currency)
-  const maximumFractionDigits = currency === 'STARS' ? 0 : Math.min(digits, 4)
-  const formatted = new Intl.NumberFormat('ru-RU', { maximumFractionDigits }).format(amount)
+  const formatted = formatCurrencyValue(amount, currency)
   return currency === 'CRYPTO' ? `$${formatted}` : `${formatted} ${currencyUnit(currency)}`
+}
+
+/** Compact amount for wallet badges and game prices. Values retain full precision internally. */
+export function formatCurrencyValue(amount: number, currency: GameCurrency): string {
+  const maximumFractionDigits = currency === 'STARS' ? 0 : 2
+  return new Intl.NumberFormat('ru-RU', { maximumFractionDigits }).format(amount)
+}
+
+export function currencyColorClass(currency: GameCurrency): string {
+  if (currency === 'GRAMS') return 'currency-tone currency-tone--grams'
+  if (currency === 'CRYPTO') return 'currency-tone currency-tone--crypto'
+  return 'currency-tone currency-tone--stars'
 }
 
 export function balanceField(currency: GameCurrency): 'balance' | 'gramBalance' | 'cryptoBalance' {

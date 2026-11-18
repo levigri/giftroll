@@ -7,7 +7,7 @@ import { FALLBACK_PRIZE_IMAGE, getBestPrize, prizeImage } from '../utils/assets'
 import type { BonusState } from './GamesPage'
 import { DEPOSIT_BONUS_CASE } from '../data/cases'
 import DailyBonusModal from '../components/DailyBonusModal'
-import { formatCurrency, toCurrencyAmount } from '../utils/gameCurrency'
+import { currencyColorClass, formatCurrency, toCurrencyAmount } from '../utils/gameCurrency'
 
 /** Сколько кейсов открывать за один клик. */
 export type OpenCount = 1 | 2 | 5
@@ -356,7 +356,7 @@ export default function CasesPage({
 
                   <h3 className="m-0 text-[15px] font-extrabold text-white">{caseItem.name}</h3>
 
-                  <div className="flex items-center gap-1 text-sm font-extrabold text-[#FFD700]">
+                  <div className={`flex items-center gap-1 text-sm font-extrabold ${currencyColorClass(gameCurrency)}`}>
                     {formatCurrency(caseItem.price, gameCurrency)}
                   </div>
 

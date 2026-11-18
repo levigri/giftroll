@@ -12,7 +12,7 @@ import { errorFeedback, getTelegramUser, successFeedback, tapFeedback } from '..
 import BetSlider, { MAX_BET_STARS, MIN_BET_STARS } from '../components/BetSlider'
 import PvpRoulette from '../components/PvpRoulette'
 import WinnerOverlay from '../components/WinnerOverlay'
-import { formatCurrency, toCurrencyAmount } from '../utils/gameCurrency'
+import { currencyColorClass, formatCurrency, toCurrencyAmount } from '../utils/gameCurrency'
 
 type Phase = 'idle' | 'in_round' | 'spinning' | 'result'
 
@@ -133,7 +133,7 @@ function ParticipantRows({
           }`}
         >
           <span className="pvp__player-name">{nameOf(participant)}</span>
-          <span className="pvp__player-stars">{formatCurrency(participant.stars, currency)}</span>
+          <span className={`pvp__player-stars ${currencyColorClass(currency)}`}>{formatCurrency(participant.stars, currency)}</span>
           <span className="pvp__player-chance">{percentOf(participant.stars, totalStars)}%</span>
         </div>
       ))}
@@ -839,7 +839,7 @@ export default function PvpPage({ balance, currency, conversionFactor, onRefresh
             <section className="pvp__lobby">
               <div className="pvp__lobby-head">
                 <span className="pvp__lobby-title">Сейчас играют</span>
-                <span className="pvp__bank">Банк: {formatCurrency(round.totalStars, round.currency)}</span>
+                <span className={`pvp__bank ${currencyColorClass(round.currency)}`}>Банк: {formatCurrency(round.totalStars, round.currency)}</span>
               </div>
               <div className="pvp__wheel-box">
                 <PvpRoulette
@@ -917,7 +917,7 @@ export default function PvpPage({ balance, currency, conversionFactor, onRefresh
           <section className="pvp__lobby">
             <div className="pvp__lobby-head">
               <span className="pvp__lobby-title">Игра идёт</span>
-              <span className="pvp__bank">Банк: {formatCurrency(round.totalStars, round.currency)}</span>
+              <span className={`pvp__bank ${currencyColorClass(round.currency)}`}>Банк: {formatCurrency(round.totalStars, round.currency)}</span>
             </div>
 
             <ParticipantRows participants={round.participants} totalStars={round.totalStars} currency={round.currency} />
