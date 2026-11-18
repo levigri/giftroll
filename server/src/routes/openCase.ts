@@ -25,7 +25,7 @@ export const openCaseRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        const result = await openCase(user.id, parsed.data.caseId)
+        const result = await openCase(user.id, parsed.data.caseId, parsed.data.currency)
         return {
           prize: {
             id: result.prize.id,
@@ -35,6 +35,7 @@ export const openCaseRoutes: FastifyPluginAsync = async (fastify) => {
             price: result.prize.price,
           },
           newBalance: result.newBalance,
+          currency: result.currency,
           caseOpenId: result.caseOpenId,
         }
       } catch (err) {
@@ -71,7 +72,12 @@ export const openCaseRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        return await openMultiCase(user.id, parsed.data.caseId, parsed.data.count)
+        return await openMultiCase(
+          user.id,
+          parsed.data.caseId,
+          parsed.data.count,
+          parsed.data.currency,
+        )
       } catch (err) {
         if (err instanceof GameError) {
           return reply.code(err.statusCode).send({

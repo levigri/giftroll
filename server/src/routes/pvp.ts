@@ -16,18 +16,17 @@ import {
 const joinSchema = z.object({
   stars: z
     .number()
-    .int('stars must be an integer')
-    .min(MIN_BET_STARS, `stars must be >= ${MIN_BET_STARS}`)
-    .max(MAX_BET_STARS, `stars must be <= ${MAX_BET_STARS}`),
+    .finite('stars must be finite')
+    .positive('stars must be positive'),
+  currency: z.enum(['STARS', 'GRAMS', 'CRYPTO']).default('STARS'),
 })
 
 const addBetSchema = z.object({
   roundId: z.string().min(1, 'roundId is required'),
   extraStars: z
     .number()
-    .int('extraStars must be an integer')
-    .min(MIN_BET_STARS, `extraStars must be >= ${MIN_BET_STARS}`)
-    .max(MAX_BET_STARS, `extraStars must be <= ${MAX_BET_STARS}`),
+    .finite('extraStars must be finite')
+    .positive('extraStars must be positive'),
 })
 
 function sendGameError(reply: FastifyReply, err: unknown) {
@@ -52,7 +51,9 @@ export const pvpRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        return await getCurrentRound(user.id)
+        const rawCurrency = (request.query as { currency?: unknown } | undefined)?.currency
+        const currency = rawCurrency === 'GRAMS' || rawCurrency === 'CRYPTO' ? rawCurrency : 'STARS'
+        return await getCurrentRound(user.id, currency)
       } catch (err) {
         return sendGameError(reply, err)
       }
@@ -78,7 +79,12 @@ export const pvpRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        return await joinRound(user.id, displayName(user), parsed.data.stars)
+        return await joinRound(
+          user.id,
+          displayName(user),
+          parsed.data.stars,
+          parsed.data.currency,
+        )
       } catch (err) {
         return sendGameError(reply, err)
       }

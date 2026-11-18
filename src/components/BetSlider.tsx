@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Pencil, Star } from 'lucide-react'
+import { Pencil } from 'lucide-react'
 
 export interface BetSliderProps {
   /** Текущая ставка в ⭐. */
@@ -16,10 +16,13 @@ export interface BetSliderProps {
   disabled?: boolean
   /** Компактный режим — для формы докида. */
   compact?: boolean
+  min?: number
+  step?: number
+  unit?: string
 }
 
 /** Допустимая ставка в звёздах (совпадает с серверной валидацией). */
-export const MIN_BET_STARS = 10
+export const MIN_BET_STARS = 25
 export const MAX_BET_STARS = 100000
 export const BET_STEP = 10
 
@@ -63,8 +66,11 @@ export default function BetSlider({
   max,
   disabled = false,
   compact = false,
+  min = MIN_BET_STARS,
+  step = BET_STEP,
+  unit = '⭐',
 }: BetSliderProps) {
-  const upperBound = Math.min(MAX_BET_STARS, Math.max(MIN_BET_STARS, max ?? MAX_BET_STARS))
+  const upperBound = Math.min(max ?? MAX_BET_STARS, Math.max(min, max ?? MAX_BET_STARS))
 
   // Значение всегда должно попадать в границы: иначе кнопка подтверждения
   // блокируется суммой, которую всё равно нельзя поставить.
@@ -74,7 +80,7 @@ export default function BetSlider({
     }
   }, [value, upperBound, onChange])
 
-  const current = Math.min(Math.max(value, MIN_BET_STARS), upperBound)
+  const current = Math.min(Math.max(value, min), upperBound)
 
   /**
    * Черновик поля ручного ввода: пользователь может набрать любую сумму,
@@ -101,8 +107,11 @@ export default function BetSlider({
     setDraft(String(current))
   }, [current])
 
-  const clamp = (stars: number): number =>
-    Math.min(upperBound, Math.max(MIN_BET_STARS, Math.round(stars)))
+  const clamp = (amount: number): number => {
+    const snapped = min + Math.round((amount - min) / step) * step
+    const scale = 10 ** Math.min(6, Math.max(0, (String(step).split('.')[1] ?? '').length))
+    return Math.round(Math.min(upperBound, Math.max(min, snapped)) * scale) / scale
+  }
 
   const commit = (): void => {
     const parsed = Number(draft.replace(/\s/g, '').replace(',', '.'))
@@ -162,16 +171,14 @@ export default function BetSlider({
       <div className="bet-slider__head">
         <span className="bet-slider__label">{label}</span>
         <label className="bet-slider__manual">
-          <span className="bet-slider__manual-prefix">
-            <Star size={13} fill="currentColor" />
-          </span>
+          <span className="bet-slider__manual-prefix">{unit}</span>
           <input
             className="bet-slider__number"
             type="number"
-            inputMode="numeric"
-            min={MIN_BET_STARS}
+            inputMode={step < 1 ? 'decimal' : 'numeric'}
+            min={min}
             max={upperBound}
-            step={1}
+            step={step}
             value={draft}
             disabled={disabled}
             onChange={(event) => setDraft(event.target.value)}
@@ -182,7 +189,7 @@ export default function BetSlider({
                 event.currentTarget.blur()
               }
             }}
-            aria-label={`${label}: сумма в звёздах`}
+            aria-label={`${label}: сумма в ${unit}`}
           />
         </label>
       </div>
@@ -190,13 +197,13 @@ export default function BetSlider({
       <input
         className="bet-slider__input"
         type="range"
-        min={MIN_BET_STARS}
+        min={min}
         max={upperBound}
-        step={BET_STEP}
+        step={step}
         value={current}
         disabled={disabled}
         onChange={(event) => onChange(Number(event.target.value))}
-        aria-label={`${label} в звёздах`}
+        aria-label={`${label} в ${unit}`}
       />
 
       <div className="bet-slider__quick">
@@ -208,7 +215,7 @@ export default function BetSlider({
             onClick={() => applyMultiplier(multiplier)}
             disabled={
               disabled ||
-              (multiplier >= 1 ? current >= upperBound : current <= MIN_BET_STARS)
+              (multiplier >= 1 ? current >= upperBound : current <= min)
             }
             title={`Умножить ставку на ${multiplier}`}
           >
@@ -299,19 +306,16 @@ export default function BetSlider({
 
       <div className="bet-slider__bounds">
         <span className="inline-flex items-center gap-0.5">
-          {MIN_BET_STARS}
-          <Star size={10} fill="currentColor" />
+          {min} {unit}
         </span>
         <span className="inline-flex items-center gap-0.5">
-          {upperBound}
-          <Star size={10} fill="currentColor" />
+          {upperBound} {unit}
         </span>
       </div>
 
       {balance !== undefined && (
         <div className="bet-slider__balance inline-flex items-center gap-1">
-          Баланс: {balance}
-          <Star size={11} fill="currentColor" />
+          Баланс: {balance} {unit}
         </div>
       )}
     </div>

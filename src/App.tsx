@@ -5,7 +5,7 @@ import {
   useTonWallet,
 } from '@tonconnect/ui-react'
 import { ArrowDown, ArrowUp, Backpack, Gamepad2, LifeBuoy, Plus, Shield, Star, Target, User, Users } from 'lucide-react'
-import type { CaseItem, DailyBonusPrize, MeResponse, Prize, TransactionEntry } from './api/types'
+import type { CaseItem, DailyBonusPrize, GameCurrency, MeResponse, Prize, TransactionEntry } from './api/types'
 import { connectMarketPriceStream } from './api/marketPrices'
 import {
   ApiError,
@@ -13,11 +13,13 @@ import {
   getCases,
   getMe,
   getTasks,
+  getDepositRates,
   getTransactions,
   openCase as openCaseApi,
   openMultiCase as openMultiCaseApi,
   toggleBetaMode,
 } from './api/client'
+import { balanceField, currencyFactor, formatCurrency } from './utils/gameCurrency'
 import {
   captureStartParamRef,
   getTelegramUser,
@@ -149,6 +151,8 @@ function App() {
   const connectionRestored = useIsConnectionRestored()
 
   const [me, setMe] = useState<MeResponse | null>(null)
+  const [gameCurrency, setGameCurrency] = useState<GameCurrency>('STARS')
+  const [depositRates, setDepositRates] = useState({ starsUsd: 1.4, tonUsd: 1.35 })
   const [betaModeSaving, setBetaModeSaving] = useState(false)
   const [cases, setCases] = useState<CaseItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -156,6 +160,7 @@ function App() {
   const [banReason, setBanReason] = useState<string | null>(null)
 
   const [activeCase, setActiveCase] = useState<CaseItem | null>(null)
+  const [activeCaseCurrency, setActiveCaseCurrency] = useState<GameCurrency>('STARS')
   const [showInventory, setShowInventory] = useState(false)
 
   const [dailyBonusPrize, setDailyBonusPrize] = useState<DailyBonusPrize | null>(null)
@@ -295,6 +300,22 @@ function App() {
   useEffect(() => {
     captureStartParamRef()
     void loadInitialData()
+    let active = true
+    const refreshRates = () => {
+      void getDepositRates()
+        .then((rates) => {
+          if (active) setDepositRates(rates)
+        })
+        .catch((err: unknown) => {
+          console.warn('[GiftRoll] deposit rates unavailable; using last known rates', err)
+        })
+    }
+    refreshRates()
+    const ratesTimer = window.setInterval(refreshRates, 60_000)
+    return () => {
+      active = false
+      window.clearInterval(ratesTimer)
+    }
   }, [])
 
   // Прямые ссылки #/deposit и #/referral и аппаратная кнопка «назад».
@@ -386,6 +407,7 @@ function App() {
   /** Открываем рулетку; сервер проверит наличие заработанного бонусного кейса. */
   const handleClaimDepositBonus = () => {
     if (me?.hasClaimedDepositBonus !== false) return
+    setActiveCaseCurrency('STARS')
     setActiveCase(DEPOSIT_BONUS_CASE)
   }
 
@@ -394,7 +416,7 @@ function App() {
    * сама решает, сколько лент крутить. ×1 идёт через обычный эндпоинт.
    */
   const openCaseBatch = useCallback(
-    async (caseItem: CaseItem, count: OpenCount): Promise<Prize[]> => {
+    async (caseItem: CaseItem, count: OpenCount, currency: GameCurrency): Promise<Prize[]> => {
       if (caseItem.id === DEPOSIT_BONUS_CASE.id) {
         if (count !== 1) {
           throw new Error('Бонусный кейс можно открыть только один раз')
@@ -425,12 +447,12 @@ function App() {
       }
 
       if (count === 1) {
-        const res = await openCaseApi(caseItem.id)
+        const res = await openCaseApi(caseItem.id, currency)
         setMe((prev) =>
           prev
             ? {
                 ...prev,
-                balance: res.newBalance,
+                [balanceField(currency)]: res.newBalance,
                 inventoryCount:
                   !prev.isBetaMode && res.prize.type === 'NFT'
                     ? prev.inventoryCount + 1
@@ -443,14 +465,14 @@ function App() {
         return [res.prize]
       }
 
-      const res = await openMultiCaseApi(caseItem.id, count)
+      const res = await openMultiCaseApi(caseItem.id, count, currency)
       // Звёздные призы уже зачислены сервером, в инвентарь идут только NFT.
       const nftCount = res.results.filter((item) => item.type === 'NFT').length
       setMe((prev) =>
         prev
           ? {
               ...prev,
-              balance: res.newBalance,
+              [balanceField(currency)]: res.newBalance,
               inventoryCount: prev.inventoryCount + (prev.isBetaMode ? 0 : nftCount),
             }
           : null,
@@ -469,8 +491,9 @@ function App() {
     [refreshMe],
   )
 
-  const handleSelectCase = (caseItem: CaseItem) => {
+  const handleSelectCase = (caseItem: CaseItem, currency: GameCurrency = gameCurrency) => {
     tapFeedback('light')
+    setActiveCaseCurrency(currency)
     setActiveCase(caseItem)
   }
 
@@ -625,14 +648,22 @@ function App() {
         )}
         {tab === 'games' && (
           <GamesPage
-            balance={me?.balance ?? 0}
+            balance={me?.[balanceField(gameCurrency)] ?? 0}
+            balances={{
+              STARS: me?.balance ?? 0,
+              GRAMS: me?.gramBalance ?? 0,
+              CRYPTO: me?.cryptoBalance ?? 0,
+            }}
+            gameCurrency={gameCurrency}
+            conversionFactor={currencyFactor(gameCurrency, depositRates)}
+            onCurrencyChange={setGameCurrency}
             onRefreshMe={refreshMe}
-            onBalanceChange={(newBalance) =>
-              setMe((prev) => (prev ? { ...prev, balance: newBalance } : null))
+            onBalanceChange={(currency, newBalance) =>
+              setMe((prev) => (prev ? { ...prev, [balanceField(currency)]: newBalance } : null))
             }
             cases={cases}
             loading={loading}
-            onOpenCase={handleSelectCase}
+            onOpenCase={(caseItem) => handleSelectCase(caseItem, gameCurrency)}
             connected={connected}
             walletLabel={walletLabel}
             connectionRestored={connectionRestored}
@@ -721,6 +752,14 @@ function App() {
                       <Star size={14} className="text-[#FFD700]" fill="currentColor" />
                       {me.balance}
                     </strong>
+                  </div>
+                  <div className="profile__row">
+                    <span>Gram-баланс</span>
+                    <strong>{me.gramBalance.toFixed(4)} Gram</strong>
+                  </div>
+                  <div className="profile__row">
+                    <span>Crypto-баланс</span>
+                    <strong>${me.cryptoBalance.toFixed(2)} USD</strong>
                   </div>
                   <div className="profile__row">
                     <span>NFT в инвентаре</span>
@@ -838,7 +877,7 @@ function App() {
                             }`}
                           >
                             {income ? '+' : ''}
-                            {tx.amount} ⭐
+                            {formatCurrency(tx.amount, tx.currency)}
                           </span>
                         </li>
                       )
@@ -867,6 +906,8 @@ function App() {
         {tab === 'deposit' && (
           <DepositPage
             balance={me?.balance ?? 0}
+            gramBalance={me?.gramBalance ?? 0}
+            cryptoBalance={me?.cryptoBalance ?? 0}
             userId={me?.id ?? null}
             onRefreshMe={refreshMe}
             onBack={closeDeposit}
@@ -907,10 +948,12 @@ function App() {
       {activeCase && (
         <RouletteModal
           caseItem={activeCase}
-          balance={me?.balance ?? 0}
+          currency={activeCaseCurrency}
+          conversionFactor={currencyFactor(activeCaseCurrency, depositRates)}
+          balance={me?.[balanceField(activeCaseCurrency)] ?? 0}
           isBetaMode={me?.isBetaMode ?? false}
           onClose={() => void closeRoulette()}
-          onOpen={(count) => openCaseBatch(activeCase, count)}
+          onOpen={(count) => openCaseBatch(activeCase, count, activeCaseCurrency)}
         />
       )}
 

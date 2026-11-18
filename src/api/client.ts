@@ -10,6 +10,7 @@ import type {
   ClaimDailyResponse,
   ClaimNftResponse,
   DropEvent,
+  GameCurrency,
   InventoryItem,
   MeResponse,
   MultiCaseOpenResponse,
@@ -190,20 +191,21 @@ export async function getCases(): Promise<CasesResponse> {
   return request<CasesResponse>('/api/cases')
 }
 
-export async function openCase(caseId: string): Promise<OpenCaseResponse> {
+export async function openCase(caseId: string, currency: GameCurrency = 'STARS'): Promise<OpenCaseResponse> {
   return request<OpenCaseResponse>('/api/open-case', {
     method: 'POST',
-    body: JSON.stringify({ caseId }),
+    body: JSON.stringify({ caseId, currency }),
   })
 }
 
 export async function openMultiCase(
   caseId: string,
   count: 2 | 5,
+  currency: GameCurrency = 'STARS',
 ): Promise<MultiCaseOpenResponse> {
   return request<MultiCaseOpenResponse>('/api/open-multi-case', {
     method: 'POST',
-    body: JSON.stringify({ caseId, count }),
+    body: JSON.stringify({ caseId, count, currency }),
   })
 }
 
@@ -276,15 +278,15 @@ export async function openPromoCase(code: string): Promise<PromoOpenResponse> {
 /* ---------- PvP «Рулетка на толпу» ---------- */
 
 /** Текущее лобби (polling раз в секунду). */
-export async function pvpGetCurrent(): Promise<PvpCurrentResponse> {
-  return request<PvpCurrentResponse>('/api/pvp/current')
+export async function pvpGetCurrent(currency: GameCurrency = 'STARS'): Promise<PvpCurrentResponse> {
+  return request<PvpCurrentResponse>(`/api/pvp/current?currency=${currency}`)
 }
 
 /** Войти в общее лобби со ставкой stars. */
-export async function pvpJoin(stars: number): Promise<PvpJoinResponse> {
+export async function pvpJoin(stars: number, currency: GameCurrency = 'STARS'): Promise<PvpJoinResponse> {
   return request<PvpJoinResponse>('/api/pvp/join', {
     method: 'POST',
-    body: JSON.stringify({ stars }),
+    body: JSON.stringify({ stars, currency }),
   })
 }
 
@@ -312,10 +314,11 @@ export async function upgraderUpgrade(
   starsBet: number,
   chance: number,
   targetNftId: string,
+  currency: GameCurrency = 'STARS',
 ): Promise<UpgraderResult> {
   return request<UpgraderResult>('/api/upgrader/upgrade', {
     method: 'POST',
-    body: JSON.stringify({ nftIds, starsBet, chance, targetNftId }),
+    body: JSON.stringify({ nftIds, starsBet, chance, targetNftId, currency }),
   })
 }
 
@@ -387,8 +390,8 @@ export async function getDepositRates(): Promise<{ starsUsd: number; tonUsd: num
 export async function depositGramsConfirm(
   depositId: string,
   transactionBoc: string,
-): Promise<{ ok: boolean; starsAmount?: number }> {
-  return request<{ ok: boolean; starsAmount?: number }>('/api/deposit/grams/confirm', {
+): Promise<{ ok: boolean; gramsAmount: number }> {
+  return request<{ ok: boolean; gramsAmount: number }>('/api/deposit/grams/confirm', {
     method: 'POST',
     body: JSON.stringify({ depositId, transactionBoc }),
   })

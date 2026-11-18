@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Lock, Plus, Sparkles, Star, Target, X } from 'lucide-react'
+import { Lock, Plus, Sparkles, Target, X } from 'lucide-react'
 import type {
   CaseItem,
+  GameCurrency,
   InventoryItem,
   Prize,
   UpgraderResult,
@@ -12,11 +13,14 @@ import { marketPriceFor, useMarketPrices } from '../api/marketPrices'
 import { errorFeedback, successFeedback, tapFeedback } from '../telegram'
 import { prizeImage } from '../utils/assets'
 import AssetImage from '../components/AssetImage'
+import { formatCurrency, roundCurrency, toCurrencyAmount } from '../utils/gameCurrency'
 
 type Phase = 'idle' | 'spinning' | 'result'
 
 export interface UpgraderPageProps {
   balance: number
+  currency: GameCurrency
+  conversionFactor: number
   isBetaMode?: boolean
   /** Обновляет профиль (баланс и счётчик инвентаря) после апгрейда. */
   onRefreshMe: () => Promise<void> | void
@@ -46,7 +50,6 @@ const GAUGE_LENGTH = 2 * Math.PI * GAUGE_RADIUS
 /** Сколько полных оборотов делает стрелка за один спин. */
 const SPIN_TURNS = 7
 
-const MAX_BET_LABEL = MAX_TOTAL_BET.toLocaleString('ru-RU')
 
 const CONFETTI_COLORS = ['#ffd54a', '#ff6b6b', '#4ecdc4', '#a78bfa', '#f472b6', '#7dd3fc']
 
@@ -119,15 +122,18 @@ const targetKey = (target: { id: string; name: string }): string => `${target.id
 
 export default function UpgraderPage({
   balance,
+  currency,
+  conversionFactor,
   isBetaMode = false,
   onRefreshMe,
   onBalanceChange,
 }: UpgraderPageProps) {
   const marketPrices = useMarketPrices()
-  const [starsBet, setStarsBet] = useState(DEFAULT_STARS_BET)
-  const [starsDraft, setStarsDraft] = useState(String(DEFAULT_STARS_BET))
+  const [starsBet, setStarsBet] = useState(() => toCurrencyAmount(DEFAULT_STARS_BET, currency, conversionFactor))
+  const [starsDraft, setStarsDraft] = useState(String(toCurrencyAmount(DEFAULT_STARS_BET, currency, conversionFactor)))
   const [chance, setChance] = useState(DEFAULT_CHANCE)
   const [nftIds, setNftIds] = useState<string[]>([])
+  const previousCurrencyRef = useRef({ currency, conversionFactor })
   const [inventory, setInventory] = useState<InventoryItem[]>([])
   const [inventoryLoading, setInventoryLoading] = useState(true)
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -190,6 +196,17 @@ export default function UpgraderPage({
     setStarsDraft(String(starsBet))
   }, [starsBet])
 
+  useEffect(() => {
+    const previous = previousCurrencyRef.current
+    if (previous.currency !== currency) {
+      const equivalentStars = starsBet / previous.conversionFactor
+      const convertedBet = toCurrencyAmount(equivalentStars, currency, conversionFactor)
+      setStarsBet(convertedBet)
+      setStarsDraft(String(convertedBet))
+    }
+    previousCurrencyRef.current = { currency, conversionFactor }
+  }, [currency, conversionFactor, starsBet])
+
   /**
    * Пул целей: все NFT из кейсов и каталога, по одному на название.
    * Если цены отличаются, сохраняем более дорогой вариант.
@@ -204,8 +221,9 @@ export default function UpgraderPage({
       }
 
       const key = prize.name.trim().toLowerCase()
+      const price = toCurrencyAmount(marketPriceFor(prize.name, prize.price, marketPrices), currency, conversionFactor)
       const existing = targets.get(key)
-      if (existing && existing.price >= prize.price) {
+      if (existing && existing.price >= price) {
         return
       }
 
@@ -213,7 +231,7 @@ export default function UpgraderPage({
         id: prize.id,
         name: prize.name,
         emoji: prize.emoji,
-        price: marketPriceFor(prize.name, prize.price, marketPrices),
+        price,
       })
     }
 
@@ -233,7 +251,7 @@ export default function UpgraderPage({
       if (b.price <= 0) return -1
       return a.price - b.price
     })
-  }, [cases, catalog, marketPrices])
+  }, [cases, catalog, marketPrices, currency, conversionFactor])
 
   /** Пул отсортирован по цене по возрастанию — последний подходящий будет самым дорогим. */
   const findBestAffordableTarget = (availablePayout: number): UpgraderTargetNft | null => {
@@ -252,10 +270,13 @@ export default function UpgraderPage({
   )
 
   const nftValue = selectedItems.reduce(
-    (sum, item) => sum + marketPriceFor(item.prizeName, item.prizePrice, marketPrices),
+    (sum, item) => sum + toCurrencyAmount(marketPriceFor(item.prizeName, item.prizePrice, marketPrices), currency, conversionFactor),
     0,
   )
   const totalBet = starsBet + nftValue
+  const minTotalBet = toCurrencyAmount(MIN_TOTAL_BET, currency, conversionFactor)
+  const maxTotalBet = toCurrencyAmount(MAX_TOTAL_BET, currency, conversionFactor)
+  const maxBetLabel = formatCurrency(maxTotalBet, currency)
   const cheapestTarget = nftPool.find((target) => target.price > 0) ?? null
   const cheapestPrice = cheapestTarget?.price ?? Number.POSITIVE_INFINITY
   const maxChanceForCheapest = Math.floor((totalBet * PAYOUT_PERCENT) / cheapestPrice)
@@ -334,8 +355,8 @@ export default function UpgraderPage({
   }, [phase, requestTarget])
 
   const overBalance = !isBetaMode && starsBet > balance
-  const tooSmall = totalBet < MIN_TOTAL_BET
-  const tooBig = totalBet > MAX_TOTAL_BET
+  const tooSmall = totalBet < minTotalBet
+  const tooBig = totalBet > maxTotalBet
   const busy = phase === 'spinning'
   /** Блокируем настройки только на время спина. */
   const locked = busy
@@ -349,7 +370,7 @@ export default function UpgraderPage({
     targetCovered
 
   const updateBetAndTarget = (requestedBet: number): void => {
-    const nextBet = Math.min(MAX_TOTAL_BET, Math.max(MIN_STARS_BET, Math.round(requestedBet)))
+    const nextBet = roundCurrency(Math.min(maxTotalBet, Math.max(MIN_STARS_BET, requestedBet)), currency)
     const nextTotalBet = nextBet + nftValue
     const nextPayout = payoutOf(nextTotalBet, chance)
     const bestTarget = findBestAffordableTarget(nextPayout)
@@ -382,7 +403,7 @@ export default function UpgraderPage({
   const commitStars = (): void => {
     const parsed = Number(starsDraft.replace(/\s/g, '').replace(',', '.'))
     const next = Number.isFinite(parsed)
-      ? Math.min(MAX_TOTAL_BET, Math.max(MIN_STARS_BET, Math.round(parsed)))
+      ? roundCurrency(Math.min(maxTotalBet, Math.max(MIN_STARS_BET, parsed)), currency)
       : starsBet
     setStarsDraft(String(next))
     updateBetAndTarget(next)
@@ -455,7 +476,7 @@ export default function UpgraderPage({
     const loseAngle = loseStart + Math.random() * Math.max(1, 360 - loseStart - margin)
 
     try {
-      const res = await upgraderUpgrade(nftIds, starsBet, chance, requestTarget.id)
+      const res = await upgraderUpgrade(nftIds, starsBet, chance, requestTarget.id, currency)
 
       setResult(res)
 
@@ -523,7 +544,7 @@ export default function UpgraderPage({
         Апгрейдер
       </h2>
       <p className="upgrader__subtitle">
-        Собери ставку из ⭐ и NFT. Цель автоматически меняется вместе с шансом и выплатой;
+        Собери ставку из {currency === 'STARS' ? '⭐' : currency === 'GRAMS' ? 'Gram' : 'USD'} и NFT. Цель автоматически меняется вместе с шансом и выплатой;
         {isBetaMode
           ? ' в бета-режиме результат тестовый, баланс и NFT не меняются.'
           : ' NFT из ставки сгорают в любом случае.'}
@@ -536,23 +557,18 @@ export default function UpgraderPage({
         <section className="glass-card flex flex-col gap-3 p-4">
           <div className="upgrader__panel-head">
             <span className="upgrader__panel-title">1 · Ставка</span>
-            <span className="upgrader__balance inline-flex items-center gap-1">
-              Баланс: {balance}
-              <Star size={11} fill="currentColor" />
-            </span>
+            <span className="upgrader__balance">Баланс: {formatCurrency(balance, currency)}</span>
           </div>
 
           <div className="upgrader__stars-row">
             <label className="upgrader__stars-input">
-              <span className="inline-flex items-center">
-                <Star size={16} className="text-[#FFD700]" fill="currentColor" />
-              </span>
+              <span className="text-[10px] font-bold text-[#FFD700]">{currency === 'STARS' ? '⭐' : currency === 'GRAMS' ? 'Gram' : 'USD'}</span>
               <input
                 type="number"
-                inputMode="numeric"
+                inputMode={currency === 'STARS' ? 'numeric' : 'decimal'}
                 min={MIN_STARS_BET}
-                max={MAX_TOTAL_BET}
-                step={1}
+                max={maxTotalBet}
+                step={currency === 'STARS' ? 1 : currency === 'GRAMS' ? 0.001 : 0.01}
                 value={starsDraft}
                 disabled={busy}
                 onChange={(event) => setStarsDraft(event.target.value)}
@@ -563,7 +579,7 @@ export default function UpgraderPage({
                     event.currentTarget.blur()
                   }
                 }}
-                aria-label="Ставка в звёздах"
+                aria-label={`Ставка в ${currency}`}
               />
             </label>
           </div>
@@ -572,7 +588,7 @@ export default function UpgraderPage({
             <button
               type="button"
               className="ghost-btn py-2 text-xs"
-              onClick={() => applyBet(starsBet + 100)}
+              onClick={() => applyBet(starsBet + toCurrencyAmount(100, currency, conversionFactor))}
               disabled={busy}
             >
               +100
@@ -580,7 +596,7 @@ export default function UpgraderPage({
             <button
               type="button"
               className="ghost-btn py-2 text-xs"
-              onClick={() => applyBet(Math.max(50, Math.floor(starsBet / 2)))}
+              onClick={() => applyBet(Math.max(toCurrencyAmount(50, currency, conversionFactor), roundCurrency(starsBet / 2, currency)))}
               disabled={busy}
             >
               1/2
@@ -596,7 +612,7 @@ export default function UpgraderPage({
             <button
               type="button"
               className="ghost-btn py-2 text-xs"
-              onClick={() => applyBet(Math.min(balance, MAX_TOTAL_BET))}
+              onClick={() => applyBet(Math.max(0, Math.min(balance, maxTotalBet - nftValue)))}
               disabled={busy}
             >
               MAX
@@ -633,10 +649,7 @@ export default function UpgraderPage({
                     className="h-8 w-8"
                   />
                   <span className="upgrader__nft-name">{item.prizeName}</span>
-                  <span className="upgrader__nft-price inline-flex items-center gap-0.5">
-                    {marketPriceFor(item.prizeName, item.prizePrice, marketPrices)}
-                    <Star size={9} fill="currentColor" />
-                  </span>
+                  <span className="upgrader__nft-price">{formatCurrency(toCurrencyAmount(marketPriceFor(item.prizeName, item.prizePrice, marketPrices), currency, conversionFactor), currency)}</span>
                   <span className="upgrader__nft-remove" aria-hidden="true">
                     <X size={12} />
                   </span>
@@ -645,21 +658,18 @@ export default function UpgraderPage({
             </div>
           ) : (
             <div className="upgrader__hint">
-              {inventoryLoading ? 'Загружаем инвентарь…' : 'NFT не выбраны — ставка только ⭐'}
+              {inventoryLoading ? 'Загружаем инвентарь…' : `NFT не выбраны — ставка только ${currency === 'STARS' ? '⭐' : currency === 'GRAMS' ? 'Gram' : 'USD'}`}
             </div>
           )}
 
           <div className={`upgrader__total ${tooBig ? 'upgrader__total--over' : ''}`}>
             <span>Ставка итого</span>
-            <strong className="inline-flex items-center gap-1">
-              {totalBet}
-              <Star size={14} fill="currentColor" />
-            </strong>
+            <strong>{formatCurrency(totalBet, currency)}</strong>
           </div>
 
           {tooBig && (
             <div className="upgrader__hint upgrader__hint--warn">
-              Максимум {MAX_BET_LABEL} ⭐ — убери NFT или уменьши ставку
+              Максимум {maxBetLabel} — убери NFT или уменьши ставку
             </div>
           )}
         </section>
@@ -769,10 +779,7 @@ export default function UpgraderPage({
 
           <div className="upgrader__payout">
             Выплата при победе:{' '}
-            <strong className="inline-flex items-center gap-0.5">
-              {payout}
-              <Star size={12} fill="currentColor" />
-            </strong>
+            <strong>{formatCurrency(payout, currency)}</strong>
           </div>
           {nftBetTooSmall && (
             <p className="m-0 rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-300">
@@ -822,22 +829,18 @@ export default function UpgraderPage({
                     <p className="m-0 truncate text-sm font-extrabold text-white">
                       {requestTarget.name}
                     </p>
-                    <p className="m-0 inline-flex items-center gap-1 text-xs font-bold text-[#FFD700]">
-                      {requestTarget.price}
-                      <Star size={11} fill="currentColor" />
-                    </p>
+                    <p className="m-0 text-xs font-bold text-[#FFD700]">{formatCurrency(requestTarget.price, currency)}</p>
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="m-0 text-[10px] font-bold uppercase tracking-wider text-gray-400">
                       {targetCovered ? 'Сдача' : 'Звёздами'}
                     </p>
                     <p
-                      className={`m-0 inline-flex items-center gap-1 text-sm font-extrabold ${
+                      className={`m-0 text-sm font-extrabold ${
                         targetCovered ? 'text-emerald-400' : 'text-red-400'
                       }`}
                     >
-                      +{targetCovered ? change : payout}
-                      <Star size={11} fill="currentColor" />
+                      +{formatCurrency(targetCovered ? change : payout, currency)}
                     </p>
                   </div>
                 </div>
@@ -847,8 +850,8 @@ export default function UpgraderPage({
                     Пока ничего не помещается
                   </p>
                   <p className="m-0 mt-1 text-xs leading-relaxed text-gray-400">
-                    Выплаты {payout} ⭐ не хватает на самый дешёвый NFT
-                    {cheapestTarget ? ` (${cheapestTarget.price} ⭐)` : ''}. Подними ставку
+                    Выплаты {formatCurrency(payout, currency)} не хватает на самый дешёвый NFT
+                    {cheapestTarget ? ` (${formatCurrency(cheapestTarget.price, currency)})` : ''}. Подними ставку
                     или уменьши шанс.
                   </p>
                 </div>
@@ -929,9 +932,9 @@ export default function UpgraderPage({
                       disabled={locked || (lockedByChance && !manual)}
                       onClick={() => handleSelectTarget(nft)}
                       title={
-                        lockReason ?? `Подобрать шанс для ${nft.name} · ${nft.price} ⭐`
+                        lockReason ?? `Подобрать шанс для ${nft.name} · ${formatCurrency(nft.price, currency)}`
                       }
-                      aria-label={`${nft.name}, ${nft.price} звёзд${lockReason ? `, ${lockReason}` : ''}`}
+                      aria-label={`${nft.name}, ${formatCurrency(nft.price, currency)}${lockReason ? `, ${lockReason}` : ''}`}
                     >
                       <span className="relative inline-flex h-8 w-8 items-center justify-center">
                         <AssetImage
@@ -955,10 +958,7 @@ export default function UpgraderPage({
                           {lockReason}
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-gray-400">
-                          {nft.price}
-                          <Star size={9} fill="currentColor" />
-                        </span>
+                        <span className="text-[10px] font-bold text-gray-400">{formatCurrency(nft.price, currency)}</span>
                       )}
                     </button>
                   )
@@ -982,10 +982,10 @@ export default function UpgraderPage({
       {!canPlay && !busy && (
         <div className="upgrader__hint upgrader__hint--warn">
           {tooBig
-            ? `Максимум ${MAX_BET_LABEL} ⭐`
+            ? `Максимум ${maxBetLabel}`
             : overBalance
-              ? `Недостаточно ⭐ на балансе (${balance})`                : tooSmall
-                  ? `Минимальная ставка — ${MIN_TOTAL_BET} ⭐`
+              ? `Недостаточно средств на балансе (${formatCurrency(balance, currency)})` : tooSmall
+                  ? `Минимальная ставка — ${formatCurrency(minTotalBet, currency)}`
                 : requestTarget && !targetCovered
                   ? `Выплаты не хватит на ${requestTarget.name}`
                 : 'Не хватает на NFT'}
@@ -1001,7 +1001,7 @@ export default function UpgraderPage({
         {busy
           ? 'Крутим…'
           : requestTarget && targetCovered
-            ? `Апгрейд · ${totalBet}`
+            ? `Апгрейд · ${formatCurrency(totalBet, currency)}`
             : 'Не хватает на NFT'}
       </button>
       {busy && (
@@ -1016,29 +1016,17 @@ export default function UpgraderPage({
           {requestTarget && targetCovered ? (
             <>
               Вы получите <strong>{requestTarget.name}</strong> +{' '}
-              <strong className="inline-flex items-center gap-0.5">
-                {change}
-                <Star size={12} fill="currentColor" />
-              </strong>{' '}
-              сдачи ⭐
+              <strong>{formatCurrency(change, currency)}</strong> сдачи
             </>
           ) : requestTarget ? (
             <>
               Выплаты не хватит на <strong>{requestTarget.name}</strong>. Вы получите{' '}
-              <strong className="inline-flex items-center gap-0.5">
-                {payout}
-                <Star size={12} fill="currentColor" />
-              </strong>{' '}
-              ⭐
+              <strong>{formatCurrency(payout, currency)}</strong>
             </>
           ) : (
             <>
               Вы получите{' '}
-              <strong className="inline-flex items-center gap-0.5">
-                {payout}
-                <Star size={12} fill="currentColor" />
-              </strong>{' '}
-              ⭐ — на самый дешёвый NFT не хватает
+              <strong>{formatCurrency(payout, currency)}</strong> — на самый дешёвый NFT не хватает
             </>
           )}
       </div>
@@ -1057,7 +1045,7 @@ export default function UpgraderPage({
               : result.win
               ? result.receivedNft
                 ? 'Предмет у тебя!'
-                : `Выигрыш +${result.remainingStars}`
+                : `Выигрыш +${formatCurrency(result.remainingStars, currency)}`
               : 'Проигрыш'}
           </div>
 
@@ -1075,19 +1063,17 @@ export default function UpgraderPage({
                 className="h-14 w-14"
               />
               <span className="upgrader__prize-name">{result.receivedNft.name}</span>
-              <span className="upgrader__prize-price inline-flex items-center gap-0.5">
-                {marketPriceFor(result.receivedNft.name, result.receivedNft.price, marketPrices)}
-                <Star size={11} fill="currentColor" />
+              <span className="upgrader__prize-price">
+                {formatCurrency(result.receivedNft.price, currency)}
               </span>
-              <span className="upgrader__prize-change inline-flex items-center gap-0.5">
-                + {result.remainingStars}
-                <Star size={10} fill="currentColor" /> сдачи на баланс
+              <span className="upgrader__prize-change">
+                + {formatCurrency(result.remainingStars, currency)} сдачи на баланс
               </span>
             </div>
           )}
 
           <div className="upgrader__result-meta">
-            Ставка {result.totalBet} ⭐ · шанс {resultChance}% · множитель ×
+            Ставка {formatCurrency(result.totalBet, currency)} · шанс {resultChance}% · множитель ×
             {formatMultiplier(result.multiplier)}
           </div>
 
@@ -1156,10 +1142,7 @@ export default function UpgraderPage({
                         ) : unavailable ? (
                           <span className="text-gray-500">Недоступен</span>
                         ) : (
-                          <>
-                            {marketPriceFor(item.prizeName, item.prizePrice, marketPrices)}
-                            <Star size={11} fill="currentColor" />
-                          </>
+                          formatCurrency(toCurrencyAmount(marketPriceFor(item.prizeName, item.prizePrice, marketPrices), currency, conversionFactor), currency)
                         )}
                       </span>
                     </label>
@@ -1168,10 +1151,7 @@ export default function UpgraderPage({
               </div>
             )}
 
-            <div className="upgrader-picker__summary inline-flex items-center gap-1">
-              Выбрано {selectedItems.length} NFT · {nftValue}
-              <Star size={11} fill="currentColor" />
-            </div>
+            <div className="upgrader-picker__summary">Выбрано {selectedItems.length} NFT · {formatCurrency(nftValue, currency)}</div>
 
             <button
               type="button"

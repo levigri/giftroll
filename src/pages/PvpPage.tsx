@@ -1,26 +1,32 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Clock, Lock, Plus, Star, Swords, Trophy } from 'lucide-react'
+import { Clock, Lock, Plus, Swords, Trophy } from 'lucide-react'
 import type {
   PvpHistoryEntry,
   PvpJoinResponse,
   PvpParticipantView,
   PvpRoundView,
+  GameCurrency,
 } from '../api/types'
 import { ApiError, pvpAddBet, pvpGetCurrent, pvpGetHistory, pvpJoin } from '../api/client'
 import { errorFeedback, getTelegramUser, successFeedback, tapFeedback } from '../telegram'
 import BetSlider, { MAX_BET_STARS, MIN_BET_STARS } from '../components/BetSlider'
 import PvpRoulette from '../components/PvpRoulette'
 import WinnerOverlay from '../components/WinnerOverlay'
+import { formatCurrency, toCurrencyAmount } from '../utils/gameCurrency'
 
 type Phase = 'idle' | 'in_round' | 'spinning' | 'result'
 
 export interface PvpPageProps {
   balance: number
+  currency: GameCurrency
+  conversionFactor: number
   isBetaMode: boolean
+  onCurrencyLock?: (locked: boolean) => void
+  onCurrencyChange?: (currency: GameCurrency) => void
   /** Обновляет профиль (баланс в шапке) после входа и после спина. */
   onRefreshMe: () => Promise<void> | void
   /** Мгновенное оптимистичное обновление баланса при ставке или докиде. */
-  onBalanceChange?: (newBalance: number) => void
+  onBalanceChange?: (currency: GameCurrency, newBalance: number) => void
 }
 
 /** Синхронизация — только polling, без WebSocket. */
@@ -55,6 +61,7 @@ const PENDING_ROUND_ID = 'pending'
 /** Итог раунда, собранный либо из состояния лобби, либо из истории. */
 interface RoundResult {
   id: string
+  currency: GameCurrency
   totalStars: number
   winnerId: string | null
   winnerName: string | null
@@ -108,10 +115,12 @@ function calculateMyPayout(round: RoundResult, myUserId: string): number {
 function ParticipantRows({
   participants,
   totalStars,
+  currency,
   winnerId = null,
 }: {
   participants: PvpParticipantView[]
   totalStars: number
+  currency: GameCurrency
   winnerId?: string | null
 }) {
   return (
@@ -124,10 +133,7 @@ function ParticipantRows({
           }`}
         >
           <span className="pvp__player-name">{nameOf(participant)}</span>
-          <span className="pvp__player-stars inline-flex items-center gap-0.5">
-            {participant.stars}
-            <Star size={10} fill="currentColor" />
-          </span>
+          <span className="pvp__player-stars">{formatCurrency(participant.stars, currency)}</span>
           <span className="pvp__player-chance">{percentOf(participant.stars, totalStars)}%</span>
         </div>
       ))}
@@ -136,10 +142,11 @@ function ParticipantRows({
 }
 
 /** Оптимистичный раунд на время входа: себя показываем, не дожидаясь сервера. */
-function optimisticRound(stars: number): PvpRoundView {
+function optimisticRound(stars: number, currency: GameCurrency): PvpRoundView {
   return {
     id: PENDING_ROUND_ID,
     status: 'open',
+    currency,
     totalStars: stars,
     endsAt: null,
     participants: [{ userId: 'me', username: null, stars, isBot: false, isMe: true, chance: 1 }],
@@ -174,6 +181,7 @@ function resultFromRound(round: PvpRoundView): RoundResult {
 
   return {
     id: round.id,
+    currency: round.currency,
     totalStars: round.totalStars,
     winnerId: round.winnerId,
     winnerName: round.winnerName,
@@ -189,6 +197,7 @@ function resultFromRound(round: PvpRoundView): RoundResult {
 function resultFromHistory(entry: PvpHistoryEntry): RoundResult {
   return {
     id: entry.id,
+    currency: entry.currency,
     totalStars: entry.totalStars,
     winnerId: entry.winnerId,
     winnerName: entry.winnerName,
@@ -239,16 +248,19 @@ function formatTime(iso: string | null): string {
   )}`
 }
 
-export default function PvpPage({ balance, onRefreshMe, onBalanceChange, isBetaMode }: PvpPageProps) {
+export default function PvpPage({ balance, currency, conversionFactor, onRefreshMe, onBalanceChange, onCurrencyLock, onCurrencyChange, isBetaMode }: PvpPageProps) {
   const [phase, setPhase] = useState<Phase>('idle')
   const [round, setRound] = useState<PvpRoundView | null>(null)
   const [result, setResult] = useState<RoundResult | null>(null)
   const [history, setHistory] = useState<PvpHistoryEntry[]>([])
+  const minBet = toCurrencyAmount(MIN_BET_STARS, currency, conversionFactor)
+  const maxBetLimit = toCurrencyAmount(MAX_BET_STARS, currency, conversionFactor)
   const [stars, setStars] = useState(() =>
-    Math.min(DEFAULT_BET_STARS, Math.max(MIN_BET_STARS, balance)),
+    Math.min(toCurrencyAmount(DEFAULT_BET_STARS, currency, conversionFactor), Math.max(minBet, balance)),
   )
   /** Дополнительная ставка формы «Докинуть» (Баг 3). */
-  const [additionalBet, setAdditionalBet] = useState(DEFAULT_ADD_STARS)
+  const [additionalBet, setAdditionalBet] = useState(() => toCurrencyAmount(DEFAULT_ADD_STARS, currency, conversionFactor))
+  const previousCurrencyRef = useRef({ currency, conversionFactor })
   /** id раунда от сервера: без него pvpAddBet вызвать нечем. */
   const [roundId, setRoundId] = useState<string | null>(null)
   /** Идёт вход: UI уже в 'in_round', ответ pvpJoin ещё в пути. */
@@ -281,6 +293,19 @@ export default function PvpPage({ balance, onRefreshMe, onBalanceChange, isBetaM
   const roundEndsAtRef = useRef<number | null>(null)
   /** Блок с колесом — при старте спина его прокручиваем в зону видимости. */
   const outcomeRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const previous = previousCurrencyRef.current
+    if (previous.currency !== currency) {
+      setStars(toCurrencyAmount(stars / previous.conversionFactor, currency, conversionFactor))
+      setAdditionalBet(toCurrencyAmount(additionalBet / previous.conversionFactor, currency, conversionFactor))
+    }
+    previousCurrencyRef.current = { currency, conversionFactor }
+  }, [currency, conversionFactor, stars, additionalBet])
+
+  useEffect(() => {
+    onCurrencyLock?.(Boolean(round && phase !== 'idle'))
+  }, [round, phase, onCurrencyLock])
 
   const showError = useCallback((err: unknown) => {
     const text = formatErrorMessage(err)
@@ -337,6 +362,10 @@ export default function PvpPage({ balance, onRefreshMe, onBalanceChange, isBetaM
         return
       }
 
+      if (next.participants.some((participant) => participant.isMe) && next.currency !== currency) {
+        onCurrencyChange?.(next.currency)
+      }
+
       // Если раунд завершён — крутим колесо и показываем результат (Баг №3).
       if (next.status === 'finished') {
         if (lastSeenFinishedRoundIdRef.current === next.id) {
@@ -390,7 +419,7 @@ export default function PvpPage({ balance, onRefreshMe, onBalanceChange, isBetaM
         setPhase('in_round')
       }
     },
-    [finishFromHistory, loadHistory],
+    [currency, finishFromHistory, loadHistory, onCurrencyChange],
   )
 
   useEffect(() => {
@@ -434,7 +463,7 @@ export default function PvpPage({ balance, onRefreshMe, onBalanceChange, isBetaM
         return
       }
       try {
-        const data = await pvpGetCurrent()
+        const data = await pvpGetCurrent(currency)
         if (!cancelled && !spinBusy()) {
           applyRoundRef.current(data.round)
         }
@@ -476,7 +505,7 @@ export default function PvpPage({ balance, onRefreshMe, onBalanceChange, isBetaM
         pollRef.current = null
       }
     }
-  }, [phase])
+  }, [phase, currency])
 
   /** Момент конца раунда для polling-цикла (см. nextDelay). */
   useEffect(() => {
@@ -521,7 +550,7 @@ export default function PvpPage({ balance, onRefreshMe, onBalanceChange, isBetaM
 
     if (finalResult === null) {
       try {
-        const data = await pvpGetCurrent()
+        const data = await pvpGetCurrent(currency)
         if (data.round?.status === 'finished' && data.round.winnerId) {
           finalResult = resultFromRound(data.round)
           setResult(finalResult)
@@ -554,14 +583,14 @@ export default function PvpPage({ balance, onRefreshMe, onBalanceChange, isBetaM
     } else if (finalResult.iWon) {
       settledBalance = balance + calculateMyPayout(finalResult, myUserId)
     }
-    if (settledBalance !== balance) {
-      onBalanceChange?.(settledBalance)
+    if (settledBalance !== balance && finalResult.currency === currency) {
+      onBalanceChange?.(currency, settledBalance)
     }
 
     setPhase('result')
     void onRefreshMe()
     void loadHistory()
-  }, [result, myUserId, balance, onBalanceChange, onRefreshMe, loadHistory])
+  }, [result, myUserId, balance, currency, onBalanceChange, onRefreshMe, loadHistory])
 
   /**
    * Вход в игру: UI переключается мгновенно, баланс списывается сразу,
@@ -576,13 +605,13 @@ export default function PvpPage({ balance, onRefreshMe, onBalanceChange, isBetaM
 
     tapFeedback('medium')
     setShowAddBet(false)
-    setAdditionalBet(Math.min(DEFAULT_ADD_STARS, Math.max(MIN_BET_STARS, stars)))
+    setAdditionalBet(Math.min(toCurrencyAmount(DEFAULT_ADD_STARS, currency, conversionFactor), Math.max(minBet, stars)))
 
     // Мгновенное списание баланса (0 мс задержки)
-    onBalanceChange?.(Math.max(0, balance - stars))
+    onBalanceChange?.(currency, Math.max(0, balance - stars))
 
     // Сразу показываем себя в лобби
-    setRound(optimisticRound(stars))
+    setRound(optimisticRound(stars, currency))
     setRoundId(null)
     setPhase('in_round')
     joiningRef.current = true
@@ -591,11 +620,11 @@ export default function PvpPage({ balance, onRefreshMe, onBalanceChange, isBetaM
     void (async () => {
       let joinRes: PvpJoinResponse
       try {
-        joinRes = await pvpJoin(stars)
+        joinRes = await pvpJoin(stars, currency)
         setRoundId(joinRes.roundId)
       } catch (err: unknown) {
         console.error('[PVP] pvpJoin failed:', err)
-        onBalanceChange?.(balance)
+        onBalanceChange?.(currency, balance)
         joiningRef.current = false
         setJoining(false)
         setRoundId(null)
@@ -613,7 +642,7 @@ export default function PvpPage({ balance, onRefreshMe, onBalanceChange, isBetaM
         applyRound(joinRes.round)
       } else {
         try {
-          const data = await pvpGetCurrent()
+          const data = await pvpGetCurrent(currency)
           if (data.round) {
             applyRound(data.round)
           } else {
@@ -640,9 +669,9 @@ export default function PvpPage({ balance, onRefreshMe, onBalanceChange, isBetaM
       return
     }
 
-    if (additionalBet < MIN_BET_STARS) {
+    if (additionalBet < minBet) {
       errorFeedback()
-      showError(new ApiError('INVALID_BET', `Минимальная добавка ${MIN_BET_STARS} ⭐`, 400))
+      showError(new ApiError('INVALID_BET', `Минимальная добавка ${formatCurrency(minBet, currency)}`, 400))
       return
     }
 
@@ -660,7 +689,7 @@ export default function PvpPage({ balance, onRefreshMe, onBalanceChange, isBetaM
     setShowAddBet(false)
 
     // Мгновенное списание баланса (0 мс задержки)
-    onBalanceChange?.(Math.max(0, balance - bet))
+    onBalanceChange?.(currency, Math.max(0, balance - bet))
 
     // Запоминаем ожидаемую ставку для защиты от затирания поллингом
     const currentMyStars = round.participants.find((p) => p.isMe)?.stars ?? 0
@@ -674,10 +703,10 @@ export default function PvpPage({ balance, onRefreshMe, onBalanceChange, isBetaM
         addRes = await pvpAddBet(targetRoundId, bet)
       } catch (err: unknown) {
         console.error('[PVP] pvpAddBet failed:', err)
-        onBalanceChange?.(balance)
+        onBalanceChange?.(currency, balance)
         optimisticStarsRef.current = null
         try {
-          const data = await pvpGetCurrent()
+          const data = await pvpGetCurrent(currency)
           setRound(data.round ?? snapshot)
         } catch (refetchError: unknown) {
           console.error('[PVP] не удалось перечитать раунд после отката:', refetchError)
@@ -695,7 +724,7 @@ export default function PvpPage({ balance, onRefreshMe, onBalanceChange, isBetaM
         setRound(addRes.round)
       } else {
         try {
-          const data = await pvpGetCurrent()
+          const data = await pvpGetCurrent(currency)
           if (data.round) {
             setRound(data.round)
           }
@@ -721,10 +750,10 @@ export default function PvpPage({ balance, onRefreshMe, onBalanceChange, isBetaM
     setShowAddBet(false)
     setOverlayReady(false)
     // Ставку возвращаем к дефолту, но не выше доступного баланса.
-    setStars(Math.min(DEFAULT_BET_STARS, Math.max(MIN_BET_STARS, balance)))
+    setStars(Math.min(toCurrencyAmount(DEFAULT_BET_STARS, currency, conversionFactor), Math.max(minBet, balance)))
     void loadHistory()
     void onRefreshMe()
-  }, [balance, loadHistory, onRefreshMe])
+  }, [balance, currency, conversionFactor, minBet, loadHistory, onRefreshMe])
 
   const myStars = round?.participants.find((participant) => participant.isMe)?.stars ?? 0
   // endsAt === null — в раунде пока один участник, отсчёт ещё не начался.
@@ -734,7 +763,7 @@ export default function PvpPage({ balance, onRefreshMe, onBalanceChange, isBetaM
   const spinningSoon = msLeft !== null && msLeft <= 0
   const progress = msLeft === null ? 0 : Math.min(1, Math.max(0, 1 - msLeft / ROUND_DURATION_MS))
   /** Больше баланса поставить нельзя — этим ограничены оба слайдера. */
-  const maxBet = Math.min(MAX_BET_STARS, Math.max(MIN_BET_STARS, balance))
+  const maxBet = Math.min(maxBetLimit, Math.max(minBet, balance))
   /** В раунде пока один участник: либо вхожу я, либо жду живого соперника. */
   const waitingForOpponent = joining || (round !== null && round.participants.length < 2)
 
@@ -797,7 +826,7 @@ export default function PvpPage({ balance, onRefreshMe, onBalanceChange, isBetaM
         Рулетка на толпу
       </h2>
       <p className="pvp__subtitle">
-        Ставь звёзды против всех сразу. Через 10 секунд после входа второго участника колесо выбирает
+        Играй на {currency === 'STARS' ? '⭐ Stars' : currency === 'GRAMS' ? 'Gram' : 'Crypto (USD)'} против всех сразу. Через 10 секунд после входа второго участника колесо выбирает
         одного победителя: он получает свою ставку и 95% от суммы ставок проигравших. Больше
         ставишь — выше шанс.
       </p>
@@ -810,10 +839,7 @@ export default function PvpPage({ balance, onRefreshMe, onBalanceChange, isBetaM
             <section className="pvp__lobby">
               <div className="pvp__lobby-head">
                 <span className="pvp__lobby-title">Сейчас играют</span>
-                <span className="pvp__bank inline-flex items-center gap-0.5">
-                  Банк: {round.totalStars}
-                  <Star size={11} fill="currentColor" />
-                </span>
+                <span className="pvp__bank">Банк: {formatCurrency(round.totalStars, round.currency)}</span>
               </div>
               <div className="pvp__wheel-box">
                 <PvpRoulette
@@ -823,7 +849,7 @@ export default function PvpPage({ balance, onRefreshMe, onBalanceChange, isBetaM
                   roundId={round.id}
                 />
               </div>
-              <ParticipantRows participants={round.participants} totalStars={round.totalStars} />
+              <ParticipantRows participants={round.participants} totalStars={round.totalStars} currency={round.currency} />
               <div className="pvp__lobby-hint">
                 {msLeft === null
                   ? 'Раунд ждёт второго игрока — успей войти'
@@ -832,7 +858,15 @@ export default function PvpPage({ balance, onRefreshMe, onBalanceChange, isBetaM
             </section>
           )}
 
-          <BetSlider value={stars} onChange={setStars} balance={balance} max={maxBet} />
+          <BetSlider
+            value={stars}
+            onChange={setStars}
+            balance={balance}
+            max={maxBet}
+            min={minBet}
+            step={currency === 'STARS' ? 1 : currency === 'GRAMS' ? 0.001 : 0.01}
+            unit={currency === 'STARS' ? '⭐' : currency === 'GRAMS' ? 'Gram' : 'USD'}
+          />
 
           <button
             type="button"
@@ -841,8 +875,7 @@ export default function PvpPage({ balance, onRefreshMe, onBalanceChange, isBetaM
             disabled={stars > balance}
           >
             <Swords size={17} />
-            Войти в игру · {stars}
-            <Star size={14} fill="currentColor" />
+            Войти в игру · {formatCurrency(stars, currency)}
           </button>
         </>
       )}
@@ -884,25 +917,22 @@ export default function PvpPage({ balance, onRefreshMe, onBalanceChange, isBetaM
           <section className="pvp__lobby">
             <div className="pvp__lobby-head">
               <span className="pvp__lobby-title">Игра идёт</span>
-              <span className="pvp__bank inline-flex items-center gap-0.5">
-                Банк: {round.totalStars}
-                <Star size={11} fill="currentColor" />
-              </span>
+              <span className="pvp__bank">Банк: {formatCurrency(round.totalStars, round.currency)}</span>
             </div>
 
-            <ParticipantRows participants={round.participants} totalStars={round.totalStars} />
+            <ParticipantRows participants={round.participants} totalStars={round.totalStars} currency={round.currency} />
 
             {waitingForOpponent && (
               <div className="pvp__player pvp__player--waiting">Ищем соперника...</div>
             )}
 
             <div className="pvp__lobby-hint">
-              Твоя ставка: {myStars} ⭐ · шанс {percentOf(myStars, round.totalStars)}%
+              Твоя ставка: {formatCurrency(myStars, round.currency)} · шанс {percentOf(myStars, round.totalStars)}%
             </div>
 
-            {balance < MIN_BET_STARS ? (
+            {balance < minBet ? (
               <div className="pvp__lobby-hint">
-                Недостаточно ⭐, чтобы докинуть: минимальная добавка {MIN_BET_STARS} ⭐
+                Недостаточно средств, чтобы докинуть: минимум {formatCurrency(minBet, currency)}
               </div>
             ) : showAddBet ? (
               <div className="pvp__addbet">
@@ -913,6 +943,9 @@ export default function PvpPage({ balance, onRefreshMe, onBalanceChange, isBetaM
                   onChange={setAdditionalBet}
                   balance={balance}
                   max={maxBet}
+                  min={minBet}
+                  step={currency === 'STARS' ? 1 : currency === 'GRAMS' ? 0.001 : 0.01}
+                  unit={currency === 'STARS' ? '⭐' : currency === 'GRAMS' ? 'Gram' : 'USD'}
                 />
                 <div className="pvp__addbet-actions">
                   <button
@@ -944,7 +977,7 @@ export default function PvpPage({ balance, onRefreshMe, onBalanceChange, isBetaM
                 className="ghost-btn flex items-center justify-center gap-1.5 py-3 text-sm"
                 onClick={() => {
                   tapFeedback('light')
-                  setAdditionalBet(Math.min(DEFAULT_ADD_STARS, maxBet))
+                  setAdditionalBet(Math.min(toCurrencyAmount(DEFAULT_ADD_STARS, currency, conversionFactor), maxBet))
                   setShowAddBet(true)
                 }}
                 disabled={roundId === null}
@@ -986,13 +1019,12 @@ export default function PvpPage({ balance, onRefreshMe, onBalanceChange, isBetaM
               <span className="inline-flex items-center justify-center gap-1.5">
                 <Trophy size={16} />
                 {result.iWon
-                  ? `Победа! Твой сектор выпал: +${myPayout - result.myStars}`
+                  ? `Победа! Твой сектор выпал: +${formatCurrency(myPayout - result.myStars, result.currency)}`
                   : `Победил ${
                       winnerParticipant?.isBot
                         ? 'Test Bot'
                         : (winnerParticipant?.username ?? 'соперник')
                     }`}
-                <Star size={13} fill="currentColor" />
               </span>
             </div>
           )}
@@ -1000,6 +1032,7 @@ export default function PvpPage({ balance, onRefreshMe, onBalanceChange, isBetaM
           <ParticipantRows
             participants={result.participants}
             totalStars={result.totalStars}
+            currency={result.currency}
             winnerId={phase === 'result' ? result.winnerId : null}
           />
         </div>
@@ -1018,6 +1051,7 @@ export default function PvpPage({ balance, onRefreshMe, onBalanceChange, isBetaM
           myUserId={myUserId}
           myPayout={myPayout}
           myBet={result.myStars}
+          currency={result.currency}
           onClose={handlePlayAgain}
         />
       )}
@@ -1039,8 +1073,7 @@ export default function PvpPage({ balance, onRefreshMe, onBalanceChange, isBetaM
               <div key={entry.id} className="pvp__history-item">
                 <div className="pvp__history-main">
                   <div className="pvp__history-opponent inline-flex items-center gap-0.5">
-                    Банк {entry.totalStars}
-                    <Star size={10} fill="currentColor" /> · {entry.participants.length} участн.
+                    Банк {formatCurrency(entry.totalStars, entry.currency)} · {entry.participants.length} участн.
                   </div>
                   <div className="pvp__history-meta">{formatTime(entry.finishedAt)}</div>
                 </div>
@@ -1050,15 +1083,9 @@ export default function PvpPage({ balance, onRefreshMe, onBalanceChange, isBetaM
                     не состоялась
                   </span>
                 ) : entry.iWon ? (
-                  <span className="pvp__history-result pvp__history-result--win inline-flex items-center gap-0.5">
-                    +{entry.payoutStars}
-                    <Star size={10} fill="currentColor" />
-                  </span>
+                  <span className="pvp__history-result pvp__history-result--win">+{formatCurrency(entry.payoutStars, entry.currency)}</span>
                 ) : (
-                  <span className="pvp__history-result pvp__history-result--lose inline-flex items-center gap-0.5">
-                    −{entry.myStars}
-                    <Star size={10} fill="currentColor" />
-                  </span>
+                  <span className="pvp__history-result pvp__history-result--lose">−{formatCurrency(entry.myStars, entry.currency)}</span>
                 )}
               </div>
             ))}

@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Gift, KeyRound, Lock, Star, Wallet } from 'lucide-react'
 import { checkPromoCode, openPromoCase } from '../api/client'
-import type { CaseItem, DailyBonusPrize, MeResponse, PromoOpenResponse } from '../api/types'
+import type { CaseItem, DailyBonusPrize, GameCurrency, MeResponse, PromoOpenResponse } from '../api/types'
 import { tapFeedback } from '../telegram'
 import { FALLBACK_PRIZE_IMAGE, getBestPrize, prizeImage } from '../utils/assets'
 import type { BonusState } from './GamesPage'
 import { DEPOSIT_BONUS_CASE } from '../data/cases'
 import DailyBonusModal from '../components/DailyBonusModal'
+import { formatCurrency, toCurrencyAmount } from '../utils/gameCurrency'
 
 /** Сколько кейсов открывать за один клик. */
 export type OpenCount = 1 | 2 | 5
@@ -57,6 +58,8 @@ export interface CasesPageProps {
   onClaimDepositBonus: () => void
   onPromoOpened: (result: PromoOpenResponse) => void
   me: MeResponse | null
+  gameCurrency: GameCurrency
+  conversionFactor: number
 }
 
 /** Вкладка «Кейсы»: сетка кейсов и подключение TON-кошелька. */
@@ -73,6 +76,8 @@ export default function CasesPage({
   onClaimDepositBonus,
   onPromoOpened,
   me,
+  gameCurrency,
+  conversionFactor,
 }: CasesPageProps) {
   const [promoCode, setPromoCode] = useState('')
   const [isPromoValid, setIsPromoValid] = useState(false)
@@ -80,7 +85,15 @@ export default function CasesPage({
   const [promoBusy, setPromoBusy] = useState(false)
   const [promoPrize, setPromoPrize] = useState<DailyBonusPrize | null>(null)
 
-  const hottestPrice = cases.reduce((max, item) => Math.max(max, item.price), 0)
+  const displayCases = cases.map((item) => ({
+    ...item,
+    price: toCurrencyAmount(item.price, gameCurrency, conversionFactor),
+    prizes: item.prizes.map((prize) => ({
+      ...prize,
+      price: toCurrencyAmount(prize.price, gameCurrency, conversionFactor),
+    })),
+  }))
+  const hottestPrice = displayCases.reduce((max, item) => Math.max(max, item.price), 0)
   const countdown = useCountdown(bonus.dailyAvailableAt, !bonus.dailyAvailable)
   const isBonusAvailable = me?.hasClaimedDepositBonus === false
 
@@ -295,7 +308,7 @@ export default function CasesPage({
               {promoError && <p className="m-0 text-xs font-semibold text-red-300">{promoError}</p>}
             </article>
 
-            {cases.map((caseItem) => {
+            {displayCases.map((caseItem) => {
               const isHot = caseItem.price === hottestPrice && hottestPrice > 0
               const bestPrize = getBestPrize(caseItem.prizes)
               const bestPrizeImg = bestPrize
@@ -344,8 +357,7 @@ export default function CasesPage({
                   <h3 className="m-0 text-[15px] font-extrabold text-white">{caseItem.name}</h3>
 
                   <div className="flex items-center gap-1 text-sm font-extrabold text-[#FFD700]">
-                    {caseItem.price}
-                    <Star size={13} fill="currentColor" />
+                    {formatCurrency(caseItem.price, gameCurrency)}
                   </div>
 
                   <div className="mt-1 flex w-full items-center justify-center rounded-xl border border-white/10 bg-white/5 py-1.5 text-xs font-bold text-gray-300 transition group-hover:border-[#FFD700]/50 group-hover:text-white">

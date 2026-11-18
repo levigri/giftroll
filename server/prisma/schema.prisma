@@ -29,6 +29,8 @@ model User {
   username  String?
   photoUrl  String?
   balance   Float    @default(0)
+  gramBalance   Float @default(0)
+  cryptoBalance Float @default(0) // USD-equivalent wallet balance paid through Crypto Pay
   // Сколько ⭐ из пополнений ещё не отыграно: только эти звёзды дают рефереру 10%.
   depositUnspent Int  @default(0)
   // Кто пригласил (Telegram ID). null — пришёл сам.
@@ -108,7 +110,9 @@ model CaseOpen {
   caseId     String
   prizeId    String
   prizeType  PrizeType
-  prizePrice Int
+  prizePrice Float
+  currency   String    @default("STARS")
+  casePrice  Float?
   isBetaMode Boolean   @default(false)
   createdAt  DateTime  @default(now())
 
@@ -124,11 +128,12 @@ model UpgraderAttempt {
   targetNftId    String
   targetNftName  String
   targetNftEmoji String
-  targetNftPrice Int
-  betAmount      Int
+  targetNftPrice Float
+  betAmount      Float
   chance         Float
   win            Boolean
-  winAmount      Int
+  winAmount      Float
+  currency       String   @default("STARS")
   isBetaMode     Boolean  @default(false)
   createdAt      DateTime @default(now())
 
@@ -229,9 +234,10 @@ model DropEvent {
 model PvpRound {
   id         String    @id @default(cuid())
   status     String // 'open' | 'spinning' | 'finished'
-  totalStars Int       @default(0)
+  currency   String    @default("STARS")
+  totalStars Float     @default(0)
   winnerId   BigInt?
-  rakeStars  Int       @default(0) // сколько ⭐ ушло в кассу
+  rakeStars  Float     @default(0)
   // null — в раунде пока один участник, таймер отсчёта ещё не запущен.
   startedAt  DateTime?
   finishedAt DateTime?
@@ -249,7 +255,7 @@ model PvpParticipant {
   roundId  String
   userId   BigInt
   username String?
-  stars    Int
+  stars    Float
   isBot    Boolean  @default(false)
   joinedAt DateTime @default(now())
 
@@ -266,6 +272,7 @@ model Transaction {
   userId    BigInt
   type      String // 'DEPOSIT' | 'CASE_OPEN' | 'UPGRADE' | 'PVP_BET' | 'PVP_WIN' | 'SELL_NFT' | 'DAILY_BONUS' | 'REFERRAL'
   amount    Float // положительное — доход, отрицательное — расход
+  currency  String   @default("STARS")
   details   String?
   createdAt DateTime @default(now())
 
@@ -286,8 +293,10 @@ model Deposit {
   createdAt        DateTime  @default(now())
   completedAt      DateTime?
   currency         String    @default("STARS") // "STARS" или "GRAMS"
+  bonusPercent     Int       @default(0)
   txHash           String?   @unique
   gramsAmount      Float?
+  cryptoAmount     Float? // USD-equivalent credited to the Crypto balance
   lockUntil        DateTime? // Дата разблокировки средств (успешное пополнение + 21 день)
 
   @@index([userId])

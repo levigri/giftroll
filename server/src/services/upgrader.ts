@@ -7,6 +7,16 @@ import { findNftCatalogEntry } from './nftPricing.js'
 import { getTelegramMarketPrice } from './userbot.js'
 import { getUsername, logDrop } from './drops.js'
 import { logTransaction } from './transaction.js'
+import {
+  balanceForCurrency,
+  balanceUpdate,
+  currencyToStarsAmount,
+  currencyLabel,
+  getCurrencyFactor,
+  roundCurrencyAmount,
+  starsToCurrencyAmount,
+  type GameCurrency,
+} from '../utils/gameCurrency.js'
 
 /**
  * Апгрейдер: игрок ставит ⭐ + NFT и выбирает шанс.
@@ -74,6 +84,7 @@ export async function performUpgrade(
   starsBet: number,
   chance: number,
   targetNftId: string,
+  currency: GameCurrency = 'STARS',
 ): Promise<UpgradeResult> {
   assertChance(chance)
 
@@ -89,8 +100,13 @@ export async function performUpgrade(
     throw new GameError('NFT_PRICE_UNAVAILABLE', `Для «${targetNft.name}» нет актуальной цены на Telegram Marketplace`, 409)
   }
 
-  if (!Number.isInteger(starsBet) || starsBet < 0) {
-    throw new GameError('INVALID_BET', 'Ставка в ⭐ должна быть целым неотрицательным числом', 400)
+  const currencyFactor = await getCurrencyFactor(currency)
+  if (
+    !Number.isFinite(starsBet) ||
+    starsBet < 0 ||
+    starsBet !== roundCurrencyAmount(starsBet, currency)
+  ) {
+    throw new GameError('INVALID_BET', `Некорректная сумма в ${currencyLabel(currency)}`, 400)
   }
 
   const uniqueIds = [...new Set(nftIds.map((id) => id.trim()).filter(Boolean))]
@@ -128,15 +144,23 @@ export async function performUpgrade(
       // Блокируем пользователя: баланс не уходит в минус, а инвентарь
       // не может быть одновременно сожжён двумя апгрейдами.
       const rows = await tx.$queryRaw<
-        { id: bigint; balance: number; upgraderWinStreak: number; isBetaMode: boolean }[]
+        {
+          id: bigint
+          balance: number
+          gramBalance: number
+          cryptoBalance: number
+          upgraderWinStreak: number
+          isBetaMode: boolean
+        }[]
       >`
-        SELECT id, balance, "upgraderWinStreak", "isBetaMode" FROM users WHERE id = ${userId} FOR UPDATE
+        SELECT id, balance, "gramBalance", "cryptoBalance", "upgraderWinStreak", "isBetaMode" FROM users WHERE id = ${userId} FOR UPDATE
       `
       const userRow = rows[0]
       if (!userRow) {
         throw new GameError('USER_NOT_FOUND', 'Пользователь не найден', 404)
       }
-      if (!userRow.isBetaMode && userRow.balance < starsBet) {
+      const currentBalance = balanceForCurrency(userRow, currency)
+      if (!userRow.isBetaMode && currentBalance < starsBet) {
         throw new GameError('INSUFFICIENT_FUNDS', 'Недостаточно средств для такой ставки', 400)
       }
 
@@ -171,7 +195,8 @@ export async function performUpgrade(
         throw new GameError('NFT_PRICE_UNAVAILABLE', `Для «${unpriced.prizeName}» пока не задана цена ставки`, 409)
       }
       const nftValue = items.reduce((sum, item) => sum + (itemPrices.get(item.id) ?? 0), 0)
-      const totalBet = starsBet + nftValue
+      const starsBetEquivalent = currencyToStarsAmount(starsBet, currencyFactor)
+      const totalBet = starsBetEquivalent + nftValue
 
       if (totalBet < MIN_TOTAL_BET || totalBet > MAX_TOTAL_BET) {
         throw new GameError(
@@ -192,7 +217,8 @@ export async function performUpgrade(
 
       const grantNft = win && !userRow.isBetaMode
       const remainingStars = win && !userRow.isBetaMode ? winAmount - targetMarketPrice : 0
-      const newBalance = userRow.isBetaMode ? userRow.balance : userRow.balance - starsBet + remainingStars
+      const remainingCurrency = starsToCurrencyAmount(remainingStars, currency, currencyFactor)
+      const newBalance = userRow.isBetaMode ? currentBalance : currentBalance - starsBet + remainingCurrency
 
       // В бета-режиме тестовые ставки не уничтожают реальные NFT игрока.
       if (!userRow.isBetaMode && uniqueIds.length > 0) {
@@ -205,7 +231,7 @@ export async function performUpgrade(
       }
 
       if (grantNft) {
-        const inheritedLock = await findActiveDepositLock(tx, userId)
+        const inheritedLock = currency === 'STARS' ? await findActiveDepositLock(tx, userId) : null
         await tx.inventoryItem.create({
           data: {
             userId,
@@ -224,7 +250,7 @@ export async function performUpgrade(
         await tx.user.update({
           where: { id: userId },
           data: {
-            balance: newBalance,
+            ...balanceUpdate(currency, newBalance),
             upgraderWinStreak: win ? { increment: 1 } : 0,
           },
         })
@@ -232,9 +258,23 @@ export async function performUpgrade(
 
       // История операций: ставка апгрейдера и (при победе) выигрыш.
       if (!userRow.isBetaMode) {
-        await logTransaction(userId, 'UPGRADE', -starsBet, `Апгрейд: ${targetNft.name}`, tx)
+        await logTransaction(
+          userId,
+          'UPGRADE',
+          -starsBet,
+          `Апгрейд: ${targetNft.name} (${currencyLabel(currency)})`,
+          tx,
+          currency,
+        )
         if (remainingStars > 0) {
-          await logTransaction(userId, 'UPGRADE', remainingStars, 'Выигрыш в апгрейдере', tx)
+          await logTransaction(
+            userId,
+            'UPGRADE',
+            remainingCurrency,
+            `Выигрыш в апгрейдере (${currencyLabel(currency)})`,
+            tx,
+            currency,
+          )
         }
       }
 
@@ -244,11 +284,12 @@ export async function performUpgrade(
           targetNftId: targetNft.id,
           targetNftName: targetNft.name,
           targetNftEmoji: targetNft.emoji,
-          targetNftPrice: targetMarketPrice,
-          betAmount: totalBet,
+          targetNftPrice: starsToCurrencyAmount(targetMarketPrice, currency, currencyFactor),
+          betAmount: starsToCurrencyAmount(totalBet, currency, currencyFactor),
           chance,
           win,
-          winAmount: win ? winAmount : 0,
+          winAmount: win ? starsToCurrencyAmount(winAmount, currency, currencyFactor) : 0,
+          currency,
           isBetaMode: userRow.isBetaMode,
         },
       })
@@ -287,7 +328,7 @@ export async function performUpgrade(
   )
 
   // Списанные ⭐ отыгрывают депозит и приносят рефереру 10%.
-  if (!result.isBetaMode) {
+  if (!result.isBetaMode && currency === 'STARS') {
     processWagering(userId, starsBet, 'upgrader').catch(console.error)
   }
 
@@ -321,10 +362,15 @@ export async function performUpgrade(
   // Наружу отдаём только публичные поля: actualChance и streak остаются внутри.
   return {
     win: result.win,
-    winAmount: result.winAmount,
+    winAmount: starsToCurrencyAmount(result.winAmount, currency, currencyFactor),
     multiplier: result.multiplier,
-    totalBet: result.totalBet,
-    receivedNft: result.receivedNft,
-    remainingStars: result.remainingStars,
+    totalBet: starsToCurrencyAmount(result.totalBet, currency, currencyFactor),
+    receivedNft: result.receivedNft
+      ? {
+          ...result.receivedNft,
+          price: starsToCurrencyAmount(result.receivedNft.price, currency, currencyFactor),
+        }
+      : null,
+    remainingStars: starsToCurrencyAmount(result.remainingStars, currency, currencyFactor),
   }
 }

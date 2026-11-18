@@ -6,6 +6,13 @@ import { authenticateTelegram } from '../middleware/auth.js'
 import { prisma } from '../db/prisma.js'
 import { allCases } from '../data/cases.js'
 import { getTaskDefinition, getTaskDefinitions } from '../services/taskDefinitions.js'
+import type { GameCurrency } from '../utils/gameCurrency.js'
+
+function formatMoney(amount: number, currency: GameCurrency): string {
+  if (currency === 'CRYPTO') return `$${amount.toFixed(2)}`
+  if (currency === 'GRAMS') return `${amount.toFixed(4)} Gram`
+  return `${amount} ⭐`
+}
 
 const channelTaskSchema = z.object({
   title: z.string().trim().min(3).max(80).optional(),
@@ -261,6 +268,8 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
           username: true,
           photoUrl: true,
           balance: true,
+          gramBalance: true,
+          cryptoBalance: true,
           depositUnspent: true,
           referredBy: true,
           isBetaMode: true,
@@ -288,12 +297,14 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
             createdAt: true,
             txHash: true,
             gramsAmount: true,
+            cryptoAmount: true,
+            bonusPercent: true,
           },
           orderBy: { createdAt: 'desc' },
         }),
         prisma.transaction.findMany({
           where: { userId: id, type: 'DEPOSIT', amount: { gt: 0 } },
-          select: { id: true, type: true, amount: true, details: true, createdAt: true },
+          select: { id: true, type: true, amount: true, currency: true, details: true, createdAt: true },
           orderBy: { createdAt: 'desc' },
           take: 50,
         }),
@@ -330,6 +341,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
         })),
         transactions: transactions.map((transaction) => ({
           ...transaction,
+          currency: transaction.currency as GameCurrency,
           createdAt: transaction.createdAt.toISOString(),
         })),
         caseOpens: caseOpens.map((entry) => {
@@ -344,6 +356,8 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
             prizeEmoji: prize?.emoji ?? '',
             prizeType: entry.prizeType,
             prizePrice: entry.prizePrice,
+            currency: entry.currency as GameCurrency,
+            casePrice: entry.casePrice,
             isBetaMode: entry.isBetaMode,
             createdAt: entry.createdAt.toISOString(),
           }
@@ -375,6 +389,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
       firstName: transaction.user.firstName,
       type: transaction.type,
       amount: transaction.amount,
+      currency: transaction.currency as GameCurrency,
       details: transaction.details,
       createdAt: transaction.createdAt.toISOString(),
     }))
@@ -426,7 +441,11 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
         userId: user.id.toString(),
         username: user.username,
         firstName: user.firstName,
-        amount: deposit.amount,
+        amount: deposit.currency === 'GRAMS'
+          ? (deposit.gramsAmount ?? 0) * (1 + deposit.bonusPercent / 100)
+          : deposit.currency === 'CRYPTO'
+            ? (deposit.cryptoAmount ?? 0)
+            : deposit.amount + Math.floor((deposit.amount * deposit.bonusPercent) / 100),
         currency: deposit.currency,
         createdAt: (deposit.completedAt ?? deposit.createdAt).toISOString(),
       }]
@@ -445,15 +464,16 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
         userId: participant.userId.toString(),
         username: user?.username ?? participant.username,
         firstName: user?.firstName ?? (participant.isBot ? 'Бот' : 'Игрок'),
+        currency: round.currency as GameCurrency,
         betAmount: participant.stars,
         payoutAmount: payout,
         totalPot: round.totalStars,
         rakeStars: round.rakeStars,
         result: refunded
-          ? `ВОЗВРАТ · возвращено ${participant.stars} ⭐`
+          ? `ВОЗВРАТ · возвращено ${formatMoney(participant.stars, round.currency as GameCurrency)}`
           : didWin
-            ? `ПОБЕДА · выплата ${payout} ⭐ · комиссия ${round.rakeStars} ⭐`
-            : `ПРОИГРЫШ · ставка ${participant.stars} ⭐`,
+            ? `ПОБЕДА · выплата ${formatMoney(payout, round.currency as GameCurrency)} · комиссия ${formatMoney(round.rakeStars, round.currency as GameCurrency)}`
+            : `ПРОИГРЫШ · ставка ${formatMoney(participant.stars, round.currency as GameCurrency)}`,
         outcome: refunded ? 'REFUND' as const : didWin ? 'WIN' as const : 'LOSS' as const,
         createdAt: (round.finishedAt ?? round.createdAt).toISOString(),
       }
@@ -463,9 +483,10 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
       const caseItem = allCases.find((item) => item.id === entry.caseId)
       const prize = caseItem?.prizes.find((item) => item.id === entry.prizeId)
       const prizeName = prize?.name ?? entry.prizeId
+      const currency = entry.currency as GameCurrency
       const prizeLabel = entry.prizeType === 'BALANCE'
-        ? `+${entry.prizePrice} ⭐`
-        : `${prize?.emoji ?? '🎁'} ${prizeName} (${entry.prizePrice} ⭐)`
+        ? `+${formatMoney(entry.prizePrice, currency)}`
+        : `${prize?.emoji ?? '🎁'} ${prizeName} (${formatMoney(entry.prizePrice, currency)})`
       return {
         id: `case-${entry.id}`,
         kind: 'CASE_OPEN' as const,
@@ -473,7 +494,8 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
         username: entry.user.username,
         firstName: entry.user.firstName,
         title: `Кейс «${caseItem?.name ?? entry.caseId}» открыт`,
-        casePrice: entry.isBetaMode ? 0 : caseItem?.price ?? 0,
+        casePrice: entry.isBetaMode ? 0 : entry.casePrice ?? caseItem?.price ?? 0,
+        currency,
         prizeName,
         prizeEmoji: prize?.emoji ?? '🎁',
         prizeType: entry.prizeType,
@@ -496,12 +518,13 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
       targetNftName: attempt.targetNftName,
       targetNftEmoji: attempt.targetNftEmoji,
       targetNftPrice: attempt.targetNftPrice,
+      currency: attempt.currency as GameCurrency,
       winAmount: attempt.winAmount,
       chance: attempt.chance,
       result: attempt.win
         ? attempt.isBetaMode
-          ? `БЕТА · выпал бы NFT за ${attempt.targetNftPrice} ⭐`
-          : `ПОБЕДА · выпал NFT за ${attempt.targetNftPrice} ⭐, выплата ${attempt.winAmount} ⭐`
+          ? `БЕТА · выпал бы NFT за ${formatMoney(attempt.targetNftPrice, attempt.currency as GameCurrency)}`
+          : `ПОБЕДА · выпал NFT за ${formatMoney(attempt.targetNftPrice, attempt.currency as GameCurrency)}, выплата ${formatMoney(attempt.winAmount, attempt.currency as GameCurrency)}`
         : `${attempt.isBetaMode ? 'БЕТА · ' : ''}ПРОИГРЫШ · NFT не выпал`,
       won: attempt.win,
       isBetaMode: attempt.isBetaMode,

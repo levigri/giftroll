@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
 import { Star, X } from 'lucide-react'
-import type { CaseItem, Prize } from '../api/types'
-import { marketPriceFor, useMarketPrices } from '../api/marketPrices'
+import type { CaseItem, GameCurrency, Prize } from '../api/types'
+import { useMarketPrices } from '../api/marketPrices'
 import { OPEN_COUNTS, type OpenCount } from '../pages/CasesPage'
 import { errorFeedback, tapFeedback } from '../telegram'
 import { prizeImage } from '../utils/assets'
 import AssetImage from './AssetImage'
+import { formatCurrency, toCurrencyAmount } from '../utils/gameCurrency'
 
 export interface RouletteModalProps {
   caseItem: CaseItem
   /** Текущий баланс — для блокировки кнопки, если звёзд не хватает. */
   balance: number
+  currency?: GameCurrency
+  conversionFactor?: number
   isBetaMode?: boolean
   onClose: () => void
   /** Открывает count кейсов и возвращает выпавшие призы в том же порядке. */
@@ -60,6 +63,8 @@ function buildStrip(pool: Prize[], winner?: Prize): Prize[] {
 export default function RouletteModal({
   caseItem,
   balance,
+  currency = 'STARS',
+  conversionFactor = 1,
   isBetaMode = false,
   onClose,
   onOpen,
@@ -124,7 +129,7 @@ export default function RouletteModal({
 
     if (notEnough) {
       errorFeedback()
-      setError('Недостаточно звёзд на балансе')
+      setError(`Недостаточно средств на ${currency === 'STARS' ? 'Stars' : currency === 'GRAMS' ? 'Gram' : 'Crypto'}-балансе`)
       return
     }
 
@@ -207,8 +212,8 @@ export default function RouletteModal({
               <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Кейс</p>
               <h2 className="truncate text-xl font-extrabold text-white">{caseItem.name}</h2>
               <p className="mt-0.5 flex items-center gap-1 text-xs font-bold text-gray-300">
-                {caseItem.price} ⭐ за штуку
-                {count > 1 && <span className="text-gray-500">· {count} шт = {totalPrice} ⭐</span>}
+                {formatCurrency(caseItem.price, currency)} за штуку
+                {count > 1 && <span className="text-gray-500">· {count} шт = {formatCurrency(totalPrice, currency)}</span>}
               </p>
             </div>
           </div>
@@ -277,7 +282,7 @@ export default function RouletteModal({
                           <span
                             className={`font-extrabold leading-none text-[#FFD700] ${balanceFont}`}
                           >
-                            +{prize.price} ⭐
+                            +{formatCurrency(prize.price, currency)}
                           </span>
                         )}
                       </div>
@@ -300,10 +305,10 @@ export default function RouletteModal({
                   {notEnough ? (
                     'Недостаточно звёзд'
                   ) : isBetaMode ? (
-                    'Открыть за 0 ⭐ (Бета)'
+                    `Открыть за 0 ${currency === 'STARS' ? '⭐' : currency === 'GRAMS' ? 'Gram' : 'USD'} (Бета)`
                   ) : (
                     <span className="inline-flex items-center justify-center gap-1.5">
-                      Открыть за {totalPrice} <Star size={15} fill="currentColor" />
+                      Открыть за {formatCurrency(totalPrice, currency)}
                     </span>
                   )}
                 </button>
@@ -341,7 +346,7 @@ export default function RouletteModal({
                   </div>
                   {prize.type === 'BALANCE' ? (
                     <span className="font-extrabold leading-tight text-[10px] text-[#FFD700]">
-                      +{prize.price} ⭐
+                      +{formatCurrency(prize.price, currency)}
                     </span>
                   ) : (
                     <span
@@ -353,7 +358,12 @@ export default function RouletteModal({
                   )}
                   {prize.type === 'NFT' && (
                     <span className="text-[10px] font-extrabold leading-none text-[#FFD700]">
-                      {marketPriceFor(prize.name, prize.price, marketPrices)} ⭐
+                      {formatCurrency(
+                        marketPrices[prize.name] && marketPrices[prize.name]! > 0
+                          ? toCurrencyAmount(marketPrices[prize.name]!, currency, conversionFactor)
+                          : prize.price,
+                        currency,
+                      )}
                     </span>
                   )}
                 </div>
@@ -397,11 +407,10 @@ export default function RouletteModal({
                 {notEnough ? (
                   'Недостаточно звёзд'
                 ) : isBetaMode ? (
-                  'Открыть за 0 ⭐ (Бета)'
+                  `Открыть за 0 ${currency === 'STARS' ? '⭐' : currency === 'GRAMS' ? 'Gram' : 'USD'} (Бета)`
                 ) : (
                   <>
-                    Открыть ещё за {totalPrice}
-                    <Star size={15} fill="currentColor" />
+                    Открыть ещё за {formatCurrency(totalPrice, currency)}
                   </>
                 )}
               </button>

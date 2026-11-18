@@ -210,6 +210,8 @@ export async function createInvoice(
   }
 
   const payload = newPayload(userId)
+  const createdAt = new Date()
+  const bonusPercent = getStarsDepositBonusPercent(createdAt)
   const deposit = await prisma.deposit.create({
     data: {
       userId,
@@ -217,6 +219,8 @@ export async function createInvoice(
       status: 'pending',
       payload,
       currency: 'STARS',
+      bonusPercent,
+      createdAt,
     },
   })
 
@@ -232,7 +236,7 @@ export async function createInvoice(
     return {
       invoiceLink,
       depositId: deposit.id,
-      bonusPercent: getStarsDepositBonusPercent(deposit.createdAt),
+      bonusPercent: deposit.bonusPercent,
     }
   } catch (error) {
     await prisma.deposit
@@ -295,6 +299,7 @@ export async function createGramsInvoice(
       status: 'pending',
       payload,
       currency: 'GRAMS',
+      bonusPercent: quote.bonusPercent,
     },
   })
 
@@ -338,7 +343,7 @@ export async function confirmGramsDeposit(
   userId: bigint,
   depositId: string,
   transactionBoc: string,
-): Promise<{ ok: boolean; starsAmount: number }> {
+): Promise<{ ok: boolean; gramsAmount: number }> {
   const startTime = Date.now()
   console.log(`[DEPOSIT] Start confirming deposit ${depositId} for user ${userId}`)
 
@@ -372,7 +377,7 @@ async function confirmGramsDepositInner(
   userId: bigint,
   depositId: string,
   transactionBoc: string,
-): Promise<{ ok: boolean; starsAmount: number }> {
+): Promise<{ ok: boolean; gramsAmount: number }> {
   const deposit = await prisma.deposit.findUnique({
     where: { id: depositId },
   })
@@ -381,13 +386,17 @@ async function confirmGramsDepositInner(
     throw new DepositError('DEPOSIT_NOT_FOUND', 'Депозит не найден', 404)
   }
 
-  if (deposit.status === 'completed') {
-    return { ok: true, starsAmount: deposit.amount }
-  }
-
-  if (!deposit.gramsAmount) {
+  if (deposit.currency !== 'GRAMS' || !deposit.gramsAmount) {
     throw new DepositError('INVALID_DEPOSIT', 'Это не депозит в Grams', 400)
   }
+
+  if (deposit.status === 'completed') {
+    return {
+      ok: true,
+      gramsAmount: Math.round((deposit.gramsAmount ?? 0) * (1 + deposit.bonusPercent / 100) * 1_000_000) / 1_000_000,
+    }
+  }
+
   if (deposit.status !== 'pending') {
     throw new DepositError('INVALID_DEPOSIT_STATUS', 'Депозит уже обработан', 400)
   }
@@ -525,21 +534,30 @@ async function confirmGramsDepositInner(
         await tx.user.update({
           where: { id: deposit.userId },
           data: {
-            balance: { increment: deposit.amount },
-            depositUnspent: { increment: deposit.amount },
+            gramBalance: {
+              increment:
+                Math.round(
+                  deposit.gramsAmount! * (1 + deposit.bonusPercent / 100) * 1_000_000,
+                ) / 1_000_000,
+            },
           },
         })
 
         // Успешное пополнение от 200 ⭐ выдаёт билет на бонусный кейс.
         await grantDepositBonusTicket(tx, deposit.userId, deposit.amount)
 
-        // История операций: зачисление пополнения через Gram.
+        const creditedGrams =
+          Math.round(deposit.gramsAmount! * (1 + deposit.bonusPercent / 100) * 1_000_000) /
+          1_000_000
+
+        // История операций: зачисление Gram на отдельный Gram-баланс.
         await logTransaction(
           deposit.userId,
           'DEPOSIT',
-          deposit.amount,
-          'Пополнение (Gram)',
+          creditedGrams,
+          `Пополнение (Gram${deposit.bonusPercent > 0 ? `, бонус +${deposit.bonusPercent}%` : ''})`,
           tx,
+          'GRAMS',
         )
         return true
       },
@@ -562,9 +580,14 @@ async function confirmGramsDepositInner(
   }
 
   // Уведомление в бота: Gram-депозит зачислен.
-  await notifyUser(deposit.userId, `✅ Успешно пополнено на ${deposit.amount} ⭐ (через Gram)!`)
+  const creditedGrams =
+    Math.round(deposit.gramsAmount * (1 + deposit.bonusPercent / 100) * 1_000_000) / 1_000_000
+  await notifyUser(
+    deposit.userId,
+    `✅ На Gram-баланс зачислено ${creditedGrams.toFixed(6)} Gram${deposit.bonusPercent > 0 ? ` (бонус +${deposit.bonusPercent}%)` : ''}!`,
+  )
 
-  return { ok: true, starsAmount: deposit.amount }
+  return { ok: true, gramsAmount: creditedGrams }
 }
 
 /* ------------------------------- Обработка Webhook ------------------------------- */
@@ -640,6 +663,11 @@ export async function handleWebhook(update: TelegramUpdate): Promise<void> {
     return
   }
 
+  if (deposit.currency !== 'STARS' || payment.currency !== 'XTR') {
+    console.error(`[DEPOSIT] currency mismatch deposit=${deposit.id} currency=${deposit.currency} payment=${payment.currency}`)
+    throw new DepositError('CURRENCY_MISMATCH', 'Неверная валюта платежа', 400)
+  }
+
   if (payment.total_amount !== deposit.amount) {
     console.error(
       `[DEPOSIT] amount mismatch deposit=${deposit.id} expected=${deposit.amount} got=${payment.total_amount}`,
@@ -651,7 +679,7 @@ export async function handleWebhook(update: TelegramUpdate): Promise<void> {
     )
   }
 
-  const bonusPercent = getStarsDepositBonusPercent(deposit.createdAt)
+  const bonusPercent = deposit.bonusPercent
   const bonusStars = Math.floor((deposit.amount * bonusPercent) / 100)
   const creditedStars = deposit.amount + bonusStars
 
@@ -693,6 +721,7 @@ export async function handleWebhook(update: TelegramUpdate): Promise<void> {
           ? `Пополнение (Stars): ${deposit.amount} ⭐ + ${bonusStars} ⭐ бонус`
           : 'Пополнение (Stars)',
         tx,
+        'STARS',
       )
     },
     { timeout: 10000 },

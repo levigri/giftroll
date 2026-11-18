@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { authenticateTelegram } from '../middleware/auth.js'
 import { parseBody } from '../utils/validators.js'
 import { GameError } from '../services/game.js'
-import { MAX_CHANCE, MAX_NFT_IDS, MAX_TOTAL_BET, MIN_CHANCE, performUpgrade } from '../services/upgrader.js'
+import { MAX_CHANCE, MAX_NFT_IDS, MIN_CHANCE, performUpgrade } from '../services/upgrader.js'
 
 const upgradeSchema = z.object({
   nftIds: z
@@ -12,14 +12,13 @@ const upgradeSchema = z.object({
   starsBet: z
     .number()
     .finite('starsBet must be a finite number')
-    .int('starsBet must be an integer')
-    .min(0, 'starsBet must be >= 0')
-    .max(MAX_TOTAL_BET, `starsBet must be <= ${MAX_TOTAL_BET}`),
+    .min(0, 'starsBet must be >= 0'),
   chance: z
     .number()
     .min(MIN_CHANCE, `chance must be >= ${MIN_CHANCE}`)
     .max(MAX_CHANCE, `chance must be <= ${MAX_CHANCE}`),
   targetNftId: z.string().min(1, 'targetNftId is required'),
+  currency: z.enum(['STARS', 'GRAMS', 'CRYPTO']).default('STARS'),
 })
 
 export const upgraderRoutes: FastifyPluginAsync = async (fastify) => {
@@ -48,6 +47,7 @@ export const upgraderRoutes: FastifyPluginAsync = async (fastify) => {
           parsed.data.starsBet,
           parsed.data.chance,
           parsed.data.targetNftId,
+          parsed.data.currency,
         )
       } catch (err) {
         if (err instanceof GameError) {

@@ -10,6 +10,13 @@ import { findNftCatalogEntry } from './nftPricing.js'
 import { getTelegramMarketPrice } from './userbot.js'
 import { isBotAccount } from '../utils/antiBot.js'
 import { logTransaction } from './transaction.js'
+import {
+  balanceForCurrency,
+  balanceUpdate,
+  getCurrencyFactor,
+  type GameCurrency,
+  starsToCurrencyAmount,
+} from '../utils/gameCurrency.js'
 
 /** В ленте PrizeType 'BALANCE' — это звёздный дроп, остальное считаем NFT. */
 function dropItemTypeOf(prize: Prize): DropItemType {
@@ -34,16 +41,21 @@ export class GameError extends Error {
 export async function openCase(
   userId: bigint,
   caseId: string,
-): Promise<{ prize: Prize; newBalance: number; caseOpenId: string }> {
+  currency: GameCurrency = 'STARS',
+): Promise<{ prize: Prize; newBalance: number; caseOpenId: string; currency: GameCurrency }> {
   const caseItem = findCase(caseId)
   if (!caseItem) {
     throw new GameError('CASE_NOT_FOUND', 'Кейс не найден', 404)
   }
+  const currencyFactor = await getCurrencyFactor(currency)
+  const casePrice = starsToCurrencyAmount(caseItem.price, currency, currencyFactor)
   const result = await prisma.$transaction(
     async (tx) => {
       // Блокируем запись пользователя для защиты от race condition
-      const rows = await tx.$queryRaw<{ id: bigint; balance: number; isBetaMode: boolean }[]>`
-        SELECT id, balance, "isBetaMode" FROM users WHERE id = ${userId} FOR UPDATE
+      const rows = await tx.$queryRaw<
+        { id: bigint; balance: number; gramBalance: number; cryptoBalance: number; isBetaMode: boolean }[]
+      >`
+        SELECT id, balance, "gramBalance", "cryptoBalance", "isBetaMode" FROM users WHERE id = ${userId} FOR UPDATE
       `
 
       const userRow = rows[0]
@@ -51,9 +63,9 @@ export async function openCase(
         throw new GameError('USER_NOT_FOUND', 'Пользователь не найден', 404)
       }
 
-      const currentBalance = userRow.balance
-      const casePrice = userRow.isBetaMode ? 0 : caseItem.price
-      if (currentBalance < casePrice) {
+      const currentBalance = balanceForCurrency(userRow, currency)
+      const actualCasePrice = userRow.isBetaMode ? 0 : casePrice
+      if (currentBalance < actualCasePrice) {
         throw new GameError('INSUFFICIENT_FUNDS', 'Недостаточно средств', 400)
       }
 
@@ -62,15 +74,16 @@ export async function openCase(
       let newBalance: number
 
       if (prize.type === 'BALANCE') {
-        newBalance = userRow.isBetaMode ? currentBalance : currentBalance - casePrice + prize.price
+        const prizeAmount = starsToCurrencyAmount(prize.price, currency, currencyFactor)
+        newBalance = userRow.isBetaMode ? currentBalance : currentBalance - actualCasePrice + prizeAmount
         if (!userRow.isBetaMode) {
-          await tx.user.update({ where: { id: userId }, data: { balance: newBalance } })
+          await tx.user.update({ where: { id: userId }, data: balanceUpdate(currency, newBalance) })
         }
       } else {
-        newBalance = userRow.isBetaMode ? currentBalance : currentBalance - casePrice
+        newBalance = userRow.isBetaMode ? currentBalance : currentBalance - actualCasePrice
         if (!userRow.isBetaMode) {
-          await tx.user.update({ where: { id: userId }, data: { balance: newBalance } })
-          const inheritedLock = await findActiveDepositLock(tx, userId)
+          await tx.user.update({ where: { id: userId }, data: balanceUpdate(currency, newBalance) })
+          const inheritedLock = currency === 'STARS' ? await findActiveDepositLock(tx, userId) : null
           await tx.inventoryItem.create({
             data: {
               userId,
@@ -92,14 +105,23 @@ export async function openCase(
           caseId: caseItem.id,
           prizeId: prize.id,
           prizeType: prize.type,
-          prizePrice: prize.price,
+          prizePrice: starsToCurrencyAmount(prize.price, currency, currencyFactor),
+          currency,
+          casePrice: actualCasePrice,
           isBetaMode: userRow.isBetaMode,
         },
       })
 
       // История операций: расход на открытие кейса.
       if (!userRow.isBetaMode) {
-        await logTransaction(userId, 'CASE_OPEN', -casePrice, `Кейс: ${caseItem.name}`, tx)
+        await logTransaction(
+          userId,
+          'CASE_OPEN',
+          -actualCasePrice,
+          `Кейс: ${caseItem.name} (${currency})`,
+          tx,
+          currency,
+        )
       }
 
       return {
@@ -113,7 +135,7 @@ export async function openCase(
   )
 
   // Отыгранная часть депозита уменьшается, реферер получает 10%.
-  if (!result.isBetaMode) {
+  if (!result.isBetaMode && currency === 'STARS') {
     processWagering(userId, caseItem.price, 'case', caseItem.id).catch(console.error)
   }
 
@@ -133,7 +155,12 @@ export async function openCase(
     }).catch(console.error)
   }
 
-  return { prize: result.prize, newBalance: result.newBalance, caseOpenId: result.caseOpenId }
+  return {
+    prize: { ...result.prize, price: starsToCurrencyAmount(result.prize.price, currency, currencyFactor) },
+    newBalance: result.newBalance,
+    caseOpenId: result.caseOpenId,
+    currency,
+  }
 }
 
 export interface MultiCaseResultItem {
@@ -148,8 +175,9 @@ export interface MultiCaseOpenResult {
   results: MultiCaseResultItem[]
   totalValue: number
   spent: number
-  /** Баланс после списания ставки и зачисления всех звёздных призов. */
+  /** Баланс выбранной валюты после списания и зачисления призов. */
   newBalance: number
+  currency: GameCurrency
 }
 
 /**
@@ -195,6 +223,7 @@ export async function openMultiCase(
   userId: bigint,
   caseId: string,
   count: 2 | 5,
+  currency: GameCurrency = 'STARS',
 ): Promise<MultiCaseOpenResult> {
   if (count !== 2 && count !== 5) {
     throw new GameError('INVALID_COUNT', 'Можно открыть только 2 или 5 кейсов', 400)
@@ -204,13 +233,16 @@ export async function openMultiCase(
   if (!caseItem) {
     throw new GameError('CASE_NOT_FOUND', 'Кейс не найден', 404)
   }
-  const nominalSpent = caseItem.price * count
+  const currencyFactor = await getCurrencyFactor(currency)
+  const nominalSpent = starsToCurrencyAmount(caseItem.price * count, currency, currencyFactor)
 
   const result = await prisma.$transaction(
     async (tx) => {
       // Блокируем строку пользователя: баланс не может уйти в минус.
-      const rows = await tx.$queryRaw<{ id: bigint; balance: number; isBetaMode: boolean }[]>`
-        SELECT id, balance, "isBetaMode" FROM users WHERE id = ${userId} FOR UPDATE
+      const rows = await tx.$queryRaw<
+        { id: bigint; balance: number; gramBalance: number; cryptoBalance: number; isBetaMode: boolean }[]
+      >`
+        SELECT id, balance, "gramBalance", "cryptoBalance", "isBetaMode" FROM users WHERE id = ${userId} FOR UPDATE
       `
 
       const userRow = rows[0]
@@ -219,14 +251,16 @@ export async function openMultiCase(
       }
 
       const spent = userRow.isBetaMode ? 0 : nominalSpent
-      if (userRow.balance < spent) {
+      const currentBalance = balanceForCurrency(userRow, currency)
+      if (currentBalance < spent) {
         throw new GameError('INSUFFICIENT_FUNDS', 'Недостаточно средств', 400)
       }
 
       const results: MultiCaseResultItem[] = []
       const prizes: Prize[] = []
       let starsWon = 0
-      const inheritedLock = userRow.isBetaMode ? null : await findActiveDepositLock(tx, userId)
+      const inheritedLock =
+        userRow.isBetaMode || currency !== 'STARS' ? null : await findActiveDepositLock(tx, userId)
 
       for (let index = 0; index < count; index += 1) {
         // Ролл независимый для каждого открытия.
@@ -234,8 +268,9 @@ export async function openMultiCase(
         prizes.push(prize)
 
         if (prize.type === 'BALANCE') {
-          // Звёзды сразу на баланс — предметом в инвентарь они не попадают.
-          if (!userRow.isBetaMode) starsWon += prize.price
+          if (!userRow.isBetaMode) {
+            starsWon += starsToCurrencyAmount(prize.price, currency, currencyFactor)
+          }
         } else if (!userRow.isBetaMode) {
           await tx.inventoryItem.create({
             data: {
@@ -257,7 +292,11 @@ export async function openMultiCase(
             caseId: caseItem.id,
             prizeId: prize.id,
             prizeType: prize.type,
-            prizePrice: prize.price,
+            prizePrice: starsToCurrencyAmount(prize.price, currency, currencyFactor),
+            currency,
+            casePrice: userRow.isBetaMode
+              ? 0
+              : starsToCurrencyAmount(caseItem.price, currency, currencyFactor),
             isBetaMode: userRow.isBetaMode,
           },
         })
@@ -267,19 +306,19 @@ export async function openMultiCase(
           name: prize.name,
           emoji: prize.emoji,
           type: prize.type,
-          price: prize.price,
+          price: starsToCurrencyAmount(prize.price, currency, currencyFactor),
         })
       }
 
       // Одно обновление баланса на всю пачку: ставка списана, звёзды зачислены.
-      const newBalance = userRow.isBetaMode ? userRow.balance : userRow.balance - spent + starsWon
+      const newBalance = userRow.isBetaMode ? currentBalance : currentBalance - spent + starsWon
       if (!userRow.isBetaMode) {
-        await tx.user.update({ where: { id: userId }, data: { balance: newBalance } })
+        await tx.user.update({ where: { id: userId }, data: balanceUpdate(currency, newBalance) })
       }
 
       // История операций: расход на пакетное открытие (price × count).
       if (!userRow.isBetaMode) {
-        await logTransaction(userId, 'CASE_OPEN', -spent, `Кейс: ${caseItem.name}`, tx)
+        await logTransaction(userId, 'CASE_OPEN', -spent, `Кейс: ${caseItem.name} (${currency})`, tx, currency)
       }
 
       return { results, prizes, newBalance, spent, isBetaMode: userRow.isBetaMode }
@@ -288,7 +327,7 @@ export async function openMultiCase(
   )
 
   // Мульти-открытие — расход price × count (одно списание в транзакции).
-  if (result.spent > 0) {
+  if (result.spent > 0 && currency === 'STARS') {
     processWagering(userId, result.spent, 'multi_case', caseItem.id).catch(console.error)
   }
 
@@ -299,6 +338,7 @@ export async function openMultiCase(
     totalValue: result.results.reduce((sum, prize) => sum + prize.price, 0),
     spent: result.spent,
     newBalance: result.newBalance,
+    currency,
   }
 }
 

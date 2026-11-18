@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react'
-import { Bot, Sparkles, Star, Trophy, User } from 'lucide-react'
+import { Bot, Sparkles, Trophy, User } from 'lucide-react'
+import type { GameCurrency } from '../api/types'
+import { formatCurrency } from '../utils/gameCurrency'
 
 /** Победитель раунда в том виде, в каком его отдаёт лобби. */
 export interface WinnerOverlayWinner {
@@ -23,6 +25,7 @@ export interface WinnerOverlayProps {
   myPayout: number
   /** Моя ставка в этом раунде. */
   myBet: number
+  currency?: GameCurrency
   /** Закрыть оверлей: кнопка «Играть ещё» или авто-закрытие. */
   onClose: () => void
 }
@@ -40,6 +43,7 @@ export default function WinnerOverlay({
   myUserId,
   myPayout,
   myBet,
+  currency = 'STARS',
   onClose,
 }: WinnerOverlayProps) {
   // Свежий колбэк без пересоздания таймера: перезапуск эффекта сбросил бы отсчёт.
@@ -76,8 +80,7 @@ export default function WinnerOverlay({
           {displayName}
         </div>
         <div className="winner-overlay__amount inline-flex items-center justify-center gap-1">
-          выиграл {totalStars}
-          <Star size={15} fill="currentColor" />
+          выиграл {formatCurrency(totalStars, currency)}
         </div>
 
         <div className="winner-overlay__divider" />
@@ -90,13 +93,11 @@ export default function WinnerOverlay({
           {iWon ? (
             <span className="inline-flex items-center justify-center gap-1">
               <Sparkles size={16} />
-              Ты выиграл +{netProfit}
-              <Star size={14} fill="currentColor" />
+              Ты выиграл +{formatCurrency(netProfit, currency)}
             </span>
           ) : (
             <span className="inline-flex items-center justify-center gap-1">
-              Ты проиграл −{myBet}
-              <Star size={14} fill="currentColor" />
+              Ты проиграл −{formatCurrency(myBet, currency)}
             </span>
           )}
         </div>

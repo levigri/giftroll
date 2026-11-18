@@ -4,9 +4,18 @@ import { prisma } from '../db/prisma.js'
 import { GameError } from './game.js'
 import { processWagering } from './deposit.js'
 import { logTransaction } from './transaction.js'
+import {
+  balanceForCurrency,
+  balanceUpdate,
+  currencyToStarsAmount,
+  currencyLabel,
+  getCurrencyFactor,
+  roundCurrencyAmount,
+  type GameCurrency,
+} from '../utils/gameCurrency.js'
 
 /** Границы ставки в звёздах. */
-export const MIN_BET_STARS = 10
+export const MIN_BET_STARS = 25
 export const MAX_BET_STARS = 100000
 
 /** Комиссия кассы — 5% от суммы ставок всех проигравших. */
@@ -49,6 +58,7 @@ export interface PvpParticipantView {
 export interface PvpRoundView {
   id: string
   status: PvpRoundStatus
+  currency: GameCurrency
   totalStars: number
   /** null — раунд ждёт второго участника, отсчёт ещё не идёт. */
   endsAt: string | null
@@ -68,6 +78,7 @@ export interface PvpJoinResult {
 export interface PvpHistoryEntry {
   id: string
   status: PvpRoundStatus
+  currency: GameCurrency
   totalStars: number
   winnerId: string | null
   winnerName: string | null
@@ -81,6 +92,7 @@ export interface PvpHistoryEntry {
 
 export interface PvpSpinResult {
   roundId: string
+  currency: GameCurrency
   winnerId: string | null
   winnerName: string | null
   payoutStars: number
@@ -154,11 +166,19 @@ async function lockLobby(tx: Prisma.TransactionClient): Promise<void> {
   await tx.$queryRaw`SELECT pg_advisory_xact_lock(${LOBBY_LOCK_KEY}) IS NULL AS locked`
 }
 
-function assertStars(stars: number): void {
-  if (!Number.isInteger(stars) || stars < MIN_BET_STARS || stars > MAX_BET_STARS) {
+function assertBetAmount(amount: number, currency: GameCurrency, factor: number): void {
+  const starsEquivalent = currencyToStarsAmount(amount, factor)
+  const roundedAmount = roundCurrencyAmount(amount, currency)
+  if (
+    !Number.isFinite(amount) ||
+    amount <= 0 ||
+    amount !== roundedAmount ||
+    starsEquivalent < MIN_BET_STARS ||
+    starsEquivalent > MAX_BET_STARS
+  ) {
     throw new GameError(
       'INVALID_BET',
-      `Ставка должна быть целым числом от ${MIN_BET_STARS} до ${MAX_BET_STARS} ⭐`,
+      `Ставка должна быть эквивалентна от ${MIN_BET_STARS} до ${MAX_BET_STARS} ⭐`,
       400,
     )
   }
@@ -209,9 +229,12 @@ function winnerNameOf(participants: PvpParticipant[], winnerId: bigint | null): 
   return winner.username ?? (winner.isBot ? BOT_NAME : null)
 }
 
-async function findActiveRound(): Promise<PvpRound | null> {
+async function findActiveRound(currency: GameCurrency, viewerId: bigint): Promise<PvpRound | null> {
   return prisma.pvpRound.findFirst({
-    where: { status: { in: ['open', 'spinning'] } },
+    where: {
+      status: { in: ['open', 'spinning'] },
+      OR: [{ currency }, { participants: { some: { userId: viewerId } } }],
+    },
     orderBy: { createdAt: 'desc' },
   })
 }
@@ -224,6 +247,7 @@ async function buildRoundView(round: PvpRound, viewerId: bigint): Promise<PvpRou
   return {
     id: round.id,
     status: round.status as PvpRoundStatus,
+    currency: round.currency as GameCurrency,
     totalStars,
     endsAt: roundEndsAt(round.startedAt)?.toISOString() ?? null,
     participants: viewOf(participants, totalStars, viewerId),
@@ -235,8 +259,11 @@ async function buildRoundView(round: PvpRound, viewerId: bigint): Promise<PvpRou
 }
 
 /** Текущий активный раунд (polling каждую секунду). */
-export async function getCurrentRound(viewerId: bigint): Promise<{ round: PvpRoundView | null }> {
-  const round = await findActiveRound()
+export async function getCurrentRound(
+  viewerId: bigint,
+  currency: GameCurrency = 'STARS',
+): Promise<{ round: PvpRoundView | null }> {
+  const round = await findActiveRound(currency, viewerId)
 
   if (!round) {
     // Если активного раунда нет, проверяем недавно завершённый (последние 3.5 секунды),
@@ -245,6 +272,7 @@ export async function getCurrentRound(viewerId: bigint): Promise<{ round: PvpRou
       where: {
         status: 'finished',
         finishedAt: { gte: new Date(Date.now() - 3500) },
+        OR: [{ currency }, { participants: { some: { userId: viewerId } } }],
       },
       orderBy: { finishedAt: 'desc' },
     })
@@ -273,16 +301,20 @@ export async function getCurrentRound(viewerId: bigint): Promise<{ round: PvpRou
 export async function joinRound(
   userId: bigint,
   username: string | null,
-  stars: number,
+  stake: number,
+  currency: GameCurrency = 'STARS',
 ): Promise<PvpJoinResult> {
-  assertStars(stars)
+  const currencyFactor = await getCurrencyFactor(currency)
+  assertBetAmount(stake, currency, currencyFactor)
 
   const { round, startedNow } = await prisma.$transaction(
     async (tx) => {
       await lockLobby(tx)
 
-      const rows = await tx.$queryRaw<{ id: bigint; balance: number; isBetaMode: boolean }[]>`
-        SELECT id, balance, "isBetaMode" FROM users WHERE id = ${userId} FOR UPDATE
+      const rows = await tx.$queryRaw<
+        { id: bigint; balance: number; gramBalance: number; cryptoBalance: number; isBetaMode: boolean }[]
+      >`
+        SELECT id, balance, "gramBalance", "cryptoBalance", "isBetaMode" FROM users WHERE id = ${userId} FOR UPDATE
       `
       const userRow = rows[0]
       if (!userRow) {
@@ -291,12 +323,13 @@ export async function joinRound(
       if (userRow.isBetaMode) {
         throw new GameError('BETA_MODE_ON', 'Отключите бета-режим для игры в PvP', 403)
       }
-      if (userRow.balance < stars) {
+      const currentBalance = balanceForCurrency(userRow, currency)
+      if (currentBalance < stake) {
         throw new GameError('INSUFFICIENT_FUNDS', 'Недостаточно средств для такой ставки', 400)
       }
 
       const active = await tx.pvpRound.findFirst({
-        where: { status: 'open' },
+        where: { status: 'open', currency },
         orderBy: { createdAt: 'desc' },
       })
 
@@ -312,19 +345,27 @@ export async function joinRound(
       } else {
         // Первый игрок открывает раунд, но отсчёт ещё НЕ идёт: startedAt = null,
         // таймер запустится, когда в лобби появится второй участник.
-        round = await tx.pvpRound.create({ data: { status: 'open', startedAt: null } })
+        round = await tx.pvpRound.create({
+          data: { status: 'open', currency, startedAt: null },
+        })
       }
 
       await tx.user.update({
         where: { id: userId },
-        data: { balance: userRow.balance - stars },
+        data: balanceUpdate(currency, currentBalance - stake),
       })
       await tx.pvpParticipant.create({
-        data: { roundId: round.id, userId, username, stars },
+        data: { roundId: round.id, userId, username, stars: stake },
       })
 
-      // История операций: вход в PvP-раунд.
-      await logTransaction(userId, 'PVP_BET', -stars, 'Ставка в PvP', tx)
+      await logTransaction(
+        userId,
+        'PVP_BET',
+        -stake,
+        `Ставка в PvP (${currencyLabel(currency)})`,
+        tx,
+        currency,
+      )
 
       // ⚠️ DEV ONLY — блок удалить при релизе: дев-игроку сразу подсаживается бот
       // с половинной ставкой, поэтому лобби не ждёт второго живого игрока.
@@ -335,7 +376,7 @@ export async function joinRound(
               roundId: round.id,
               userId: BOT_USER_ID,
               username: BOT_NAME,
-              stars: Math.floor(stars * 0.5),
+              stars: roundCurrencyAmount(stake * 0.5, currency),
               isBot: true,
             },
           })
@@ -363,7 +404,7 @@ export async function joinRound(
   )
 
   // Ставка списана — отыгрываем депозитную часть и платим рефереру 10%.
-  processWagering(userId, stars, 'pvp', round.id).catch(console.error)
+  if (currency === 'STARS') processWagering(userId, stake, 'pvp', round.id).catch(console.error)
 
   // Таймер взводится только если отсчёт начался именно этим входом.
   if (startedNow) {
@@ -382,12 +423,8 @@ export async function joinRound(
 export async function addToBet(
   userId: bigint,
   roundId: string,
-  extraStars: number,
+  extraAmount: number,
 ): Promise<{ ok: true; round: PvpRoundView }> {
-  if (!Number.isInteger(extraStars) || extraStars < MIN_BET_STARS) {
-    throw new GameError('INVALID_BET', `Минимальная добавка — ${MIN_BET_STARS} ⭐`, 400)
-  }
-
   const updatedRound = await prisma.$transaction(
     async (tx) => {
       await lockLobby(tx)
@@ -399,6 +436,9 @@ export async function addToBet(
       if (round.status !== 'open') {
         throw new GameError('ROUND_CLOSED', 'Ставки в этом раунде больше не принимаются', 409)
       }
+      const currency = round.currency as GameCurrency
+      const currencyFactor = await getCurrencyFactor(currency)
+      assertBetAmount(extraAmount, currency, currencyFactor)
 
       const participant = await tx.pvpParticipant.findUnique({
         where: { roundId_userId: { roundId, userId } },
@@ -407,13 +447,15 @@ export async function addToBet(
         throw new GameError('NOT_IN_ROUND', 'Ты не участвуешь в этом раунде', 403)
       }
 
-      const nextStars = participant.stars + extraStars
-      if (nextStars > MAX_BET_STARS) {
+      const nextStars = participant.stars + extraAmount
+      if (currencyToStarsAmount(nextStars, currencyFactor) > MAX_BET_STARS) {
         throw new GameError('INVALID_BET', `Ставка не может превышать ${MAX_BET_STARS} ⭐`, 400)
       }
 
-      const rows = await tx.$queryRaw<{ id: bigint; balance: number; isBetaMode: boolean }[]>`
-        SELECT id, balance, "isBetaMode" FROM users WHERE id = ${userId} FOR UPDATE
+      const rows = await tx.$queryRaw<
+        { id: bigint; balance: number; gramBalance: number; cryptoBalance: number; isBetaMode: boolean }[]
+      >`
+        SELECT id, balance, "gramBalance", "cryptoBalance", "isBetaMode" FROM users WHERE id = ${userId} FOR UPDATE
       `
       const userRow = rows[0]
       if (!userRow) {
@@ -422,13 +464,14 @@ export async function addToBet(
       if (userRow.isBetaMode) {
         throw new GameError('BETA_MODE_ON', 'Отключите бета-режим для игры в PvP', 403)
       }
-      if (userRow.balance < extraStars) {
+      const currentBalance = balanceForCurrency(userRow, currency)
+      if (currentBalance < extraAmount) {
         throw new GameError('INSUFFICIENT_FUNDS', 'Недостаточно средств', 400)
       }
 
       await tx.user.update({
         where: { id: userId },
-        data: { balance: userRow.balance - extraStars },
+        data: balanceUpdate(currency, currentBalance - extraAmount),
       })
       await tx.pvpParticipant.update({
         where: { id: participant.id },
@@ -436,7 +479,14 @@ export async function addToBet(
       })
 
       // История операций: докид ставки в PvP.
-      await logTransaction(userId, 'PVP_BET', -extraStars, 'Ставка в PvP', tx)
+      await logTransaction(
+        userId,
+        'PVP_BET',
+        -extraAmount,
+        `Докид PvP (${currencyLabel(currency)})`,
+        tx,
+        currency,
+      )
 
       const participants = await tx.pvpParticipant.findMany({ where: { roundId } })
       return tx.pvpRound.update({
@@ -448,7 +498,9 @@ export async function addToBet(
   )
 
   // Докид — тоже расход: отыгрываем депозитную часть и платим рефереру.
-  processWagering(userId, extraStars, 'pvp', roundId).catch(console.error)
+  if (updatedRound.currency === 'STARS') {
+    processWagering(userId, extraAmount, 'pvp', roundId).catch(console.error)
+  }
 
   const roundView = await buildRoundView(updatedRound, userId)
   return { ok: true, round: roundView }
@@ -479,6 +531,7 @@ export async function performSpin(roundId: string): Promise<PvpSpinResult> {
       if (!round) {
         throw new GameError('ROUND_NOT_FOUND', 'Раунд не найден', 404)
       }
+      const currency = round.currency as GameCurrency
 
       const participants = await tx.pvpParticipant.findMany({ where: { roundId } })
       const totalStars = sumStars(participants)
@@ -506,9 +559,17 @@ export async function performSpin(roundId: string): Promise<PvpSpinResult> {
           if (participant.isBot) {
             continue
           }
+          const refundUser = await tx.user.findUnique({
+            where: { id: participant.userId },
+            select: { balance: true, gramBalance: true, cryptoBalance: true },
+          })
+          if (!refundUser) continue
           await tx.user.update({
             where: { id: participant.userId },
-            data: { balance: { increment: participant.stars } },
+            data: balanceUpdate(
+              currency,
+              balanceForCurrency(refundUser, currency) + participant.stars,
+            ),
           })
         }
 
@@ -530,7 +591,7 @@ export async function performSpin(roundId: string): Promise<PvpSpinResult> {
 
       const winner = pickWinner(participants, totalStars)
       const loserPool = totalStars - winner.stars
-      const rakeStars = Math.round(loserPool * RAKE_RATE)
+      const rakeStars = roundCurrencyAmount(loserPool * RAKE_RATE, currency)
       // Выплата = своя ставка + банк проигравших минус комиссия кассы.
       const payoutStars = winner.stars + loserPool - rakeStars
 
@@ -547,13 +608,25 @@ export async function performSpin(roundId: string): Promise<PvpSpinResult> {
 
       // Победитель-бот виртуальный: выплачивать некому, касса фиксирует комиссию.
       if (!winner.isBot) {
+        const winnerUser = await tx.user.findUnique({
+          where: { id: winner.userId },
+          select: { balance: true, gramBalance: true, cryptoBalance: true },
+        })
+        if (!winnerUser) throw new GameError('USER_NOT_FOUND', 'Победитель не найден', 404)
         await tx.user.update({
           where: { id: winner.userId },
-          data: { balance: { increment: payoutStars } },
+          data: balanceUpdate(currency, balanceForCurrency(winnerUser, currency) + payoutStars),
         })
 
         // История операций: выигрыш в PvP.
-        await logTransaction(winner.userId, 'PVP_WIN', payoutStars, 'Победа в PvP', tx)
+        await logTransaction(
+          winner.userId,
+          'PVP_WIN',
+          payoutStars,
+          `Победа в PvP (${currencyLabel(currency)})`,
+          tx,
+          currency,
+        )
       }
 
       return {
@@ -577,6 +650,7 @@ export async function performSpin(roundId: string): Promise<PvpSpinResult> {
 
   return {
     roundId: result.round.id,
+    currency: result.round.currency as GameCurrency,
     winnerId: result.winnerId?.toString() ?? null,
     winnerName: winnerNameOf(result.participants, result.winnerId),
     payoutStars: result.payoutStars,
@@ -607,6 +681,7 @@ export async function getMyHistory(
     return {
       id: round.id,
       status: round.status as PvpRoundStatus,
+      currency: round.currency as GameCurrency,
       totalStars,
       winnerId: round.winnerId?.toString() ?? null,
       winnerName: winnerNameOf(participants, round.winnerId),

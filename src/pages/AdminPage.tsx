@@ -19,7 +19,9 @@ import type {
   AdminTask,
   AdminUserDetails,
   AdminUserSummary,
+  GameCurrency,
 } from '../api/types'
+import { formatCurrency } from '../utils/gameCurrency'
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleString('ru-RU', {
@@ -504,8 +506,16 @@ export default function AdminPage() {
             </div>
             <div className="mt-4 grid grid-cols-2 gap-2">
               <div className="rounded-xl bg-white/[0.04] p-3">
-                <p className="m-0 text-xs text-gray-500">Баланс</p>
-                <p className="m-0 mt-1 text-lg font-extrabold text-amber-300">{selectedUser.user.balance} ⭐</p>
+                <p className="m-0 text-xs text-gray-500">Stars</p>
+                <p className="m-0 mt-1 text-lg font-extrabold text-amber-300">{formatCurrency(selectedUser.user.balance, 'STARS')}</p>
+              </div>
+              <div className="rounded-xl bg-white/[0.04] p-3">
+                <p className="m-0 text-xs text-gray-500">Gram</p>
+                <p className="m-0 mt-1 text-lg font-extrabold text-sky-300">{formatCurrency(selectedUser.user.gramBalance, 'GRAMS')}</p>
+              </div>
+              <div className="rounded-xl bg-white/[0.04] p-3">
+                <p className="m-0 text-xs text-gray-500">Crypto</p>
+                <p className="m-0 mt-1 text-lg font-extrabold text-cyan-300">{formatCurrency(selectedUser.user.cryptoBalance, 'CRYPTO')}</p>
               </div>
               <div className="rounded-xl bg-white/[0.04] p-3">
                 <p className="m-0 text-xs text-gray-500">Регистрация</p>
@@ -525,7 +535,14 @@ export default function AdminPage() {
                 {selectedUser.deposits.map((deposit) => (
                   <li key={deposit.id} className="py-3 first:pt-0 last:pb-0">
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-sm font-bold text-white">{deposit.amount} ⭐ · {deposit.currency}</span>
+                      <span className="text-sm font-bold text-white">{formatCurrency(
+                        deposit.currency === 'GRAMS'
+                          ? (deposit.gramsAmount ?? 0) * (1 + (deposit.bonusPercent ?? 0) / 100)
+                          : deposit.currency === 'CRYPTO'
+                            ? (deposit.cryptoAmount ?? 0)
+                            : deposit.amount + Math.floor((deposit.amount * (deposit.bonusPercent ?? 0)) / 100),
+                        deposit.currency,
+                      )}</span>
                       <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${deposit.status === 'completed' ? 'bg-emerald-400/10 text-emerald-300' : 'bg-white/10 text-gray-300'}`}>{deposit.status}</span>
                     </div>
                     <p className="mb-0 mt-1 text-xs text-gray-500">{formatDate(deposit.createdAt)}{deposit.gramsAmount !== null ? ` · ${deposit.gramsAmount} TON` : ''}</p>
@@ -547,7 +564,7 @@ export default function AdminPage() {
                       <p className="mb-0 mt-1 text-xs text-gray-400">{transaction.details || 'Без описания'}</p>
                       <p className="mb-0 mt-1 text-[11px] text-gray-600">{formatDate(transaction.createdAt)}</p>
                     </div>
-                    <span className={`shrink-0 text-sm font-extrabold ${amountClass(transaction.amount)}`}>{transaction.amount > 0 ? '+' : ''}{transaction.amount} ⭐</span>
+                    <span className={`shrink-0 text-sm font-extrabold ${amountClass(transaction.amount)}`}>{transaction.amount > 0 ? '+' : ''}{formatCurrency(transaction.amount, transaction.currency)}</span>
                   </li>
                 ))}
               </ul>
@@ -564,9 +581,9 @@ export default function AdminPage() {
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-extrabold text-white">
                         {entry.isBetaMode ? 'БЕТА · ТЕСТ · ' : 'КЕЙС ОТКРЫТ · ВЫИГРЫШ · '}
-                        {entry.prizeType === 'BALANCE' ? `+${entry.prizePrice} ⭐` : entry.prizeName}
+                        {entry.prizeType === 'BALANCE' ? `+${formatCurrency(entry.prizePrice, entry.currency)}` : `${entry.prizeName} · ${formatCurrency(entry.prizePrice, entry.currency)}`}
                       </span>
-                      <span className="mt-1 block truncate text-xs text-gray-400">Кейс «{entry.caseName}» · {entry.prizeType}{entry.isBetaMode ? ' · не начислено' : ''}</span>
+                      <span className="mt-1 block truncate text-xs text-gray-400">Кейс «{entry.caseName}» · потрачено {formatCurrency(entry.casePrice ?? 0, entry.currency)} · {entry.prizeType}{entry.isBetaMode ? ' · не начислено' : ''}</span>
                       <span className="mt-1 block text-[11px] text-gray-600">{formatDate(entry.createdAt)}</span>
                     </span>
                   </li>
@@ -588,7 +605,7 @@ export default function AdminPage() {
                           <span className="ml-2 text-xs font-bold text-gray-500">{attempt.chance.toFixed(2)}%</span>
                         </p>
                         <p className="mb-0 mt-1 text-xs text-gray-400">
-                          Ставка {attempt.betAmount} ⭐ · цель {attempt.targetNftPrice} ⭐
+                          Ставка {formatCurrency(attempt.betAmount, attempt.currency)} · цель {formatCurrency(attempt.targetNftPrice, attempt.currency)}
                         </p>
                         <p className="mb-0 mt-1 text-[11px] text-gray-600">{formatDate(attempt.createdAt)}</p>
                       </div>
@@ -599,9 +616,9 @@ export default function AdminPage() {
                     <p className="mb-0 mt-2 text-xs text-gray-300">
                       {attempt.win
                         ? attempt.isBetaMode
-                          ? `Тестовый результат: выпал бы NFT «${attempt.targetNftName}» (${attempt.targetNftPrice} ⭐), расчётная выплата ${attempt.winAmount} ⭐.`
-                          : `Выигран NFT «${attempt.targetNftName}» (${attempt.targetNftPrice} ⭐), выплата ${attempt.winAmount} ⭐.`
-                        : `${attempt.isBetaMode ? 'БЕТА · ' : ''}АПГРЕЙД ПРОИГРАН · NFT не выпал, ставка ${attempt.betAmount} ⭐${attempt.isBetaMode ? ' не списана' : ' сгорела'}.`}
+                          ? `Тестовый результат: выпал бы NFT «${attempt.targetNftName}» (${formatCurrency(attempt.targetNftPrice, attempt.currency)}), расчётная выплата ${formatCurrency(attempt.winAmount, attempt.currency)}.`
+                          : `Выигран NFT «${attempt.targetNftName}» (${formatCurrency(attempt.targetNftPrice, attempt.currency)}), выплата ${formatCurrency(attempt.winAmount, attempt.currency)}.`
+                        : `${attempt.isBetaMode ? 'БЕТА · ' : ''}АПГРЕЙД ПРОИГРАН · NFT не выпал, ставка ${formatCurrency(attempt.betAmount, attempt.currency)}${attempt.isBetaMode ? ' не списана' : ' сгорела'}.`}
                     </p>
                   </li>
                 ))}
@@ -620,7 +637,7 @@ export default function AdminPage() {
                       <span className="block truncate text-sm font-bold text-white">{item.prizeName}</span>
                       <span className="mt-1 block text-xs text-gray-500"><CalendarDays size={12} className="mr-1 inline" />{formatDate(item.createdAt)} · {item.status}</span>
                     </span>
-                    <span className="shrink-0 text-xs font-bold text-amber-300">{item.prizePrice} ⭐</span>
+                    <span className="shrink-0 text-xs font-bold text-amber-300">{formatCurrency(item.prizePrice, 'STARS')}</span>
                   </li>
                 ))}
               </ul>
@@ -661,7 +678,7 @@ export default function AdminPage() {
                       <p className="m-0 truncate text-sm font-extrabold text-white">{item.username ? `@${item.username}` : item.firstName}</p>
                       <p className="mb-0 mt-1 text-xs text-gray-500">ID {item.userId} · {item.currency} · {formatDate(item.createdAt)}</p>
                     </div>
-                    <span className="shrink-0 text-sm font-extrabold text-emerald-300">+{item.amount} ⭐</span>
+                    <span className="shrink-0 text-sm font-extrabold text-emerald-300">+{formatCurrency(item.amount, item.currency as GameCurrency)}</span>
                   </li>
                 ))}
               </ul>
@@ -677,7 +694,7 @@ export default function AdminPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="m-0 truncate text-sm font-extrabold text-white">{item.username ? `@${item.username}` : item.firstName} <span className="font-semibold text-gray-500">· ID {item.userId}</span></p>
-                        <p className="mb-0 mt-1 text-xs text-gray-400">Раунд {item.roundId} · ставка {item.betAmount} ⭐ · банк {item.totalPot} ⭐</p>
+                        <p className="mb-0 mt-1 text-xs text-gray-400">Раунд {item.roundId} · ставка {formatCurrency(item.betAmount, item.currency)} · банк {formatCurrency(item.totalPot, item.currency)}</p>
                       </div>
                       <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-extrabold ${item.outcome === 'WIN' ? 'bg-emerald-400/10 text-emerald-300' : item.outcome === 'REFUND' ? 'bg-amber-400/10 text-amber-300' : 'bg-rose-400/10 text-rose-300'}`}>
                         {item.outcome === 'WIN' ? 'ПОБЕДА' : item.outcome === 'REFUND' ? 'ВОЗВРАТ' : 'ПРОИГРЫШ'}
@@ -700,8 +717,8 @@ export default function AdminPage() {
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.05] text-xl">{item.prizeEmoji}</span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-extrabold text-white">{item.username ? `@${item.username}` : item.firstName} <span className="font-medium text-gray-500">· {item.title}</span></span>
-                      <span className="mt-1 block text-xs text-gray-400">Потрачено: {item.isBetaMode ? '0 ⭐ · БЕТА' : `${item.casePrice} ⭐`}</span>
-                      <span className={`mt-1 block text-xs font-bold ${item.isBetaMode ? 'text-violet-300' : 'text-emerald-200'}`}>{item.isBetaMode ? 'БЕТА · тестовый результат, приз не начислен' : `Выпало: ${item.prizeType === 'BALANCE' ? `+${item.prizePrice} ⭐` : `${item.prizeEmoji} ${item.prizeName} · ${item.prizePrice} ⭐`}`}</span>
+                      <span className="mt-1 block text-xs text-gray-400">Потрачено: {item.isBetaMode ? `0 ${formatCurrency(0, item.currency)} · БЕТА` : formatCurrency(item.casePrice, item.currency)}</span>
+                      <span className={`mt-1 block text-xs font-bold ${item.isBetaMode ? 'text-violet-300' : 'text-emerald-200'}`}>{item.isBetaMode ? 'БЕТА · тестовый результат, приз не начислен' : `Выпало: ${item.prizeType === 'BALANCE' ? `+${formatCurrency(item.prizePrice, item.currency)}` : `${item.prizeEmoji} ${item.prizeName} · ${formatCurrency(item.prizePrice, item.currency)}`}`}</span>
                       <span className="mt-1 block text-[11px] text-gray-600">ID {item.userId} · {formatDate(item.createdAt)}</span>
                     </span>
                   </li>
@@ -719,13 +736,13 @@ export default function AdminPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="m-0 truncate text-sm font-extrabold text-white">{item.username ? `@${item.username}` : item.firstName} <span className="font-semibold text-gray-500">· цель {item.targetNftEmoji} {item.targetNftName}</span></p>
-                        <p className="mb-0 mt-1 text-xs text-gray-400">Потрачено: {item.isBetaMode ? '0 ⭐ · БЕТА' : `${item.betAmount} ⭐`} · шанс {Number.isFinite(item.chance) ? `${item.chance.toFixed(2)}%` : '—'}</p>
+                        <p className="mb-0 mt-1 text-xs text-gray-400">Потрачено: {item.isBetaMode ? `0 ${formatCurrency(0, item.currency)} · БЕТА` : formatCurrency(item.betAmount, item.currency)} · шанс {Number.isFinite(item.chance) ? `${item.chance.toFixed(2)}%` : '—'}</p>
                       </div>
                       <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-extrabold ${item.isBetaMode ? 'bg-violet-400/10 text-violet-300' : item.won ? 'bg-emerald-400/10 text-emerald-300' : 'bg-rose-400/10 text-rose-300'}`}>
                         {item.isBetaMode ? `БЕТА · ${item.won ? 'ПОБЕДА' : 'ПРОИГРЫШ'}` : item.won ? 'ПОБЕДА' : 'ПРОИГРЫШ'}
                       </span>
                     </div>
-                    <p className={`mb-0 mt-2 text-sm font-bold ${item.isBetaMode ? 'text-violet-200' : item.won ? 'text-emerald-200' : 'text-rose-200'}`}>{item.isBetaMode ? item.result : item.won ? `Выигран NFT ${item.targetNftEmoji} ${item.targetNftName} (${item.targetNftPrice} ⭐), выплата ${item.winAmount} ⭐.` : `Проигрыш: ставка ${item.betAmount} ⭐ сгорела.`}</p>
+                    <p className={`mb-0 mt-2 text-sm font-bold ${item.isBetaMode ? 'text-violet-200' : item.won ? 'text-emerald-200' : 'text-rose-200'}`}>{item.isBetaMode ? item.result : item.won ? `Выигран NFT ${item.targetNftEmoji} ${item.targetNftName} (${formatCurrency(item.targetNftPrice, item.currency)}), выплата ${formatCurrency(item.winAmount, item.currency)}.` : `Проигрыш: ставка ${formatCurrency(item.betAmount, item.currency)} сгорела.`}</p>
                     <p className="mb-0 mt-1 text-[11px] text-gray-600">ID {item.userId} · {formatDate(item.createdAt)}</p>
                   </li>
                 ))}

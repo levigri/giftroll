@@ -36,6 +36,8 @@ export interface MeResponse {
   username: string | null
   photoUrl: string | null
   balance: number
+  gramBalance: number
+  cryptoBalance: number
   inventoryCount: number
   dailyBonusAvailable: boolean
   /** Когда откроется следующий бесплатный кейс; null — если уже доступен. */
@@ -50,11 +52,15 @@ export interface MeResponse {
   createdAt: string
 }
 
+export type GameCurrency = 'STARS' | 'GRAMS' | 'CRYPTO'
+
 export interface AdminUserSummary {
   id: string
   username: string | null
   firstName: string
   balance: number
+  gramBalance?: number
+  cryptoBalance?: number
   inventoryValue?: number
   totalBalance?: number
   isBetaMode: boolean
@@ -76,11 +82,13 @@ export interface AdminBanUser {
 export interface AdminDeposit {
   id: string
   amount: number
-  currency: string
+  currency: GameCurrency
   status: string
   createdAt: string
   txHash: string | null
   gramsAmount: number | null
+  cryptoAmount?: number | null
+  bonusPercent?: number
 }
 
 export interface AdminTransaction {
@@ -90,6 +98,7 @@ export interface AdminTransaction {
   firstName: string
   type: string
   amount: number
+  currency: GameCurrency
   details: string | null
   createdAt: string
 }
@@ -103,6 +112,8 @@ export interface AdminCaseOpen {
   prizeEmoji: string
   prizeType: 'BALANCE' | 'NFT'
   prizePrice: number
+  currency: GameCurrency
+  casePrice: number | null
   isBetaMode: boolean
   createdAt: string
 }
@@ -117,6 +128,7 @@ export interface AdminUpgraderAttempt {
   chance: number
   win: boolean
   winAmount: number
+  currency: GameCurrency
   isBetaMode: boolean
   createdAt: string
 }
@@ -150,6 +162,7 @@ export interface AdminPvpActivity {
   userId: string
   username: string | null
   firstName: string
+  currency: GameCurrency
   betAmount: number
   payoutAmount: number
   totalPot: number
@@ -162,6 +175,7 @@ export interface AdminPvpActivity {
 export interface AdminCaseActivity extends AdminActivity {
   kind: 'CASE_OPEN'
   casePrice: number
+  currency: GameCurrency
   prizeName: string
   prizeEmoji: string
   prizeType: 'BALANCE' | 'NFT'
@@ -170,6 +184,7 @@ export interface AdminCaseActivity extends AdminActivity {
 
 export interface AdminUpgradeActivity extends AdminActivity {
   kind: 'UPGRADE'
+  currency: GameCurrency
   betAmount: number
   targetNftName: string
   targetNftEmoji: string
@@ -201,6 +216,8 @@ export interface AdminTask {
 
 export interface AdminUserDetails {
   user: AdminUserSummary & {
+    gramBalance: number
+    cryptoBalance: number
     lastName: string | null
     photoUrl: string | null
     depositUnspent: number
@@ -210,7 +227,7 @@ export interface AdminUserDetails {
   }
   inventory: InventoryItem[]
   deposits: AdminDeposit[]
-  transactions: Array<Pick<AdminTransaction, 'id' | 'type' | 'amount' | 'details' | 'createdAt'>>
+  transactions: Array<Pick<AdminTransaction, 'id' | 'type' | 'amount' | 'currency' | 'details' | 'createdAt'>>
   caseOpens: AdminCaseOpen[]
   upgraderAttempts: AdminUpgraderAttempt[]
 }
@@ -232,6 +249,7 @@ export interface InventoryItem {
 export interface OpenCaseResponse {
   prize: Prize
   newBalance: number
+  currency: GameCurrency
   caseOpenId: string
 }
 
@@ -250,6 +268,7 @@ export interface MultiCaseOpenResponse {
   spent: number
   /** Баланс после списания ставки и зачисления звёздных призов. */
   newBalance: number
+  currency: GameCurrency
 }
 
 /* ---------- Публичная лента дропов ---------- */
@@ -420,6 +439,7 @@ export interface PvpParticipantView {
 export interface PvpRoundView {
   id: string
   status: PvpRoundStatus
+  currency: GameCurrency
   totalStars: number
   /** null — раунд ждёт второго участника, отсчёт ещё не идёт. */
   endsAt: string | null
@@ -443,6 +463,7 @@ export interface PvpJoinResponse {
 export interface PvpHistoryEntry {
   id: string
   status: PvpRoundStatus
+  currency: GameCurrency
   totalStars: number
   winnerId: string | null
   winnerName: string | null
@@ -459,6 +480,7 @@ export interface TransactionEntry {
   id: string
   type: 'DEPOSIT' | 'CASE_OPEN' | 'UPGRADE' | 'PVP_BET' | 'PVP_WIN' | 'SELL_NFT' | 'DAILY_BONUS' | 'REFERRAL' | 'TASK_REWARD'
   amount: number
+  currency: GameCurrency
   details: string | null
   createdAt: string
 }

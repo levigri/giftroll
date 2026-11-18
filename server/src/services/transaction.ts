@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client'
 import { prisma } from '../db/prisma.js'
+import type { GameCurrency } from '../utils/gameCurrency.js'
 
 /**
  * Типы операций в истории баланса.
@@ -32,10 +33,11 @@ export async function logTransaction(
   amount: number,
   details: string,
   client: Prisma.TransactionClient | typeof prisma = prisma,
+  currency: GameCurrency = 'STARS',
 ): Promise<void> {
   try {
     await client.transaction.create({
-      data: { userId, type, amount, details },
+      data: { userId, type, amount, details, currency },
     })
   } catch (err) {
     console.error(`[Transaction] failed to log ${type} for user ${userId}:`, err)

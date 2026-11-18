@@ -45,6 +45,8 @@ function getTelegramWebApp(): TelegramWebAppBridge | undefined {
 
 export interface DepositPageProps {
   balance?: number | null
+  gramBalance?: number | null
+  cryptoBalance?: number | null
   /** Telegram ID текущего пользователя — по нему показывается DEV-блок. */
   userId?: string | null
   onRefreshMe?: () => Promise<void> | void
@@ -148,6 +150,8 @@ export class DepositErrorBoundary extends Component<ErrorBoundaryProps, ErrorBou
 
 function DepositPageContent({
   balance = 0,
+  gramBalance = 0,
+  cryptoBalance = 0,
   onRefreshMe,
   onBack,
 }: DepositPageProps) {
@@ -404,7 +408,7 @@ function DepositPageContent({
         throw new Error('Сервер не подтвердил зачисление')
       }
       successFeedback()
-      showToast(`Пополнение на ${confirmResult.starsAmount ?? creditedStars} ⭐ зачислено`)
+      showToast(`Пополнение на ${confirmResult.gramsAmount.toFixed(4)} Gram зачислено`)
       void onRefreshMe?.()
       setGramsStars('')
       setInvoiceGramsAmount(null)
@@ -475,12 +479,16 @@ function DepositPageContent({
         </h2>
       </div>
 
-      <div className="glass-card flex items-center justify-between px-3.5 py-2.5 text-[13px] text-gray-400">
-        Текущий баланс
-        <strong className="inline-flex items-center gap-1 text-base font-extrabold text-white">
-          <Star size={14} className="text-[#FFD700]" fill="currentColor" />
-          {safeBalance.toLocaleString('ru-RU')}
-        </strong>
+      <div className="glass-card flex flex-col gap-2 px-3.5 py-2.5 text-[13px] text-gray-400">
+        <span>Текущие балансы</span>
+        <div className="grid grid-cols-3 gap-2 text-center text-xs font-extrabold text-white">
+          <strong className="inline-flex items-center justify-center gap-1">
+            <Star size={12} className="text-[#FFD700]" fill="currentColor" />
+            {safeBalance.toLocaleString('ru-RU')}
+          </strong>
+          <strong>{Number.isFinite(gramBalance ?? 0) ? (gramBalance ?? 0).toFixed(4) : '0'} Gram</strong>
+          <strong>${Number.isFinite(cryptoBalance ?? 0) ? (cryptoBalance ?? 0).toFixed(2) : '0.00'} USD</strong>
+        </div>
       </div>
 
       {toast && (

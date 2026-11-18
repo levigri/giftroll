@@ -95,6 +95,8 @@ export async function createCryptoInvoice(
   }
 
   const payload = `crypto_dep_${userId}_${Date.now()}`
+  const baseUsd = getStarsBasePriceUsd(starsAmount)
+  const finalUsd = baseUsd * CRYPTO_GATEWAY_MARKUP
   const deposit = await prisma.deposit.create({
     data: {
       userId,
@@ -102,14 +104,13 @@ export async function createCryptoInvoice(
       status: 'pending',
       currency: 'CRYPTO',
       payload,
+      cryptoAmount: baseUsd,
     },
   })
 
   try {
     // Базовая цена по курсу 100 ⭐ = $1.40 плюс комиссия шлюза 3%:
     // 50 ⭐ → $0.70 → к оплате $0.721. Начисляются при этом ровно 50 ⭐.
-    const baseUsd = getStarsBasePriceUsd(starsAmount)
-    const finalUsd = baseUsd * CRYPTO_GATEWAY_MARKUP
     const amount = finalUsd.toFixed(4).replace(/\.?0+$/, '')
 
     const result = await callCryptoPay<CryptoInvoiceResult>('createInvoice', {
@@ -148,7 +149,7 @@ function extractPayload(update: unknown): string | null {
 }
 
 /**
- * Обрабатывает вебхук Crypto Pay: при `invoice_paid` зачисляет ⭐ на баланс.
+ * Обрабатывает вебхук Crypto Pay: зачисляет долларовый эквивалент на Crypto-баланс.
  * Повторная доставка того же вебхука безопасна: неповторный pending-депозит
  * второй раз уже не обновится.
  */
@@ -164,9 +165,10 @@ export async function handleCryptoWebhook(update: unknown): Promise<{ ok: boolea
   }
 
   const deposit = await prisma.deposit.findUnique({ where: { payload } })
-  if (!deposit || deposit.status !== 'pending') {
+  if (!deposit || deposit.status !== 'pending' || deposit.currency !== 'CRYPTO') {
     return { ok: true }
   }
+  const creditedCrypto = deposit.cryptoAmount ?? getStarsBasePriceUsd(deposit.amount)
 
   const completedAt = new Date()
   const claimed = await prisma.$transaction(async (tx) => {
@@ -182,20 +184,20 @@ export async function handleCryptoWebhook(update: unknown): Promise<{ ok: boolea
     await tx.user.update({
       where: { id: deposit.userId },
       data: {
-        balance: { increment: deposit.amount },
-        depositUnspent: { increment: deposit.amount },
+        cryptoBalance: { increment: creditedCrypto },
       },
     })
 
     await grantDepositBonusTicket(tx, deposit.userId, deposit.amount)
 
-    // История операций: зачисление пополнения через CryptoBot (ровно звёзды).
+    // История операций хранит USD-эквивалент, а не пополняет Stars-баланс.
     await tx.transaction.create({
       data: {
         userId: deposit.userId,
         type: 'DEPOSIT',
-        amount: deposit.amount,
-        details: 'Пополнение (CryptoBot)',
+        amount: creditedCrypto,
+        currency: 'CRYPTO',
+        details: 'Пополнение Crypto Pay (USD)',
       },
     })
     return true
@@ -204,7 +206,7 @@ export async function handleCryptoWebhook(update: unknown): Promise<{ ok: boolea
   if (!claimed) return { ok: true }
 
   // Уведомление в бота: крипто-депозит зачислен.
-  void notifyUser(deposit.userId, `✅ Баланс успешно пополнен на ${deposit.amount} ⭐!`)
+  void notifyUser(deposit.userId, `✅ На Crypto-баланс зачислено $${creditedCrypto.toFixed(2)}!`)
 
   return { ok: true }
 }

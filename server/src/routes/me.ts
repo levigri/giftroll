@@ -47,6 +47,8 @@ export const meRoutes: FastifyPluginAsync = async (fastify) => {
         username: user.username,
         photoUrl: user.photoUrl,
         balance: user.balance,
+        gramBalance: user.gramBalance,
+        cryptoBalance: user.cryptoBalance,
         inventoryCount,
         dailyBonusAvailable,
         dailyBonusAvailableAt: dailyBonusAvailable ? null : dailyBonusAvailableAt,
@@ -110,6 +112,7 @@ export const meRoutes: FastifyPluginAsync = async (fastify) => {
         id: row.id,
         type: row.type,
         amount: row.amount,
+        currency: row.currency as 'STARS' | 'GRAMS' | 'CRYPTO',
         details: row.details,
         createdAt: row.createdAt.toISOString(),
       }))
