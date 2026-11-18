@@ -578,7 +578,7 @@ function App() {
         </div>
       )}
 
-      <header className="glass-card relative flex items-center gap-3 px-3 py-2.5">
+      <header className="glass-card relative z-50 flex items-center gap-3 px-3 py-2.5">
         {loading && !me ? (
           <div className="text-sm font-bold text-gray-400">Загрузка профиля...</div>
         ) : !me ? (
