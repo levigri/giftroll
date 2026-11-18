@@ -46,9 +46,17 @@ const TIMER_TICK_MS = 100
 const ROUND_DURATION_MS = 10_000
 /** Сколько секунд после завершения раунда считаем результат «свежим». */
 const FRESH_RESULT_MS = 30_000
-const DEFAULT_BET_STARS = 500
-/** Дефолт формы докида. */
-const DEFAULT_ADD_STARS = 100
+const DEFAULT_BET_BY_CURRENCY: Record<GameCurrency, number> = {
+  STARS: 500,
+  GRAMS: 1,
+  CRYPTO: 1,
+}
+/** Начальный размер докида задаётся в выбранной валюте. */
+const DEFAULT_ADD_BY_CURRENCY: Record<GameCurrency, number> = {
+  STARS: 100,
+  GRAMS: 0.2,
+  CRYPTO: 1,
+}
 /** Рейк кассы — 5% от ставок проигравших (зеркалит RAKE_RATE на сервере). */
 const RAKE_RATE = 0.05
 /** Вне Telegram фронт ходит под этим id (см. authHeaders). */
@@ -256,11 +264,11 @@ export default function PvpPage({ balance, currency, conversionFactor, onRefresh
   const minBet = toCurrencyAmount(MIN_BET_STARS, currency, conversionFactor)
   const maxBetLimit = toCurrencyAmount(MAX_BET_STARS, currency, conversionFactor)
   const [stars, setStars] = useState(() =>
-    Math.min(toCurrencyAmount(DEFAULT_BET_STARS, currency, conversionFactor), Math.max(minBet, balance)),
+    Math.min(DEFAULT_BET_BY_CURRENCY[currency], Math.max(minBet, balance)),
   )
   /** Дополнительная ставка формы «Докинуть» (Баг 3). */
-  const [additionalBet, setAdditionalBet] = useState(() => toCurrencyAmount(DEFAULT_ADD_STARS, currency, conversionFactor))
-  const previousCurrencyRef = useRef({ currency, conversionFactor })
+  const [additionalBet, setAdditionalBet] = useState(() => Math.max(minBet, DEFAULT_ADD_BY_CURRENCY[currency]))
+  const previousCurrencyRef = useRef(currency)
   /** id раунда от сервера: без него pvpAddBet вызвать нечем. */
   const [roundId, setRoundId] = useState<string | null>(null)
   /** Идёт вход: UI уже в 'in_round', ответ pvpJoin ещё в пути. */
@@ -295,13 +303,15 @@ export default function PvpPage({ balance, currency, conversionFactor, onRefresh
   const outcomeRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    const previous = previousCurrencyRef.current
-    if (previous.currency !== currency) {
-      setStars(toCurrencyAmount(stars / previous.conversionFactor, currency, conversionFactor))
-      setAdditionalBet(toCurrencyAmount(additionalBet / previous.conversionFactor, currency, conversionFactor))
+    if (previousCurrencyRef.current !== currency) {
+      setStars(Math.min(DEFAULT_BET_BY_CURRENCY[currency], Math.max(minBet, balance)))
+      setAdditionalBet(Math.max(minBet, DEFAULT_ADD_BY_CURRENCY[currency]))
+    } else {
+      setStars((current) => Math.max(minBet, current))
+      setAdditionalBet((current) => Math.max(minBet, current))
     }
-    previousCurrencyRef.current = { currency, conversionFactor }
-  }, [currency, conversionFactor, stars, additionalBet])
+    previousCurrencyRef.current = currency
+  }, [currency, minBet, balance])
 
   useEffect(() => {
     onCurrencyLock?.(Boolean(round && phase !== 'idle'))
@@ -605,7 +615,9 @@ export default function PvpPage({ balance, currency, conversionFactor, onRefresh
 
     tapFeedback('medium')
     setShowAddBet(false)
-    setAdditionalBet(Math.min(toCurrencyAmount(DEFAULT_ADD_STARS, currency, conversionFactor), Math.max(minBet, stars)))
+    setAdditionalBet(
+      Math.min(Math.max(minBet, DEFAULT_ADD_BY_CURRENCY[currency]), Math.max(minBet, stars)),
+    )
 
     // Мгновенное списание баланса (0 мс задержки)
     onBalanceChange?.(currency, Math.max(0, balance - stars))
@@ -750,7 +762,7 @@ export default function PvpPage({ balance, currency, conversionFactor, onRefresh
     setShowAddBet(false)
     setOverlayReady(false)
     // Ставку возвращаем к дефолту, но не выше доступного баланса.
-    setStars(Math.min(toCurrencyAmount(DEFAULT_BET_STARS, currency, conversionFactor), Math.max(minBet, balance)))
+    setStars(Math.min(DEFAULT_BET_BY_CURRENCY[currency], Math.max(minBet, balance)))
     void loadHistory()
     void onRefreshMe()
   }, [balance, currency, conversionFactor, minBet, loadHistory, onRefreshMe])
@@ -977,7 +989,7 @@ export default function PvpPage({ balance, currency, conversionFactor, onRefresh
                 className="ghost-btn flex items-center justify-center gap-1.5 py-3 text-sm"
                 onClick={() => {
                   tapFeedback('light')
-                  setAdditionalBet(Math.min(toCurrencyAmount(DEFAULT_ADD_STARS, currency, conversionFactor), maxBet))
+                  setAdditionalBet(Math.min(Math.max(minBet, DEFAULT_ADD_BY_CURRENCY[currency]), maxBet))
                   setShowAddBet(true)
                 }}
                 disabled={roundId === null}

@@ -37,7 +37,16 @@ const MIN_STARS_BET = 0
 const MIN_CHANCE = 1
 const MAX_CHANCE = 80
 const PAYOUT_PERCENT = 95
-const DEFAULT_STARS_BET = 100
+const DEFAULT_BET_BY_CURRENCY: Record<GameCurrency, number> = {
+  STARS: 100,
+  GRAMS: 1,
+  CRYPTO: 1,
+}
+const QUICK_ADD_BY_CURRENCY: Record<GameCurrency, number> = {
+  STARS: 100,
+  GRAMS: 0.2,
+  CRYPTO: 1,
+}
 /** 25% при ставке 100 ⭐ даёт выплату 380 ⭐ — сразу покрывает дешёвый NFT. */
 const DEFAULT_CHANCE = 25
 /** Результат показываем не раньше, чем через 3 секунды. */
@@ -130,11 +139,11 @@ export default function UpgraderPage({
   onBalanceChange,
 }: UpgraderPageProps) {
   const marketPrices = useMarketPrices()
-  const [starsBet, setStarsBet] = useState(() => toCurrencyAmount(DEFAULT_STARS_BET, currency, conversionFactor))
-  const [starsDraft, setStarsDraft] = useState(String(toCurrencyAmount(DEFAULT_STARS_BET, currency, conversionFactor)))
+  const [starsBet, setStarsBet] = useState(() => DEFAULT_BET_BY_CURRENCY[currency])
+  const [starsDraft, setStarsDraft] = useState(String(DEFAULT_BET_BY_CURRENCY[currency]))
   const [chance, setChance] = useState(DEFAULT_CHANCE)
   const [nftIds, setNftIds] = useState<string[]>([])
-  const previousCurrencyRef = useRef({ currency, conversionFactor })
+  const previousCurrencyRef = useRef(currency)
   const [inventory, setInventory] = useState<InventoryItem[]>([])
   const [inventoryLoading, setInventoryLoading] = useState(true)
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -198,15 +207,13 @@ export default function UpgraderPage({
   }, [starsBet])
 
   useEffect(() => {
-    const previous = previousCurrencyRef.current
-    if (previous.currency !== currency) {
-      const equivalentStars = starsBet / previous.conversionFactor
-      const convertedBet = toCurrencyAmount(equivalentStars, currency, conversionFactor)
-      setStarsBet(convertedBet)
-      setStarsDraft(String(convertedBet))
+    if (previousCurrencyRef.current !== currency) {
+      const defaultBet = DEFAULT_BET_BY_CURRENCY[currency]
+      setStarsBet(defaultBet)
+      setStarsDraft(String(defaultBet))
     }
-    previousCurrencyRef.current = { currency, conversionFactor }
-  }, [currency, conversionFactor, starsBet])
+    previousCurrencyRef.current = currency
+  }, [currency])
 
   /**
    * Пул целей: все NFT из кейсов и каталога, по одному на название.
@@ -592,15 +599,15 @@ export default function UpgraderPage({
             <button
               type="button"
               className="ghost-btn py-2 text-xs"
-              onClick={() => applyBet(starsBet + toCurrencyAmount(100, currency, conversionFactor))}
+              onClick={() => applyBet(starsBet + QUICK_ADD_BY_CURRENCY[currency])}
               disabled={busy}
             >
-              +100
+              +{formatCurrency(QUICK_ADD_BY_CURRENCY[currency], currency)}
             </button>
             <button
               type="button"
               className="ghost-btn py-2 text-xs"
-              onClick={() => applyBet(Math.max(toCurrencyAmount(50, currency, conversionFactor), roundCurrency(starsBet / 2, currency)))}
+              onClick={() => applyBet(roundCurrency(starsBet / 2, currency))}
               disabled={busy}
             >
               1/2
