@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { CheckCircle, Circle, Gift, Send, Share2 } from 'lucide-react'
 import type { ClaimDailyResponse } from '../api/types'
 import {
@@ -49,6 +49,7 @@ export interface FreeCaseModalProps {
  */
 export default function FreeCaseModal({ onClose, onClaimed }: FreeCaseModalProps) {
   const [subscribed, setSubscribed] = useState<boolean | null>(null)
+  const [subscriptionConfirmed, setSubscriptionConfirmed] = useState(false)
   const [shared, setShared] = useState(false)
   const [refLink, setRefLink] = useState<string | null>(null)
   const [preparedMessageId, setPreparedMessageId] = useState<string | null>(null)
@@ -56,11 +57,17 @@ export default function FreeCaseModal({ onClose, onClaimed }: FreeCaseModalProps
   const [sharePrepareError, setSharePrepareError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  const subscribeButtonClicked = useRef(false)
 
   const refreshSubscription = useCallback(async () => {
     try {
       const res = await checkSubscription()
       setSubscribed(res.subscribed)
+      if (res.subscribed && subscribeButtonClicked.current) {
+        setSubscriptionConfirmed(true)
+      } else if (!res.subscribed) {
+        setSubscriptionConfirmed(false)
+      }
     } catch {
       // Сеть моргнула — оставляем прежнее значение, проверим при следующем фокусе.
     }
@@ -129,6 +136,15 @@ export default function FreeCaseModal({ onClose, onClaimed }: FreeCaseModalProps
 
   const handleSubscribe = () => {
     tapFeedback('light')
+    subscribeButtonClicked.current = true
+
+    // Даже уже подписанному игроку нужно явно нажать кнопку в этом окне.
+    if (subscribed) {
+      setSubscriptionConfirmed(true)
+      setNotice(null)
+      return
+    }
+
     openLink(CHANNEL_URL)
     // Пользователь вернётся из канала — проверка уйдёт по focus/visibilitychange.
     window.setTimeout(() => void refreshSubscription(), 2000)
@@ -185,9 +201,9 @@ export default function FreeCaseModal({ onClose, onClaimed }: FreeCaseModalProps
     if (busy) {
       return
     }
-    if (!subscribed) {
+    if (!subscribed || !subscriptionConfirmed) {
       errorFeedback()
-      setNotice('Сначала подпишись на канал')
+      setNotice('Нажми «Подписаться», чтобы подтвердить подписку на канал')
       return
     }
     if (!shared) {
@@ -207,6 +223,7 @@ export default function FreeCaseModal({ onClose, onClaimed }: FreeCaseModalProps
       const code = (err as { code?: string } | null)?.code
       if (code === 'NOT_SUBSCRIBED') {
         setSubscribed(false)
+        setSubscriptionConfirmed(false)
         setNotice('Сначала подпишись на канал')
       } else if (code === 'BONUS_NOT_READY') {
         setNotice('Бонус ещё не доступен')
@@ -231,12 +248,12 @@ export default function FreeCaseModal({ onClose, onClaimed }: FreeCaseModalProps
         <div className="mb-1 flex flex-col gap-2">
           <div
             className={`flex items-center gap-2.5 rounded-xl border px-3 py-3 transition ${
-              subscribed
+              subscriptionConfirmed
                 ? 'border-emerald-400/40 bg-emerald-400/10'
                 : 'border-white/10 bg-white/5'
             }`}
           >
-            {subscribed ? (
+            {subscriptionConfirmed ? (
               <CheckCircle size={20} className="shrink-0 text-green-500" />
             ) : (
               <Circle size={20} className="shrink-0 text-gray-500" />
@@ -244,14 +261,16 @@ export default function FreeCaseModal({ onClose, onClaimed }: FreeCaseModalProps
             <div className="min-w-0 flex-1">
               <p className="m-0 text-sm font-extrabold text-white">Подписка на @NewsGiftRoll</p>
               <p className="m-0 text-xs text-gray-400">
-                {subscribed === null
-                  ? 'Проверяем подписку…'
-                  : subscribed
-                    ? 'Выполнено'
-                    : 'Подпишись на канал'}
+                {subscriptionConfirmed
+                  ? 'Подписка подтверждена'
+                  : subscribed === null
+                    ? 'Проверяем подписку…'
+                    : subscribed
+                      ? 'Уже подписан — нажми кнопку для подтверждения'
+                      : 'Подпишись на канал'}
               </p>
             </div>
-            {!subscribed && (
+            {!subscriptionConfirmed && (
               <button
                 type="button"
                 className="flex shrink-0 items-center gap-1.5 rounded-xl border border-[#48A9FF]/40 bg-[#48A9FF]/15 px-3 py-2 text-xs font-extrabold text-[#A9D8FF] transition hover:brightness-110"
@@ -302,9 +321,11 @@ export default function FreeCaseModal({ onClose, onClaimed }: FreeCaseModalProps
         <p className="m-0 text-center text-xs text-gray-400">
           {subscribed === null
             ? 'Проверяем подписку…'
-            : subscribed
+            : subscriptionConfirmed
               ? 'Подписка подтверждена — можно забирать'
-              : 'Подпишись на канал, чтобы открыть кейс'}
+              : subscribed
+                ? 'Нажми кнопку «Подписаться», чтобы подтвердить'
+                : 'Подпишись на канал, чтобы открыть кейс'}
         </p>
 
         <button

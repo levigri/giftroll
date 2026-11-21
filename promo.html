@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0B0C10" />
-    <title>GiftRoll — промо-ролл</title>
+    <title>GiftRoll — рекламный ролик</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -29,18 +29,18 @@
         left: 50%;
         isolation: isolate;
         container-type: inline-size;
-        width: 2560px;
-        height: 1440px;
+        width: 1080px;
+        height: 1920px;
         transform: translate(-50%, -50%) scale(var(--fit-scale, 1));
         transform-origin: center;
         overflow: hidden;
-        border: 1px solid rgba(255,255,255,.1);
-        border-radius: 72px;
+        border: 0;
+        border-radius: 0;
         background:
           radial-gradient(ellipse at 51% 8%, rgba(114,71,186,.17), transparent 37%),
           radial-gradient(ellipse at 50% 112%, rgba(255,194,76,.12), transparent 34%),
           linear-gradient(145deg, #171521, #0d0e16 55%, #121018);
-        box-shadow: 0 26px 84px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.04);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
       }
       .ad-frame::before {
         position: absolute;
@@ -50,12 +50,321 @@
         content: '';
         pointer-events: none;
       }
+      .ad-frame::after {
+        position: absolute;
+        z-index: -1;
+        inset: -18%;
+        background:
+          radial-gradient(ellipse at 20% 34%, rgba(159,64,255,.2), transparent 25%),
+          radial-gradient(ellipse at 82% 64%, rgba(255,183,54,.12), transparent 24%);
+        content: '';
+        animation: ambient-drift 9s ease-in-out infinite alternate;
+        pointer-events: none;
+      }
+      .story-scene {
+        position: absolute;
+        z-index: 16;
+        inset: 0;
+        overflow: hidden;
+        background:
+          radial-gradient(ellipse at 50% 34%, rgba(124,69,199,.18), transparent 34%),
+          linear-gradient(160deg, #171521, #0c0d14 58%, #15111d);
+        opacity: 0;
+        visibility: hidden;
+        transform: translateX(7%) scale(.985);
+        transition: opacity .5s ease, visibility .5s, transform .7s cubic-bezier(.18,.85,.25,1.05);
+      }
+      .story-scene.is-active { opacity: 1; visibility: visible; transform: translateX(0) scale(1); }
+      .story-scene.is-away { opacity: 0; visibility: hidden; transform: translateX(-7%) scale(.985); }
+      .story-scene__topbar {
+        position: absolute;
+        top: 5%;
+        right: 7%;
+        left: 7%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        color: rgba(255,255,255,.88);
+        font-size: 2.2cqw;
+        font-weight: 900;
+        letter-spacing: .1em;
+      }
+      .story-scene__brand { display: inline-flex; align-items: center; gap: 1.2cqw; }
+      .story-scene__brand::before {
+        width: 1cqw;
+        height: 1cqw;
+        border-radius: 50%;
+        background: #59e3b4;
+        box-shadow: 0 0 14px rgba(89,227,180,.8);
+        content: '';
+      }
+      .story-scene__badge {
+        padding: 1cqw 1.8cqw;
+        border: 1px solid rgba(255,215,0,.24);
+        border-radius: 999px;
+        background: rgba(255,215,0,.08);
+        color: #ffdc62;
+        font-size: 1.55cqw;
+        letter-spacing: .09em;
+      }
+      .story-scene__page-title {
+        position: absolute;
+        top: 13%;
+        right: 7%;
+        left: 7%;
+        margin: 0;
+        color: #fff;
+        font-size: 6.2cqw;
+        font-weight: 900;
+        letter-spacing: -.06em;
+        text-align: center;
+      }
+      .story-scene__count {
+        position: absolute;
+        top: 21%;
+        left: 50%;
+        padding: 1.2cqw 2.6cqw;
+        border: 1px solid rgba(255,255,255,.12);
+        border-radius: 999px;
+        background: rgba(255,255,255,.05);
+        color: rgba(255,255,255,.62);
+        font-size: 1.65cqw;
+        font-weight: 900;
+        letter-spacing: .16em;
+        transform: translateX(-50%);
+      }
+      .inventory-slots {
+        position: absolute;
+        top: 29%;
+        right: 7%;
+        left: 7%;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 2cqw;
+      }
+      .inventory-slot {
+        display: grid;
+        height: 29cqw;
+        border: 1px dashed rgba(202,188,238,.2);
+        border-radius: 2.4cqw;
+        background: linear-gradient(145deg, rgba(255,255,255,.045), rgba(255,255,255,.018));
+        color: rgba(255,255,255,.13);
+        font-size: 8cqw;
+        place-items: center;
+      }
+      .inventory-slot:nth-child(2) { transform: translateY(3cqw); }
+      .inventory-slot:nth-child(3) { transform: translateY(6cqw); }
+      .inventory-empty {
+        position: absolute;
+        top: 57%;
+        right: 8%;
+        left: 8%;
+        text-align: center;
+      }
+      .inventory-empty__icon {
+        display: inline-grid;
+        width: 15cqw;
+        height: 15cqw;
+        margin-bottom: 2cqw;
+        border: 1px solid rgba(190,157,255,.22);
+        border-radius: 4cqw;
+        background: linear-gradient(145deg, rgba(130,76,206,.2), rgba(255,255,255,.035));
+        color: #c7a4ff;
+        font-size: 8cqw;
+        box-shadow: 0 0 38px rgba(133,74,208,.16);
+        place-items: center;
+        animation: empty-float 2.4s ease-in-out infinite alternate;
+      }
+      .inventory-empty__title {
+        margin: 0;
+        color: #fff;
+        font-size: 4.7cqw;
+        font-weight: 900;
+        letter-spacing: -.04em;
+      }
+      .inventory-empty__text {
+        max-width: 74%;
+        margin: 1.7cqw auto 0;
+        color: rgba(255,255,255,.56);
+        font-size: 2.1cqw;
+        font-weight: 650;
+        line-height: 1.45;
+      }
+      .inventory-empty__hint {
+        display: inline-flex;
+        align-items: center;
+        gap: 1cqw;
+        margin-top: 3.4cqw;
+        color: #ffd45d;
+        font-size: 1.8cqw;
+        font-weight: 900;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+      }
+      .story-nav {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+        height: 9%;
+        border-top: 1px solid rgba(255,255,255,.08);
+        background: rgba(5,6,10,.72);
+        color: rgba(255,255,255,.44);
+        font-size: 1.65cqw;
+        font-weight: 800;
+      }
+      .story-nav__item { display: grid; gap: .6cqw; justify-items: center; }
+      .story-nav__item span:first-child { font-size: 2.7cqw; }
+      .story-nav__item.is-current { color: #ffd45d; }
+      .free-case-card {
+        position: absolute;
+        top: 22%;
+        right: 8%;
+        left: 8%;
+        height: 65%;
+        border: 1px solid rgba(186,132,255,.24);
+        border-radius: 4cqw;
+        background: linear-gradient(155deg, rgba(255,255,255,.075), rgba(255,255,255,.025));
+        box-shadow: 0 25px 80px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.06);
+        text-align: center;
+      }
+      .free-case-card__eyebrow {
+        position: absolute;
+        top: 5%;
+        right: 0;
+        left: 0;
+        color: #c4a2ff;
+        font-size: 1.7cqw;
+        font-weight: 900;
+        letter-spacing: .2em;
+      }
+      .free-case-card__title {
+        position: absolute;
+        top: 12%;
+        right: 4%;
+        left: 4%;
+        margin: 0;
+        color: #fff;
+        font-size: 5.2cqw;
+        font-weight: 900;
+        letter-spacing: -.05em;
+      }
+      .free-case-art {
+        position: absolute;
+        top: 23%;
+        left: 50%;
+        width: 62cqw;
+        height: 39cqw;
+        transform: translateX(-50%);
+        filter: drop-shadow(0 24px 32px rgba(149,73,255,.32));
+      }
+      .free-case-art__glow {
+        position: absolute;
+        inset: 2% 3%;
+        border-radius: 50%;
+        background: radial-gradient(ellipse, rgba(146,80,255,.34), transparent 68%);
+        filter: blur(10px);
+        animation: halo-pulse 1.8s ease-in-out infinite;
+      }
+      .free-case-art__box {
+        position: absolute;
+        right: 13%;
+        bottom: 6%;
+        left: 13%;
+        height: 56%;
+        border: 2px solid rgba(220,190,255,.68);
+        border-radius: 2.2cqw 2.2cqw 4cqw 4cqw;
+        background: linear-gradient(135deg, #9d4ff2, #4a187e 55%, #241039);
+        box-shadow: inset 0 2cqw 4cqw rgba(255,255,255,.17), 0 1.5cqw 0 #321553;
+        transform: perspective(500px) rotateX(-6deg);
+      }
+      .free-case-art__box::before {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 44%;
+        width: 13%;
+        background: linear-gradient(90deg, #d8b6ff, #a768ed 48%, #7f36c9);
+        box-shadow: 0 0 18px rgba(255,255,255,.17);
+        content: '';
+      }
+      .free-case-art__lid {
+        position: absolute;
+        z-index: 2;
+        top: 28%;
+        right: 8%;
+        left: 8%;
+        height: 23%;
+        border: 2px solid rgba(235,217,255,.8);
+        border-radius: 2.2cqw;
+        background: linear-gradient(180deg, #c388ff, #702bb6 75%);
+        box-shadow: 0 .7cqw 0 #39145b, inset 0 .7cqw 1.3cqw rgba(255,255,255,.28);
+        transform: rotate(-3deg);
+      }
+      .free-case-art__bow {
+        position: absolute;
+        z-index: 3;
+        top: 3%;
+        left: 50%;
+        color: #f4dcff;
+        font-size: 13cqw;
+        line-height: 1;
+        text-shadow: 0 0 2cqw rgba(211,157,255,.7);
+        transform: translateX(-50%) rotate(-5deg);
+      }
+      .free-case-art__free {
+        position: absolute;
+        z-index: 4;
+        top: 37%;
+        left: 50%;
+        padding: .7cqw 1.8cqw;
+        border-radius: 1.4cqw;
+        background: #f8f3ff;
+        color: #6e31a7;
+        font-size: 2.8cqw;
+        font-weight: 1000;
+        letter-spacing: -.04em;
+        transform: translate(-50%, -50%) rotate(-3deg);
+      }
+      .free-case-card__description {
+        position: absolute;
+        top: 67%;
+        right: 8%;
+        left: 8%;
+        margin: 0;
+        color: rgba(255,255,255,.58);
+        font-size: 2cqw;
+        font-weight: 700;
+      }
+      .free-case-button {
+        position: absolute;
+        right: 8%;
+        bottom: 7%;
+        left: 8%;
+        display: flex;
+        min-height: 8cqw;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(255,248,197,.72);
+        border-radius: 2.2cqw;
+        background: linear-gradient(110deg, #ffe34f, #ffad18 72%, #ff8a00);
+        box-shadow: 0 0 34px rgba(255,190,35,.32), inset 0 1px 0 rgba(255,255,255,.5);
+        color: #17120a;
+        font-size: 2.2cqw;
+        font-weight: 1000;
+        letter-spacing: .05em;
+        transform: scale(1);
+      }
+      .free-case-button.is-pressed { animation: free-button-press .52s cubic-bezier(.2,.8,.2,1) both; }
       .brandbar {
         position: absolute;
         z-index: 8;
-        top: 4.3%;
-        right: 4.2%;
-        left: 4.2%;
+        top: 5%;
+        right: 7%;
+        left: 7%;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -64,9 +373,9 @@
       .brandbar__name {
         display: inline-flex;
         align-items: center;
-        gap: 1cqw;
+        gap: 1.4cqw;
         color: rgba(255,255,255,.82);
-        font-size: 1.45cqw;
+        font-size: 2.1cqw;
         font-weight: 800;
         letter-spacing: .14em;
         text-transform: uppercase;
@@ -79,24 +388,24 @@
         box-shadow: 0 0 10px rgba(89,227,180,.8);
       }
       .brandbar__wallet {
-        padding: .8cqw 1.3cqw;
+        padding: .9cqw 1.5cqw;
         border: 1px solid rgba(255,215,0,.2);
         border-radius: 999px;
         background: rgba(255,215,0,.07);
         color: #ffdc62;
-        font-size: 1.35cqw;
+        font-size: 1.9cqw;
         font-weight: 800;
         white-space: nowrap;
       }
       .roulette-window {
         position: absolute;
-        top: 17%;
-        right: 2.2%;
-        left: 2.2%;
-        height: 38%;
+        top: 29%;
+        right: 0;
+        left: 0;
+        height: 30%;
         overflow: hidden;
         border: 1px solid rgba(255,255,255,.08);
-        border-radius: 2.6cqw;
+        border-radius: 3cqw;
         background: rgba(5,6,12,.52);
         box-shadow: inset 0 0 42px rgba(0,0,0,.32);
       }
@@ -135,24 +444,24 @@
         display: flex;
         width: max-content;
         align-items: center;
-        gap: 1cqw;
+        gap: 1.5cqw;
         transform: translateY(-50%);
         will-change: transform;
       }
       .roulette-card {
         position: relative;
         display: flex;
-        width: 9.1cqw;
-        height: 14.2cqw;
+        width: 19cqw;
+        height: 23cqw;
         flex: 0 0 auto;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: .45cqw;
+        gap: .8cqw;
         overflow: hidden;
-        padding: .7cqw;
+        padding: 1.2cqw;
         border: 1px solid rgba(174,183,215,.12);
-        border-radius: 1.8cqw;
+        border-radius: 2.4cqw;
         background: linear-gradient(145deg, rgba(59,66,98,.65), rgba(27,29,43,.88));
         box-shadow: inset 0 1px 0 rgba(255,255,255,.035), 0 8px 20px rgba(0,0,0,.14);
       }
@@ -166,7 +475,7 @@
         max-width: 100%;
         overflow: hidden;
         color: rgba(240,241,250,.78);
-        font-size: .9cqw;
+        font-size: 1.55cqw;
         font-weight: 800;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -201,7 +510,7 @@
         left: 10px;
         overflow: hidden;
         color: rgba(226,219,245,.12);
-        font-size: 2.2cqw;
+        font-size: 2.4cqw;
         font-weight: 800;
         letter-spacing: .15em;
         text-align: center;
@@ -221,10 +530,10 @@
       .reveal {
         position: absolute;
         z-index: 7;
-        top: 17%;
-        right: 2.2%;
-        left: 2.2%;
-        height: 38%;
+        top: 29%;
+        right: 0;
+        left: 0;
+        height: 30%;
         display: block;
         border-radius: 2.6cqw;
         background: rgba(7,8,14,.28);
@@ -247,9 +556,9 @@
       .reveal__image-wrap {
         position: absolute;
         top: 50%;
-        left: 43%;
+        left: 36%;
         display: grid;
-        width: 22%;
+        width: 35%;
         height: 90%;
         transform: translate(-50%, -50%);
         place-items: center;
@@ -269,7 +578,7 @@
         position: relative;
         z-index: 1;
         display: block;
-        width: min(100%, 20cqw);
+        width: min(100%, 32cqw);
         max-height: 100%;
         object-fit: contain;
         mix-blend-mode: screen;
@@ -284,8 +593,8 @@
       }
       .reveal__copy {
         position: absolute;
-        top: 40%;
-        left: calc(43% + 11.5%);
+        top: 39%;
+        left: calc(36% + 17.5%);
         display: flex;
         flex-direction: column;
         align-items: flex-start;
@@ -307,7 +616,7 @@
         background: linear-gradient(100deg, #fff 5%, #e7d5ff 40%, #b559ff 75%, #ffd873);
         background-clip: text;
         color: transparent;
-        font-size: 7cqw;
+        font-size: 6.5cqw;
         font-weight: 800;
         letter-spacing: -.075em;
         line-height: 1.05;
@@ -328,14 +637,14 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        margin-top: 1.5cqw;
-        padding: 1.1cqw 3cqw;
+        margin-top: 2cqw;
+        padding: 1.7cqw 4cqw;
         border: 1px solid rgba(255,248,197,.72);
         border-radius: 999px;
         background: linear-gradient(110deg, #ffe34f, #ffad18 72%, #ff8a00);
         box-shadow: 0 0 30px rgba(255,190,35,.38), inset 0 1px 0 rgba(255,255,255,.55);
         color: #17120a;
-        font-size: 1.8cqw;
+        font-size: 2cqw;
         font-weight: 900;
         letter-spacing: .03em;
         text-decoration: none;
@@ -351,56 +660,151 @@
       }
       .reveal__play:hover { filter: brightness(1.08); }
       .reveal__play:active { transform: scale(.97); }
-      .case-open {
-        position: absolute;
-        z-index: 9;
-        top: 50%;
-        left: 50%;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 18cqw;
-        padding: 1.15cqw 3.2cqw;
-        border: 1px solid rgba(255,248,197,.76);
-        border-radius: 999px;
-        background: linear-gradient(110deg, #ffe34f, #ffad18 72%, #ff8a00);
-        box-shadow: 0 0 34px rgba(255,190,35,.32), inset 0 1px 0 rgba(255,255,255,.5);
-        color: #17120a;
-        font: inherit;
-        font-size: 1.65cqw;
-        font-weight: 900;
-        cursor: pointer;
-        transform: translate(-50%, -50%);
-        transition: opacity .25s ease, transform .25s ease, filter .2s ease;
-      }
-      .case-open:hover { filter: brightness(1.08); }
-      .case-open:active { transform: translate(-50%, -50%) scale(.97); }
-      .case-open.is-hidden {
-        opacity: 0;
-        pointer-events: none;
-        transform: translate(-50%, -50%) scale(.9);
-      }
-      .case-open:disabled { cursor: wait; }
       .stage-caption {
         position: absolute;
         z-index: 3;
-        top: 60%;
-        right: 10%;
-        left: 10%;
-        color: rgba(255,255,255,.32);
-        font-size: 1.25cqw;
-        font-weight: 800;
-        letter-spacing: .18em;
+        top: 64%;
+        right: 7%;
+        left: 7%;
+        padding: 1.2cqw 2cqw;
+        border: 1px solid rgba(255,255,255,.12);
+        border-radius: 999px;
+        background: rgba(255,255,255,.045);
+        color: rgba(255,255,255,.92);
+        font-size: 2.2cqw;
+        font-weight: 900;
+        letter-spacing: .14em;
         text-align: center;
+        text-shadow: 0 2px 10px rgba(0,0,0,.7);
         text-transform: uppercase;
         transition: opacity .2s ease;
         pointer-events: none;
       }
       .stage-caption.is-hidden { opacity: 0; }
       .roulette-window.is-won .roulette-pointer { opacity: 0; }
+      .feature-line {
+        position: absolute;
+        z-index: 4;
+        top: 73%;
+        right: 6%;
+        left: 6%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1.5cqw;
+        opacity: 0;
+        transform: translateY(18px) scale(.96);
+        transition: opacity .45s ease, transform .55s cubic-bezier(.18,.85,.25,1.1);
+        pointer-events: none;
+      }
+      .feature-line.is-visible { opacity: 1; transform: translateY(0) scale(1); }
+      .feature-line__item {
+        display: inline-flex;
+        align-items: center;
+        gap: 1cqw;
+        padding: 1.5cqw 2.1cqw;
+        border: 1px solid rgba(255,255,255,.11);
+        border-radius: 999px;
+        background: rgba(255,255,255,.055);
+        color: rgba(255,255,255,.92);
+        font-size: 1.9cqw;
+        font-weight: 900;
+        letter-spacing: .05em;
+        box-shadow: 0 10px 28px rgba(0,0,0,.18);
+      }
+      .feature-line__item:nth-child(1) { transition-delay: 0s; }
+      .feature-line__item:nth-child(2) { transition-delay: .08s; }
+      .feature-line__item:nth-child(3) { transition-delay: .16s; }
+      .feature-line__spark { color: #ffd45d; font-size: 2cqw; }
+      .final-screen {
+        position: absolute;
+        z-index: 20;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 9%;
+        background:
+          radial-gradient(ellipse at 50% 38%, rgba(131,55,227,.24), transparent 37%),
+          radial-gradient(ellipse at 50% 92%, rgba(255,194,76,.11), transparent 32%),
+          rgba(7,8,14,.88);
+        -webkit-backdrop-filter: blur(18px);
+        backdrop-filter: blur(18px);
+        text-align: center;
+        opacity: 0;
+        visibility: hidden;
+        transform: scale(1.025);
+        transition: opacity .65s ease, visibility .65s, transform .8s cubic-bezier(.18,.85,.25,1.05);
+      }
+      .final-screen.is-visible { opacity: 1; visibility: visible; transform: scale(1); }
+      .final-screen__eyebrow {
+        margin: 0 0 2cqw;
+        color: #c9a4ff;
+        font-size: 1.9cqw;
+        font-weight: 900;
+        letter-spacing: .24em;
+        text-transform: uppercase;
+      }
+      .final-screen__gift {
+        width: 39cqw;
+        max-height: 31cqw;
+        margin: 0 0 1cqw;
+        object-fit: contain;
+        mix-blend-mode: screen;
+        filter: brightness(1.35) contrast(1.08) drop-shadow(0 24px 42px rgba(144,63,255,.5));
+        -webkit-mask-image: radial-gradient(ellipse 74% 74% at 50% 48%, #000 70%, transparent 100%);
+        mask-image: radial-gradient(ellipse 74% 74% at 50% 48%, #000 70%, transparent 100%);
+        animation: gift-float 2.4s ease-in-out infinite alternate;
+      }
+      .final-screen__title {
+        margin: 0;
+        background: linear-gradient(100deg, #fff 5%, #e7d5ff 43%, #b559ff 75%, #ffd873);
+        background-clip: text;
+        color: transparent;
+        font-size: 9cqw;
+        font-weight: 900;
+        letter-spacing: -.08em;
+        line-height: .98;
+      }
+      .final-screen__sub {
+        margin: 2.2cqw 0 0;
+        color: rgba(246,244,255,.74);
+        font-size: 2.55cqw;
+        font-weight: 700;
+      }
+      .final-screen__button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 5cqw;
+        padding: 2.1cqw 6.2cqw;
+        border: 1px solid rgba(255,248,197,.8);
+        border-radius: 999px;
+        background: linear-gradient(110deg, #ffe34f, #ffad18 72%, #ff8a00);
+        box-shadow: 0 0 38px rgba(255,190,35,.4), inset 0 1px 0 rgba(255,255,255,.55);
+        color: #17120a;
+        font-size: 2.5cqw;
+        font-weight: 900;
+        letter-spacing: .04em;
+        text-decoration: none;
+        animation: button-pulse 1.8s ease-in-out infinite;
+      }
+      .final-screen__handle {
+        margin: 2.4cqw 0 0;
+        color: rgba(255,255,255,.42);
+        font-size: 1.65cqw;
+        font-weight: 800;
+        letter-spacing: .12em;
+      }
       @keyframes halo-pulse { 0%,100% { opacity: .65; transform: scale(.92); } 50% { opacity: 1; transform: scale(1.08); } }
       @keyframes gift-arrive { from { opacity: 0; transform: scale(.42) rotate(-8deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
       @keyframes caret { 50% { opacity: 0; } }
+      @keyframes ambient-drift { from { transform: translate3d(-2%, -1%, 0) scale(1); } to { transform: translate3d(2%, 2%, 0) scale(1.08); } }
+      @keyframes gift-float { from { transform: translateY(0) rotate(-1deg); } to { transform: translateY(-10px) rotate(1deg); } }
+      @keyframes button-pulse { 0%,100% { box-shadow: 0 0 28px rgba(255,190,35,.3), inset 0 1px 0 rgba(255,255,255,.55); } 50% { box-shadow: 0 0 48px rgba(255,190,35,.58), inset 0 1px 0 rgba(255,255,255,.65); } }
+      @keyframes empty-float { from { transform: translateY(0) rotate(-2deg); } to { transform: translateY(-8px) rotate(2deg); } }
+      @keyframes free-button-press { 0% { transform: scale(1); filter: brightness(1); } 35% { transform: scale(.94); filter: brightness(.84); } 100% { transform: scale(1.035); filter: brightness(1.13); box-shadow: 0 0 52px rgba(255,190,35,.62); } }
       @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
       }
@@ -410,18 +814,77 @@
     <main class="ad-frame" aria-label="GiftRoll promo">
       <header class="brandbar">
         <div class="brandbar__name"><span class="brandbar__dot"></span> GiftRoll</div>
-        <div class="brandbar__wallet">★ 10 000</div>
+        <div class="brandbar__wallet">LIVE DROP · NFT</div>
       </header>
+
+      <section id="inventoryScene" class="story-scene story-scene--inventory is-active" aria-label="Пустой инвентарь">
+        <div class="story-scene__topbar">
+          <span class="story-scene__brand">GIFTROLL</span>
+          <span class="story-scene__badge">МОЙ ПРОФИЛЬ</span>
+        </div>
+        <h1 class="story-scene__page-title">Инвентарь</h1>
+        <span class="story-scene__count">0 ПОДАРКОВ</span>
+        <div class="inventory-slots" aria-hidden="true">
+          <div class="inventory-slot">＋</div>
+          <div class="inventory-slot">＋</div>
+          <div class="inventory-slot">＋</div>
+        </div>
+        <div class="inventory-empty">
+          <span class="inventory-empty__icon" aria-hidden="true">🎁</span>
+          <h2 class="inventory-empty__title">Нет подарков?</h2>
+          <p class="inventory-empty__text">Инвентарь пока пуст. Начни с бесплатного спина в GiftRoll.</p>
+          <span class="inventory-empty__hint">↓ Смотри бесплатный кейс</span>
+        </div>
+        <nav class="story-nav" aria-hidden="true">
+          <span class="story-nav__item"><span>🎮</span><span>Игры</span></span>
+          <span class="story-nav__item"><span>♧</span><span>Друзья</span></span>
+          <span class="story-nav__item is-current"><span>▣</span><span>Инвентарь</span></span>
+          <span class="story-nav__item"><span>♙</span><span>Профиль</span></span>
+        </nav>
+      </section>
+
+      <section id="caseScene" class="story-scene story-scene--case" aria-label="Бесплатный кейс">
+        <div class="story-scene__topbar">
+          <span class="story-scene__brand">GIFTROLL</span>
+          <span class="story-scene__badge">КЕЙСЫ</span>
+        </div>
+        <div class="free-case-card">
+          <span class="free-case-card__eyebrow">БЕСПЛАТНО · 1 РАЗ В ДЕНЬ</span>
+          <h2 class="free-case-card__title">Бесплатный кейс</h2>
+          <div class="free-case-art" aria-hidden="true">
+            <span class="free-case-art__glow"></span>
+            <span class="free-case-art__bow">✦</span>
+            <span class="free-case-art__box"></span>
+            <span class="free-case-art__lid"></span>
+            <span class="free-case-art__free">FREE</span>
+          </div>
+          <p class="free-case-card__description">Попробуй поймать подарок в бесплатном спине</p>
+          <div id="freeCaseButton" class="free-case-button">ОТКРЫТЬ БЕСПЛАТНО</div>
+        </div>
+        <nav class="story-nav" aria-hidden="true">
+          <span class="story-nav__item is-current"><span>🎮</span><span>Игры</span></span>
+          <span class="story-nav__item"><span>♧</span><span>Друзья</span></span>
+          <span class="story-nav__item"><span>▣</span><span>Инвентарь</span></span>
+          <span class="story-nav__item"><span>♙</span><span>Профиль</span></span>
+        </nav>
+      </section>
 
       <div id="rouletteWindow" class="roulette-window" aria-label="Рулетка">
         <div id="rouletteTrack" class="roulette-track"></div>
         <div class="roulette-watermark">@Giftrollgamebot</div>
         <div class="roulette-pointer"></div>
         <div class="roulette-idle-veil" aria-hidden="true"></div>
-        <button id="openCaseButton" class="case-open" type="button">Открыть кейс</button>
       </div>
 
-      <div id="stageCaption" class="stage-caption">Супер Дроп · 349 ⭐</div>
+      <div id="stageCaption" class="stage-caption">БЕСПЛАТНЫЙ СПИН · GIFTROLL</div>
+
+      <div id="featureLine" class="feature-line" aria-label="Режимы GiftRoll">
+        <span class="feature-line__item">🎁 Кейсы</span>
+        <span class="feature-line__spark">✦</span>
+        <span class="feature-line__item">⚡ Апгрейдер</span>
+        <span class="feature-line__spark">✦</span>
+        <span class="feature-line__item">⚔️ PvP</span>
+      </div>
 
       <section id="reveal" class="reveal" aria-live="polite">
         <div class="reveal__image-wrap">
@@ -434,12 +897,21 @@
         </div>
       </section>
 
+      <section id="finalScreen" class="final-screen" aria-label="Играйте в GiftRoll">
+        <p class="final-screen__eyebrow">ТВОЙ СЛЕДУЮЩИЙ РОЛЛ</p>
+        <img class="final-screen__gift" src="public/promo-gift.jpg" alt="Подарок GiftRoll" />
+        <h2 class="final-screen__title">GiftRoll</h2>
+        <p class="final-screen__sub">Кейсы · Апгрейдер · PvP</p>
+        <a class="final-screen__button" href="https://t.me/Giftrollgamebot" target="_blank" rel="noopener noreferrer">ЗАЛЕТАЙ И ИГРАЙ</a>
+        <p class="final-screen__handle">@GIFTROLLGAMEBOT</p>
+      </section>
+
     </main>
 
     <!-- Музыку можно добавить позже: public/promo-music.mp3 -->
     <script>
       function fitCanvas() {
-        const scale = Math.min(1, window.innerWidth / 2560, window.innerHeight / 1440)
+        const scale = Math.min(1, window.innerWidth / 1080, window.innerHeight / 1920)
         document.documentElement.style.setProperty('--fit-scale', String(scale))
       }
       fitCanvas()
@@ -460,14 +932,18 @@
         { name: 'Pool Float', image: 'PoolFloat' },
       ]
       const WINNER_INDEX = 37
-      const SPIN_DURATION_MS = 4700
+      const SPIN_DURATION_MS = 5200
       const track = document.getElementById('rouletteTrack')
       const viewport = document.getElementById('rouletteWindow')
       const reveal = document.getElementById('reveal')
+      const inventoryScene = document.getElementById('inventoryScene')
+      const caseScene = document.getElementById('caseScene')
+      const freeCaseButton = document.getElementById('freeCaseButton')
+      const featureLine = document.getElementById('featureLine')
+      const finalScreen = document.getElementById('finalScreen')
       const stageCaption = document.getElementById('stageCaption')
       const revealBrand = document.getElementById('revealBrand')
       const revealButton = document.getElementById('revealButton')
-      const openCaseButton = document.getElementById('openCaseButton')
       const winner = items.find((item) => item.name === 'Plush Pepe')
       let opening = false
 
@@ -517,6 +993,8 @@
       function resetScene() {
         reveal.classList.remove('is-visible')
         revealButton.classList.remove('is-ready')
+        featureLine.classList.remove('is-visible')
+        finalScreen.classList.remove('is-visible')
         viewport.classList.remove('is-spinning')
         viewport.classList.remove('is-won')
         revealBrand.textContent = ''
@@ -531,10 +1009,8 @@
         if (opening) return
         opening = true
         resetScene()
-        openCaseButton.disabled = true
-        openCaseButton.classList.add('is-hidden')
         viewport.classList.add('is-spinning')
-        stageCaption.textContent = 'Открываем кейс · крутим рулетку'
+        stageCaption.textContent = 'КРУТИМ БЕСПЛАТНЫЙ СПИН…'
         window.requestAnimationFrame(() => {
           const winnerCard = track.children[WINNER_INDEX]
           const baseCenter = winnerCard.offsetLeft + winnerCard.clientWidth / 2
@@ -546,18 +1022,34 @@
 
         window.setTimeout(() => {
           track.children[WINNER_INDEX].classList.add('roulette-winner')
-          stageCaption.classList.add('is-hidden')
+          stageCaption.textContent = 'ПРИМЕР РОЛЛА · PLUSH PEPE'
           viewport.classList.add('is-won')
           window.setTimeout(() => {
             reveal.classList.add('is-visible')
+            featureLine.classList.add('is-visible')
             typeText(revealBrand, 'GiftRoll', 82, () => {
               revealButton.classList.add('is-ready')
             })
+            window.setTimeout(() => {
+              reveal.classList.remove('is-visible')
+              finalScreen.classList.add('is-visible')
+            }, 3100)
           }, 650)
         }, SPIN_DURATION_MS)
       }
 
-      openCaseButton.addEventListener('click', runSpin)
+      // Сначала показываем пустой инвентарь, затем бесплатный кейс и его открытие.
+      window.setTimeout(() => {
+        inventoryScene.classList.add('is-away')
+        caseScene.classList.add('is-active')
+      }, 2200)
+      window.setTimeout(() => {
+        freeCaseButton.classList.add('is-pressed')
+      }, 4050)
+      window.setTimeout(() => {
+        caseScene.classList.add('is-away')
+        runSpin()
+      }, 4600)
     </script>
   </body>
 </html>
